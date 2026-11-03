@@ -1,0 +1,3 @@
+<span class="tube tube-{{ t.status|lower }}" title="Tube {{ t.number }} — {{ t.get_status_display }}{% if t.status_date %} le {{ t.status_date|date:'d/m/Y' }}{% endif %}">
+  <i class="bi {% if t.status == 'GROWTH' %}bi-circle-fill{% elif t.status == 'CONTAMINATED' %}bi-x-circle{% elif t.status == 'EXITED' %}bi-box-arrow-right{% else %}bi-circle{% endif %}"></i>
+  {{ t.get_status_display }}{% if t.status == 'CONTAMINATED' %} {{ t.status_date|date:"d/m" }}{% endif %}</span>

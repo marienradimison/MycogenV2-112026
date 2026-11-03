@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Culture LJ — fiches de lecture{% endblock %}
+{% block content %}
+{% include "diagnostic/_lj_header.html" %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead><tr><th>Date de lecture</th><th>Lecteur</th><th>Étuve</th><th>Lues</th><th>Négatives</th><th>Positives CMTB</th><th>Non CMTB → LPA</th><th>À retraiter</th><th>Tubes jetés</th><th></th></tr></thead>
+      <tbody>
+      {% for r in readings %}
+        <tr data-href="{{ r.get_absolute_url }}">
+          <td><a class="fw-semibold" href="{{ r.get_absolute_url }}">{{ r.date|date:"D d/m/Y" }}</a></td>
+          <td>{{ r.operator.get_full_name|default:r.operator }}</td><td>{{ r.incubator.name|default:"—" }}</td>
+          <td>{{ r.n }}</td><td>{{ r.n_neg }}</td><td class="{% if r.n_pos %}text-danger fw-semibold{% endif %}">{{ r.n_pos }}</td>
+          <td>{{ r.n_lpa }}</td><td>{{ r.n_retreat }}</td><td>{{ r.n_discarded }}</td>
+          <td class="text-end text-nowrap"><a class="btn btn-sm btn-light" href="{{ r.get_absolute_url }}?print=1" title="Fiche de lecture"><i class="bi bi-printer"></i></a>
+            <a class="btn btn-sm btn-light" href="{{ r.get_absolute_url }}?format=pdf" title="PDF"><i class="bi bi-download"></i></a></td>
+        </tr>
+      {% empty %}<tr><td colspan="10" class="text-center text-muted py-4">Aucune lecture enregistrée.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

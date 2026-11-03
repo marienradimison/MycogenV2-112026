@@ -1,0 +1,29 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Connexion{% endblock %}
+{% block body %}
+<div class="login-wrap">
+  <div class="card login-card shadow-lg border-0">
+    <div class="card-body p-4 p-md-5">
+      <div class="text-center mb-4">
+        <img src="{% static 'img/Mycogen_main_logo.png' %}" alt="" style="width:130px">
+        <h1 class="h2 name mb-1">{{ LAB_NAME }}</h1>
+        <div class="small text-muted">{{ LAB_DEPARTMENT }} · {{ LAB_INSTITUTION }}</div>
+      </div>
+      {% if form.errors %}<div class="alert alert-danger py-2 small">Identifiant ou mot de passe incorrect.</div>{% endif %}
+      <form method="post">{% csrf_token %}
+        <div class="mb-3">
+          <label class="form-label" for="id_username">Identifiant</label>
+          <input class="form-control" name="username" id="id_username" autofocus required>
+        </div>
+        <div class="mb-2">
+          <label class="form-label" for="id_password">Mot de passe</label>
+          <input class="form-control" type="password" name="password" id="id_password" required>
+        </div>
+        <div class="text-end mb-4"><a class="small" href="{% url 'reset_request' %}">Mot de passe oublié ?</a></div>
+        <input type="hidden" name="next" value="{{ next }}">
+        <button class="btn btn-primary w-100">Se connecter</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

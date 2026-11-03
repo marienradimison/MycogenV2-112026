@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}Plan de masse{% endblock %}
+{% block content %}
+<div class="page-title">
+  {% url 'core:facility_list' as list_url %}{% include "generic/_back.html" with fallback=list_url %}
+  <div class="icon"><i class="bi bi-map"></i></div>
+  <div>
+    <div class="small text-muted"><a href="{% url 'core:facility_list' %}">Structures / CDT</a></div>
+    <h1>Plan de masse — {{ level_label }}</h1>
+  </div>
+  <span class="badge text-bg-light border">{{ assigned }} / {{ total }} salles attribuées</span>
+  <div class="ms-auto d-flex gap-2">
+    {% if perms.core.view_room %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'core:room_list' %}"><i class="bi bi-list-ul"></i> Liste des salles</a>{% endif %}
+  </div>
+</div>
+
+<ul class="nav nav-tabs module-tabs mb-3">
+  {% for key, label, active in levels %}
+    <li class="nav-item"><a class="nav-link {% if active %}active{% endif %}" href="?niveau={{ key }}"><i class="bi {% if key == 'p3' %}bi-shield-exclamation{% else %}bi-building{% endif %}"></i> {{ label }}</a></li>
+  {% endfor %}
+</ul>
+<div class="row g-3">
+  <div class="col-xxl-9">
+    <div class="card">
+      <div class="card-body py-2 border-bottom d-flex flex-wrap gap-2 align-items-center">
+        <div class="input-group input-group-sm" style="max-width:280px">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input class="form-control" id="plan-search" placeholder="N° ou nom de salle…" value="{{ highlight }}" autocomplete="off">
+        </div>
+        <div class="d-flex flex-wrap gap-1" id="plan-legend">
+          {% for code, label, color in legend %}
+            <button type="button" class="legend-chip on" data-usage="{{ code }}"><span style="background:{{ color }}"></span>{{ label }}</button>
+          {% endfor %}
+          <span class="legend-chip static"><span style="background:#3aa0e8"></span>Porte</span>
+          <span class="legend-chip static"><span style="background:#22a565"></span>Porte coulissante</span>
+        </div>
+        {% if can_add %}
+        <div class="form-check form-switch ms-auto mb-0 small">
+          <input class="form-check-input" type="checkbox" id="show-zones">
+          <label class="form-check-label" for="show-zones">Repères de zone</label>
+        </div>
+        {% endif %}
+      </div>
+      <div class="card-body plan-wrap">
+        <svg id="floor-plan" viewBox="{{ viewbox }}" role="img" aria-label="Plan de masse de l'Unité des Mycobactéries">
+          <defs>
+            <pattern id="hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <line x1="0" y1="0" x2="0" y2="10" class="hatch-line" stroke="#c9d4d8" stroke-width="2"/>
+            </pattern>
+          </defs>
+
+          <!-- Bâtiment et couloir -->
+          <polygon points="{{ building }}" class="plan-building" fill="#ffffff" stroke="#23414c" stroke-width="6"/>
+          <polygon points="{{ corridor }}" class="plan-corridor" fill="#eef3f5"/>
+          <text x="{{ corridor_label.0 }}" y="{{ corridor_label.1 }}" class="plan-corridor-label">COULOIR</text>
+
+          <!-- Escaliers -->
+          {% for s in stairs %}
+            {% if s.to %}<a href="?niveau={{ s.to }}" class="plan-stair-link"><title>{{ s.label }}</title>{% endif %}
+            <rect x="{{ s.x }}" y="{{ s.y }}" width="{{ s.w }}" height="{{ s.h }}" class="plan-stairs" fill="#eef3f5" stroke="#23414c" stroke-width="4"/>
+            {% for l in s.lines %}<line x1="{{ l.0 }}" y1="{{ l.1 }}" x2="{{ l.2 }}" y2="{{ l.3 }}" class="step-line" stroke="#23414c" stroke-width="1.5"/>{% endfor %}
+            {% if s.to %}<text x="{{ s.lx }}" y="{{ s.ly }}" text-anchor="middle" class="plan-stair-label">{{ s.label }}</text></a>{% endif %}
+          {% endfor %}
+
+          <!-- Salles -->
+          {% for z in zones %}
+          <g class="room {% if z.room %}assigned{% else %}free{% endif %}" data-zone="{{ z.key }}"
+             {% if z.room %}data-usage="{{ z.room.usage|default:'NONE' }}" data-number="{{ z.room.number|lower }}" data-search="{{ z.room.number|lower }} {{ z.room.name|lower }}"{% endif %}
+             tabindex="0" role="button" aria-label="{% if z.room %}Salle {{ z.room.number }} {{ z.room.name }}{% else %}Zone {{ z.key }} non attribuée{% endif %}">
+            <polygon points="{{ z.points }}" class="room-shape" stroke="#23414c" stroke-width="4"
+                     {% if z.room %}style="--room:{{ z.room.color }}" fill="{{ z.room.color }}" fill-opacity=".34"{% else %}fill="url(#hatch)"{% endif %}/>
+            <foreignObject x="{{ z.bx }}" y="{{ z.by }}" width="{{ z.bw }}" height="90">
+              <div xmlns="http://www.w3.org/1999/xhtml" lang="fr" class="room-label{% if z.small %} small{% endif %}">
+                {% if z.room %}<b>{{ z.room.number }}</b>{% if z.room.name %}<span>{{ z.room.name }}</span>{% endif %}
+                {% else %}<span class="free-label">—</span>{% endif %}
+                <em class="zone-key">{{ z.key }}</em>
+              </div>
+            </foreignObject>
+          </g>
+          {% endfor %}
+
+          <!-- Cloisons intérieures, sanitaires -->
+          {% for w in walls %}<line x1="{{ w.0 }}" y1="{{ w.1 }}" x2="{{ w.2 }}" y2="{{ w.3 }}" class="plan-wall" stroke="#23414c" stroke-width="4"/>{% endfor %}
+          {% for f in fixtures %}
+            {% if f.kind == 'wc' %}<ellipse cx="{{ f.cx }}" cy="{{ f.cy }}" rx="9" ry="12" class="plan-fixture" fill="none" stroke="#23414c" stroke-width="3"/>
+            {% elif f.kind == 'sink' %}<ellipse cx="{{ f.cx }}" cy="{{ f.cy }}" rx="9" ry="10" class="plan-fixture" fill="none" stroke="#23414c" stroke-width="3"/>
+            {% else %}<rect x="{{ f.x }}" y="{{ f.y }}" width="{{ f.w }}" height="{{ f.h }}" rx="7" class="plan-fixture" fill="none" stroke="#23414c" stroke-width="3"/>{% endif %}
+          {% endfor %}
+
+          <!-- Portes : bleu = porte normale, vert = porte coulissante -->
+          {% for d in doors %}<line x1="{{ d.0 }}" y1="{{ d.1 }}" x2="{{ d.2 }}" y2="{{ d.3 }}" class="plan-door {{ d.4 }}" stroke="{% if d.4 == 'slide' %}#22a565{% else %}#3aa0e8{% endif %}" stroke-width="8"/>{% endfor %}
+        </svg>
+      </div>
+      <div class="card-footer small text-muted fw-normal">Survoler une salle pour l'identifier, cliquer pour afficher sa fiche.
+        {% if can_add %}Les numéros et usages des salles se gèrent dans <a href="{% url 'core:room_list' %}">Administration → Salles</a>.{% endif %}</div>
+    </div>
+  </div>
+
+  <div class="col-xxl-3">
+    <div class="card plan-panel" id="room-panel">
+      <div class="card-header"><i class="bi bi-door-open me-1"></i> <span id="panel-title">Salle</span></div>
+      <div class="card-body" id="panel-body">
+        <p class="text-muted small mb-0">Cliquez sur une salle du plan pour afficher ses informations.</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="plan-tip" class="plan-tip"></div>
+{{ rooms_json|json_script:"rooms-data" }}
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  const rooms = JSON.parse(document.getElementById('rooms-data').textContent);
+  const svg = document.getElementById('floor-plan');
+  const tip = document.getElementById('plan-tip');
+  const body = document.getElementById('panel-body'), title = document.getElementById('panel-title');
+  const canAdd = {{ can_add|yesno:"true,false" }};
+  const addUrl = "{% url 'core:room_create' %}";
+  const esc = s => String(s || '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+
+  function show(zone) {
+    svg.querySelectorAll('.room.selected').forEach(g => g.classList.remove('selected'));
+    const g = svg.querySelector(`.room[data-zone="${zone}"]`);
+    if (g) g.classList.add('selected');
+    const r = rooms[zone];
+    if (!r) {
+      title.textContent = 'Zone ' + zone;
+      body.innerHTML = `<p class="text-muted">Cette zone n'a pas encore de salle attribuée.</p>` +
+        (canAdd ? `<a class="btn btn-sm btn-primary" href="${addUrl}?zone=${zone}"><i class="bi bi-plus-lg"></i> Attribuer une salle</a>` : '');
+      return;
+    }
+    title.innerHTML = `Salle <b>${esc(r.number)}</b>`;
+    const line = (label, val) => val ? `<dt class="col-5">${label}</dt><dd class="col-7">${val}</dd>` : '';
+    const list = (items) => items.length ? '<ul class="list-unstyled mb-0">' + items.map(i =>
+      `<li>${i.alert ? `<i class="bi bi-exclamation-circle-fill text-${i.alert}"></i> ` : ""}<a href="${i.url}">${esc(i.name)}</a> <span class="text-muted small">${esc(i.kind)}</span></li>`).join('') + '</ul>' : '';
+    const block = (label, icon, items, add) => `<div class="panel-block"><div class="d-flex align-items-center mb-1">
+        <span class="fw-semibold small text-uppercase text-muted"><i class="bi ${icon}"></i> ${label} (${items.length})</span>
+        ${add ? `<a class="ms-auto small" href="${add}"><i class="bi bi-plus-lg"></i> Ajouter</a>` : ""}</div>
+        ${items.length ? list(items) : `<div class="small text-muted">Aucun</div>`}</div>`;
+    body.innerHTML = `
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="usage-dot" style="background:${r.color}"></span>
+        <div><div class="fw-semibold fs-6">${esc(r.name) || "Salle " + esc(r.number)}</div><div class="small text-muted">${esc(r.usage)}${r.active ? '' : ' · hors service'}</div></div>
+      </div>
+      <dl class="row details mb-2">
+        ${line('Responsable', esc(r.responsible))}${line('Poste', esc(r.phone))}
+        ${line('Surface', r.area ? esc(r.area) + ' m²' : '')}${line('Accès', esc(r.access))}
+        ${line('Automates', list(r.instruments))}${line('Stockage', list(r.units))}
+        ${line('Remarques', esc(r.notes))}
+      </dl>
+      ${block("Personnes autorisées", "bi-person-badge", r.people, r.add_access)}
+      ${block("Matériels", "bi-tools", r.equipment, r.add_equipment)}
+      <div class="d-flex gap-2 mt-3"><a class="btn btn-sm btn-outline-secondary" href="${r.url}"><i class="bi bi-card-text"></i> Fiche</a>
+      ${r.edit_url ? `<a class="btn btn-sm btn-outline-primary" href="${r.edit_url}"><i class="bi bi-pencil"></i> Modifier</a>` : ''}</div>`;
+  }
+
+  svg.querySelectorAll('.room').forEach(g => {
+    const zone = g.dataset.zone, r = rooms[zone];
+    g.addEventListener('click', () => show(zone));
+    g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(zone); } });
+    g.addEventListener('mousemove', e => {
+      tip.innerHTML = r ? `<b>Salle ${esc(r.number)}</b>${r.name ? " — " + esc(r.name) : ""}<br><small>${esc(r.usage)}</small>` : `Zone ${zone} — non attribuée`;
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX + 14) + 'px'; tip.style.top = (e.clientY + 14) + 'px';
+    });
+    g.addEventListener('mouseleave', () => tip.style.display = 'none');
+  });
+
+  // Recherche
+  const search = document.getElementById('plan-search');
+  function applySearch() {
+    const q = search.value.trim().toLowerCase();
+    let match = null, exact = null;
+    svg.querySelectorAll('.room').forEach(g => {
+      const isExact = q && g.dataset.number === q;
+      const hit = isExact || (q && (g.dataset.search || '').includes(q));
+      g.classList.toggle('match', !!hit);
+      g.classList.toggle('dim', !!q && !hit);
+      if (isExact) exact = g.dataset.zone;
+      if (hit && !match) match = g.dataset.zone;
+    });
+    match = exact || match;  /* le n° exact (« 7 ») passe avant les correspondances partielles (« 17 ») */
+    if (match) show(match);
+  }
+  search.addEventListener('input', applySearch);
+  if (search.value) applySearch();
+
+  // Filtre par usage (légende)
+  document.querySelectorAll('.legend-chip[data-usage]').forEach(chip => chip.addEventListener('click', () => {
+    chip.classList.toggle('on');
+    const hidden = [...document.querySelectorAll('.legend-chip[data-usage]:not(.on)')].map(c => c.dataset.usage);
+    svg.querySelectorAll('.room.assigned').forEach(g => g.classList.toggle('filtered', hidden.includes(g.dataset.usage)));
+  }));
+
+  // Repères de zone (administration)
+  const sz = document.getElementById('show-zones');
+  if (sz) sz.addEventListener('change', () => svg.classList.toggle('show-zones', sz.checked));
+})();
+</script>
+{% endblock %}

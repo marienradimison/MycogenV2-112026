@@ -1,0 +1,81 @@
+{% load lims %}
+{% for p in posts %}
+<article class="hot-post {% if p.priority == 'URGENT' %}urgent{% endif %}" data-post="{{ p.pk }}">
+  <header class="d-flex align-items-center gap-2">
+    {% avatar p.author 36 %}
+    <div class="lh-sm flex-grow-1">
+      <div class="fw-semibold">{{ p.author.get_full_name|default:p.author.username }}
+        {% if p.priority == 'URGENT' %}<span class="badge text-bg-danger ms-1"><i class="bi bi-exclamation-triangle"></i> Urgent</span>{% endif %}</div>
+      <div class="small text-muted" title="{{ p.created_at|date:'d/m/Y H:i' }}">{{ p.created_at|ago }}</div>
+    </div>
+    {% if p.can_delete %}
+      <button class="btn btn-sm btn-link text-muted p-0" data-action="{% url 'feed:delete' p.pk %}" data-confirm="Supprimer cette publication ?" title="Supprimer"><i class="bi bi-trash"></i></button>
+    {% endif %}
+  </header>
+  <div class="hot-text">{{ p.text|urlize|linebreaksbr }}</div>
+  {% if p.photo %}<a href="{{ p.photo.url }}" target="_blank"><img class="hot-photo" src="{{ p.photo.url }}" alt="" loading="lazy"></a>{% endif %}
+
+  {% if p.kind == 'POLL' %}
+  <div class="hot-poll">
+    <div class="small text-muted mb-1"><i class="bi bi-bar-chart"></i> Sondage{% if p.closed %} · clôturé{% endif %} · {{ p.n_votes }} vote{{ p.n_votes|pluralize }}</div>
+    {% for o in p.poll %}
+      {% if p.show_results %}
+        <button class="poll-option result {% if p.my_vote == o.option.pk %}mine{% endif %}" {% if not p.closed %}data-action="{% url 'feed:vote' p.pk %}" data-option="{{ o.option.pk }}" title="Changer mon vote"{% else %}disabled{% endif %}>
+          <span class="bar" style="width:{{ o.pct }}%"></span>
+          <span class="label">{% if p.my_vote == o.option.pk %}<i class="bi bi-check-circle-fill"></i> {% endif %}{{ o.option.text }}</span>
+          <span class="pct">{{ o.pct }} %</span></button>
+      {% else %}
+        <button class="poll-option" data-action="{% url 'feed:vote' p.pk %}" data-option="{{ o.option.pk }}"><span class="label">{{ o.option.text }}</span></button>
+      {% endif %}
+    {% endfor %}
+    {% if p.is_author and not p.closed %}<button class="btn btn-link btn-sm p-0 mt-1" data-action="{% url 'feed:close' p.pk %}" data-confirm="Clôturer ce sondage ?">Clôturer le sondage</button>{% endif %}
+  </div>
+  {% elif p.kind == 'CHALLENGE' %}
+  <div class="hot-challenge">
+    <div class="small text-muted mb-1"><i class="bi bi-puzzle"></i> Challenge{% if p.revealed %} · terminé{% endif %}
+      · {{ p.winners|length }} trouvé{{ p.winners|length|pluralize }}</div>
+    {% if p.hint and not p.show_answer %}<div class="small"><i class="bi bi-lightbulb"></i> Indice : {{ p.hint }}</div>{% endif %}
+    {% if p.show_answer %}
+      <div class="challenge-answer"><i class="bi bi-key"></i> Réponse : <b>{{ p.answer }}</b>{% if p.solved %} <span class="text-success">— bravo, trouvé !</span>{% endif %}</div>
+    {% else %}
+      <form class="hot-answer-form d-flex gap-1 mt-1" data-action="{% url 'feed:answer' p.pk %}">
+        <input class="form-control form-control-sm" name="text" maxlength="200" placeholder="Votre réponse…" autocomplete="off" required>
+        <button class="btn btn-sm btn-outline-primary">Répondre</button>
+      </form>
+      <div class="answer-feedback small mt-1">{% if p.tries %}<span class="text-muted">{{ p.tries }} essai{{ p.tries|pluralize }} — pas encore…</span>{% endif %}</div>
+    {% endif %}
+    {% if p.winners %}<div class="small mt-1 winners"><i class="bi bi-trophy"></i>
+      {% for w in p.winners %}{{ w.user.get_full_name|default:w.user.username }}{% if forloop.first %} 🥇{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+    {% if p.is_author and not p.revealed %}<button class="btn btn-link btn-sm p-0 mt-1" data-action="{% url 'feed:close' p.pk %}" data-confirm="Dévoiler la réponse et terminer le challenge ?">Dévoiler la réponse</button>{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="hot-reactions">
+    {% for kind, emoji, n in p.reaction_bar %}
+      <button class="react {% if p.my_reaction == kind %}mine{% endif %}" data-action="{% url 'feed:react' p.pk %}" data-kind="{{ kind }}"
+              title="Réagir">{{ emoji }}{% if n %} <span>{{ n }}</span>{% endif %}</button>
+    {% endfor %}
+  </div>
+
+  <details class="hot-comments" data-post="{{ p.pk }}">
+    <summary class="small">{% if p.n_comments %}{{ p.n_comments }} commentaire{{ p.n_comments|pluralize }}{% else %}Commenter{% endif %}</summary>
+    {% for c in p.comments.all %}
+      <div class="hot-comment d-flex gap-2">
+        {% avatar c.author 26 %}
+        <div class="flex-grow-1">
+          <span class="fw-semibold small">{{ c.author.get_full_name|default:c.author.username }}</span>
+          <span class="small text-muted">· {{ c.created_at|ago }}</span>
+          {% if c.author_id == user.pk or user.is_staff %}<button class="btn btn-link btn-sm p-0 ms-1 text-muted" data-action="{% url 'feed:comment_delete' c.pk %}" data-confirm="Supprimer ce commentaire ?"><i class="bi bi-x"></i></button>{% endif %}
+          <div class="small">{{ c.text|urlize|linebreaksbr }}</div>
+        </div>
+      </div>
+    {% endfor %}
+    <form class="hot-comment-form d-flex gap-1 mt-2" data-action="{% url 'feed:comment' p.pk %}">
+      <input class="form-control form-control-sm" name="text" maxlength="1000" placeholder="Votre commentaire…" autocomplete="off" required>
+      <button class="btn btn-sm btn-outline-primary"><i class="bi bi-send"></i></button>
+    </form>
+  </details>
+</article>
+{% empty %}
+  <div class="text-muted small text-center py-3"><i class="bi bi-fire fs-4 d-block"></i>Rien de chaud pour l'instant.</div>
+{% endfor %}

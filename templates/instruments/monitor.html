@@ -1,0 +1,51 @@
+{% extends "base.html" %}{% load lims %}
+{% block title %}Automates — suivi en temps réel{% endblock %}
+{% block extra_head %}<meta http-equiv="refresh" content="30">{% endblock %}
+{% block content %}
+<div class="page-title">
+  <div class="icon"><i class="bi bi-broadcast"></i></div>
+  <h1>Automates — suivi en temps réel</h1>
+  <span class="small text-muted">actualisation toutes les 30 s · {% now "H:i:s" %}</span>
+  <div class="ms-auto d-flex gap-2">
+    <a class="btn btn-sm {% if pending %}btn-warning{% else %}btn-outline-secondary{% endif %}" href="{% url 'instruments:message_list' %}?status=todo">
+      <i class="bi bi-inbox"></i> Messages à traiter <span class="badge text-bg-light">{{ pending }}</span></a>
+    {% if perms.instruments.view_instrument %}<a class="btn btn-sm btn-outline-primary" href="{% url 'instruments:instrument_list' %}"><i class="bi bi-gear"></i> Configuration</a>{% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+{% for c in cards %}
+  <div class="col-xl-6">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi {% if c.instrument.kind == 'GENEXPERT' %}bi-cpu{% elif c.instrument.kind == 'MGIT' %}bi-moisture{% else %}bi-lightning-charge{% endif %} text-secondary"></i>
+        <a href="{{ c.instrument.get_absolute_url }}">{{ c.instrument.name }}</a>
+        <span class="small text-muted fw-normal">{{ c.instrument.get_kind_display }}{% if c.instrument.location %} · {{ c.instrument.location }}{% endif %}</span>
+        <span class="ms-auto badge {% if c.online %}text-bg-success{% else %}text-bg-secondary{% endif %}">
+          {% if c.online %}actif{% else %}inactif{% endif %}</span>
+      </div>
+      <div class="card-body small">
+        <div class="text-muted mb-2">Dernière communication : {{ c.instrument.last_seen|date:"d/m/Y H:i"|default:"jamais" }} · {{ c.today }} résultat(s) aujourd'hui</div>
+        <div class="fw-semibold mb-1"><i class="bi bi-hourglass-split"></i> En cours ({{ c.running|length }})</div>
+        {% for q in c.running %}
+          <div>{% if q.sample %}<a href="{{ q.sample.get_absolute_url }}">{{ q.sample_ref }}</a>{% else %}{{ q.sample_ref }} <span class="badge text-bg-warning">inconnu</span>{% endif %}
+            <span class="text-muted">— démarré à {{ q.received_at|date:"H:i" }}</span></div>
+        {% empty %}<div class="text-muted">Aucun test signalé en cours.</div>{% endfor %}
+        <div class="fw-semibold mt-3 mb-1"><i class="bi bi-check2-circle"></i> Derniers résultats</div>
+        <table class="table table-sm mb-0">
+          {% for m in c.recent %}
+            <tr><td class="text-muted">{{ m.received_at|date:"d/m H:i" }}</td>
+              <td>{% if m.sample %}<a href="{{ m.sample.get_absolute_url }}">{{ m.sample_ref }}</a>{% else %}{{ m.sample_ref|default:"—" }}{% endif %}</td>
+              <td><a href="{{ m.get_absolute_url }}">{{ m.summary|default:m.get_status_display }}</a></td>
+              <td>{% cell m "status" %}</td></tr>
+          {% empty %}<tr><td class="text-muted">Aucun résultat reçu.</td></tr>{% endfor %}
+        </table>
+      </div>
+    </div>
+  </div>
+{% empty %}
+  <div class="col-12"><div class="alert alert-light border">Aucun automate configuré.
+    {% if perms.instruments.add_instrument %}<a href="{% url 'instruments:instrument_create' %}">Ajouter un automate</a>.{% endif %}</div></div>
+{% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Culture LJ — en étuve{% endblock %}
+{% block content %}
+{% include "diagnostic/_lj_header.html" %}
+
+{% if not stats.read_this_week %}
+<div class="alert alert-info py-2 d-flex align-items-center">
+  <i class="bi bi-calendar-week me-2"></i>
+  {% if last_reading %}Dernière lecture d'étuve le {{ last_reading.date|date:"l d/m/Y" }}.{% else %}Aucune lecture d'étuve enregistrée.{% endif %}
+  Pas encore de lecture cette semaine.
+  {% if perms.diagnostic.change_culture %}<a class="btn btn-sm btn-primary ms-auto" href="{% url 'diagnostic:lj_reading_new' %}"><i class="bi bi-clipboard2-check"></i> Faire la lecture</a>{% endif %}
+</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-xl"><div class="card stat"><div class="value">{{ stats.cultures }}</div><div class="label">Cultures en étuve</div><div class="small text-muted mt-1">{{ stats.tubes }} tubes actifs</div></div></div>
+  <div class="col-6 col-xl"><a class="card stat stat-link" href="{% url 'diagnostic:lj_inoculation' %}"><div class="value">{{ stats.to_inoculate }}</div><div class="label">À ensemencer</div><div class="small text-muted mt-1">culture LJ demandée</div></a></div>
+  <div class="col-6 col-xl"><div class="card stat"><div class="value">{{ stats.to_exit }}</div><div class="label">≥ 90 j — à sortir négatives</div></div></div>
+  <div class="col-6 col-xl"><div class="card stat accent"><div class="value">{{ stats.sd }}</div><div class="label">Pousses — test SD à faire</div></div></div>
+  <div class="col-6 col-xl"><div class="card stat"><div class="value">{{ stats.retreat }}</div><div class="label">À retraiter</div></div></div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center">Cultures en étuve <span class="badge text-bg-light border ms-2">{{ cultures|length }}</span></div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead><tr><th>N° échantillon</th><th>Patient</th><th>Ensemencé le</th><th>Âge</th><th>Tube 1</th><th>Tube 2</th><th>Étape</th><th>Étuve</th></tr></thead>
+      <tbody>
+      {% for c in cultures %}
+        <tr data-href="{{ c.get_absolute_url }}">
+          <td><a class="fw-semibold mono" href="{{ c.get_absolute_url }}">{{ c.sample.code }}</a>{% if c.retreat_of_id %} <span class="badge text-bg-light border" title="Retraitement">R</span>{% endif %}</td>
+          <td>{{ c.sample.patient.full_name|default:"—" }}</td>
+          <td>{{ c.inoculated_on|date:"d/m/Y" }}</td>
+          <td><span class="fw-semibold">{{ c.age_days }} j</span> <span class="small text-muted">S{{ c.weeks }}</span>
+            <div class="progress mt-1" style="height:4px;width:70px"><div class="progress-bar {% if c.age_days >= 90 %}bg-success{% endif %}" style="width:{% widthratio c.age_days 90 100 %}%"></div></div></td>
+          {% for t in c.tubes.all %}<td>{% include "diagnostic/_tube.html" %}</td>{% endfor %}
+          <td>{% with s=c.stage %}<span class="stage stage-{{ s.0|lower }}">{{ s.1 }}</span>{% endwith %}</td>
+          <td class="small">{{ c.incubator.name|default:"—" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="text-center text-muted py-4">Aucune culture LJ en étuve.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-bar-chart-steps me-1"></i> Non CMTB — identification LPA</div>
+      <ul class="list-group list-group-flush">
+        {% for x in lpa %}
+          <li class="list-group-item d-flex align-items-center gap-2">
+            <a class="mono fw-semibold" href="{{ x.culture.get_absolute_url }}">{{ x.culture.sample.code }}</a>
+            <span class="small text-muted">{{ x.culture.sample.patient.full_name|default:"" }} · SD négatif le {{ x.culture.sd_date|date:"d/m/Y" }}</span>
+            {% if x.has_lpa %}<span class="badge text-bg-success ms-auto">LPA saisie</span>
+            {% elif perms.research.add_lpatest %}<a class="btn btn-sm btn-outline-primary ms-auto" href="{{ x.lpa_url }}">Saisir la LPA</a>{% endif %}
+          </li>
+        {% empty %}<li class="list-group-item small text-muted">Aucune culture en attente d'identification.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card h-100">
+      <div class="card-header d-flex"><i class="bi bi-arrow-repeat me-1"></i> À retraiter (2 tubes contaminés)
+        {% if retreat and perms.diagnostic.add_culture %}<a class="ms-auto small fw-normal" href="{% url 'diagnostic:lj_inoculation' %}">Réensemencer</a>{% endif %}</div>
+      <ul class="list-group list-group-flush">
+        {% for c in retreat %}
+          <li class="list-group-item"><a class="mono fw-semibold" href="{{ c.get_absolute_url }}">{{ c.sample.code }}</a>
+            <span class="small text-muted">{{ c.sample.patient.full_name|default:"" }} · contaminée le {{ c.result_date|date:"d/m/Y" }}</span></li>
+        {% empty %}<li class="list-group-item small text-muted">Aucun échantillon à retraiter.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

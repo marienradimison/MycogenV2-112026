@@ -1,0 +1,77 @@
+{% extends "base.html" %}{% load lims %}
+{% block title %}Surveillance matériels & accès{% endblock %}
+{% block content %}
+<div class="page-title">
+  {% include "generic/_back.html" with fallback="/" %}
+  <div class="icon"><i class="bi bi-shield-check"></i></div>
+  <div>
+    <div class="small text-muted">Qualité</div>
+    <h1>Surveillance matériels & accès aux salles</h1>
+  </div>
+  <div class="ms-auto d-flex gap-2">
+    {% if perms.quality.add_equipment %}<a class="btn btn-sm btn-outline-primary" href="{% url 'quality:equipment_create' %}"><i class="bi bi-plus-lg"></i> Matériel</a>{% endif %}
+    {% if perms.quality.add_roomaccess %}<a class="btn btn-sm btn-outline-primary" href="{% url 'quality:access_create' %}"><i class="bi bi-plus-lg"></i> Autorisation d'accès</a>{% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-xl-3"><a class="card stat stat-link" href="{% url 'quality:equipment_list' %}"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ stats.ok }}<span class="fs-6 text-muted"> / {{ stats.equipment }}</span></div><div class="label">Matériels en service</div></div>
+    <i class="bi bi-tools ico"></i></div></a></div>
+  <div class="col-6 col-xl-3"><div class="card stat accent"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ stats.alerts }}</div><div class="label">Alertes critiques</div></div>
+    <i class="bi bi-exclamation-octagon ico"></i></div></div></div>
+  <div class="col-6 col-xl-3"><a class="card stat stat-link green" href="{% url 'quality:access_list' %}?revoked=0"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ stats.accesses }}</div><div class="label">Accès valides</div></div>
+    <i class="bi bi-person-badge ico"></i></div></a></div>
+  <div class="col-6 col-xl-3"><a class="card stat stat-link" href="{% url 'core:floorplan' %}"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ stats.rooms_without_access }}</div><div class="label">Salles sans personne autorisée</div></div>
+    <i class="bi bi-door-closed ico"></i></div></a></div>
+</div>
+
+<div class="row g-3">
+{% for level, icon, title, rows, kind in sections %}
+  <div class="col-xl-6">
+    <div class="card h-100 {% if rows %}border-{{ level }}{% endif %}">
+      <div class="card-header d-flex align-items-center">
+        <i class="bi {{ icon }} me-2 text-{{ level }}"></i>{{ title }}
+        <span class="badge ms-auto {% if rows %}text-bg-{{ level }}{% else %}text-bg-light border{% endif %}">{{ rows|length }}</span>
+      </div>
+      {% if rows %}
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          {% if kind == 'equipment' %}
+          <thead><tr><th>Matériel</th><th>Salle</th><th>État</th><th>Maintenance</th><th>Étalonnage</th></tr></thead>
+          <tbody>{% for e in rows %}
+            <tr data-href="{{ e.get_absolute_url }}"><td><a class="fw-semibold" href="{{ e.get_absolute_url }}">{{ e.name }}</a>
+              <div class="small text-muted">{{ e.inventory_number }}{% if e.critical %} · <span class="text-danger">critique</span>{% endif %}</div></td>
+              <td>{{ e.room.number }}</td><td>{% cell e "status" %}</td>
+              <td class="{% if e.maintenance_state == 'overdue' %}text-danger fw-semibold{% elif e.maintenance_state == 'soon' %}text-warning-emphasis{% endif %}">{{ e.next_maintenance|date:"d/m/Y"|default:"—" }}</td>
+              <td class="{% if e.calibration_state == 'overdue' %}text-danger fw-semibold{% elif e.calibration_state == 'soon' %}text-warning-emphasis{% endif %}">{{ e.next_calibration|date:"d/m/Y"|default:"—" }}</td></tr>
+          {% endfor %}</tbody>
+          {% elif kind == 'temperature' %}
+          <thead><tr><th>Étuve</th><th>Relevé le</th><th>Température</th><th>Action corrective</th></tr></thead>
+          <tbody>{% for t in rows %}
+            <tr><td>{{ t.incubator.name }}</td><td>{{ t.measured_at|date:"d/m/Y H:i" }}</td>
+              <td class="text-danger fw-semibold">{{ t.value }} °C</td><td class="small">{{ t.comment }}</td></tr>
+          {% endfor %}</tbody>
+          {% else %}
+          <thead><tr><th>Personne</th><th>Salle</th><th>Type</th><th>Valable jusqu'au</th><th>Formation</th></tr></thead>
+          <tbody>{% for a in rows %}
+            <tr data-href="{{ a.get_absolute_url }}"><td><a class="fw-semibold" href="{{ a.get_absolute_url }}">{{ a.person }}</a>
+              <div class="small text-muted">{{ a.function }}</div></td>
+              <td>{{ a.room.number }}</td><td>{{ a.get_level_display }}</td>
+              <td class="{% if a.state == 'expired' %}text-danger fw-semibold{% elif a.state == 'soon' %}text-warning-emphasis{% endif %}">{{ a.expires_on|date:"d/m/Y"|default:"illimité" }}</td>
+              <td>{{ a.training_on|date:"d/m/Y"|default:"—" }}</td></tr>
+          {% endfor %}</tbody>
+          {% endif %}
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body small text-muted"><i class="bi bi-check2-circle text-success"></i> Rien à signaler.</div>
+      {% endif %}
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

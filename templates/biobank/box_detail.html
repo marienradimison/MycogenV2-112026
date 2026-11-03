@@ -1,0 +1,40 @@
+{% extends "generic/detail.html" %}
+{% block content %}
+{% include "generic/_detail_header.html" %}
+<div class="row g-3">
+  <div class="col-xl-4">
+    <div class="card">
+      <div class="card-header">Informations</div>
+      <div class="card-body">
+        <dl class="row details mb-0">
+          <dt class="col-5">Unité</dt><dd class="col-7"><a href="{{ object.unit.get_absolute_url }}">{{ object.unit }}</a></dd>
+          <dt class="col-5">Étagère / rack</dt><dd class="col-7">{{ object.shelf|default:"—" }} / {{ object.rack|default:"—" }}</dd>
+          <dt class="col-5">Format</dt><dd class="col-7">{{ object.rows }} × {{ object.cols }}</dd>
+          <dt class="col-5">Occupation</dt><dd class="col-7">{{ object.occupied }} / {{ object.capacity }}</dd>
+          <dt class="col-5">Contenu</dt><dd class="col-7">{{ object.content|default:"—" }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-8">
+    <div class="card">
+      <div class="card-header">Plan de la boîte <span class="small text-muted fw-normal">— cliquer sur une position libre pour y stocker un aliquot</span></div>
+      <div class="card-body overflow-auto">
+        <table class="box-grid">
+          <tr><th></th>{% for r, cells in object.grid %}{% if forloop.first %}{% for pos, item in cells %}<th>{{ forloop.counter }}</th>{% endfor %}{% endif %}{% endfor %}</tr>
+          {% for r, cells in object.grid %}
+            <tr><th>{{ r }}</th>
+            {% for pos, item in cells %}
+              {% if item %}
+                <td class="filled" title="{{ item }} — {{ item.label }}"><a href="{{ item.get_absolute_url }}">{{ item.code }}<br><span class="fw-normal">{{ item.get_item_type_display|truncatechars:10 }}</span></a></td>
+              {% else %}
+                <td class="empty"><a href="{% url 'biobank:item_create' %}?box={{ object.pk }}&position={{ pos }}&next={{ request.path|urlencode }}">{{ pos }}</a></td>
+              {% endif %}
+            {% endfor %}</tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

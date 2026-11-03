@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Fiche de lecture du {{ reading.date|date:"d/m/Y" }}{% endblock %}
+{% block content %}
+{% include "diagnostic/_lj_header.html" %}
+<div class="d-flex align-items-center gap-2 mb-3">
+  {% include "generic/_back.html" with fallback=back_url %}
+  <h2 class="h5 mb-0">Lecture d'étuve du {{ reading.date|date:"l d/m/Y" }}</h2>
+  <span class="small text-muted">{{ reading.operator.get_full_name|default:reading.operator }}{% if reading.incubator %} · {{ reading.incubator.name }}{% endif %} · {{ entries|length }} cultures lues</span>
+  <div class="ms-auto btn-group">
+    <a class="btn btn-sm btn-outline-secondary" href="?print=1"><i class="bi bi-printer"></i> Fiche de lecture</a>
+    <a class="btn btn-sm btn-outline-secondary" href="?format=pdf" title="PDF"><i class="bi bi-download"></i></a>
+  </div>
+</div>
+{% if reading.notes %}<div class="alert alert-light border py-2 small"><i class="bi bi-chat-left-text"></i> {{ reading.notes }}</div>{% endif %}
+
+<div class="row g-3">
+  {% for title, cls, rows in sections %}
+  <div class="col-xl-6">
+    <div class="card h-100 reading-sec sec-{{ cls }}">
+      <div class="card-header d-flex">{{ title }}<span class="badge text-bg-light border ms-auto">{{ rows|length }}</span></div>
+      <ul class="list-group list-group-flush">
+        {% for e in rows %}
+          <li class="list-group-item d-flex gap-2 align-items-baseline">
+            <a class="mono fw-semibold" href="{{ e.culture.get_absolute_url }}">{{ e.culture.sample.code }}</a>
+            <span class="small">{{ e.culture.sample.patient.full_name|default:"" }}</span>
+            <span class="small text-muted ms-auto">{{ e.age_days }} j · ens. {{ e.culture.inoculated_on|date:"d/m/Y" }}</span>
+          </li>
+        {% empty %}<li class="list-group-item small text-muted">Aucune.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endfor %}
+  <div class="col-xl-6">
+    <div class="card h-100 reading-sec sec-disc">
+      <div class="card-header d-flex">Tubes contaminés jetés<span class="badge text-bg-light border ms-auto">{{ discarded|length }}</span></div>
+      <ul class="list-group list-group-flush">
+        {% for e in discarded %}
+          <li class="list-group-item d-flex gap-2"><a class="mono fw-semibold" href="{{ e.culture.get_absolute_url }}">{{ e.culture.sample.code }}</a>
+            <span class="small">tube{{ e.discarded_tubes|length|pluralize }} {{ e.discarded_tubes }}</span>
+            <span class="small text-muted ms-auto">{{ e.get_action_display }}</span></li>
+        {% empty %}<li class="list-group-item small text-muted">Aucun.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+<div class="small text-muted mt-3">{{ remaining|length }} culture(s) restent en étuve après cette lecture.</div>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% load static %}<!doctype html>
+<html lang="fr" data-bs-theme="{% if THEME == 'dark' %}dark{% else %}light{% endif %}" data-theme-pref="{{ THEME }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ LAB_NAME }}{% endblock %} · {{ LAB_NAME }}</title>
+  <script>  /* barre latérale repliée : appliqué avant l'affichage pour éviter un saut */
+    try { if (localStorage.getItem('mycogen.sidebar') === 'collapsed') document.documentElement.classList.add('sb-collapsed'); } catch (e) {}
+  </script>
+  {% if THEME == 'auto' %}<script>
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.bsTheme = 'dark';
+  </script>{% endif %}
+  <link rel="icon" type="image/png" href="{% static 'img/Mycogen_main_logo.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'img/Mycogen_main_logo.png' %}">
+  <link rel="preload" href="{% static 'fonts/CreatoDisplay-Regular.otf' %}" as="font" type="font/otf" crossorigin>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+  <link href="{% static 'css/mycogen.css' %}?v={{ V }}" rel="stylesheet">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+{% block body %}
+<header class="myc-header">
+  <a class="myc-brand" href="{% url 'core:dashboard' %}">
+    <img src="{% static 'img/Mycogene_logo_monochrome_white.png' %}" alt="">
+    <div>
+      <div class="name">{{ LAB_NAME }}</div>
+      <div class="sub">{{ LAB_DEPARTMENT }}</div>
+    </div>
+  </a>
+  <button class="btn btn-sm btn-chrome sidebar-toggle" type="button" id="sidebar-toggle"
+          aria-label="Replier / déplier le menu" title="Replier / déplier le menu"><i class="bi bi-layout-sidebar-inset fs-5"></i></button>
+
+  <form class="search" action="{% url 'core:search' %}" method="get">
+    <div class="input-group input-group-sm">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input class="form-control" name="q" value="{{ request.GET.q|default:'' }}"
+             placeholder="Rechercher un échantillon, patient, aliquot…">
+    </div>
+  </form>
+
+  <div class="ms-auto d-flex align-items-center gap-1">
+    <form method="post" action="{% url 'core:toggle_theme' %}" class="m-0">{% csrf_token %}
+      <input type="hidden" name="current" id="theme-current" value="{% if THEME == 'dark' %}dark{% else %}light{% endif %}">
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button class="btn btn-sm btn-chrome" title="Basculer thème clair / sombre" aria-label="Thème">
+        <i class="bi {% if THEME == 'dark' %}bi-sun{% else %}bi-moon-stars{% endif %} fs-6" id="theme-icon"></i></button>
+    </form>
+    {% if user.is_staff and OPEN_SUPPORT %}
+      <a class="btn btn-sm btn-chrome position-relative" href="{% url 'core:support' %}" title="Support : demandes en attente">
+        <i class="bi bi-bell fs-6"></i>
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger">{{ OPEN_SUPPORT }}</span></a>
+    {% endif %}
+    <div class="dropdown">
+      <button class="btn btn-sm btn-chrome dropdown-toggle d-flex align-items-center gap-2" data-bs-toggle="dropdown" type="button">
+        {% if PROFILE.photo %}<img class="avatar" src="{{ PROFILE.photo.url }}" alt="">
+        {% else %}<span class="avatar">{% firstof PROFILE.initials user.username|slice:":2"|upper %}</span>{% endif %}
+        <span class="d-none d-md-inline">{{ user.get_full_name|default:user.username }}</span>
+      </button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><div class="dropdown-item-text">
+          <div class="fw-semibold">{{ user.get_full_name|default:user.username }}</div>
+          {% if PROFILE.job_title %}<div class="small">{{ PROFILE.job_title }}</div>{% endif %}
+          <div class="small text-muted">{% for g in user.groups.all %}<span class="code-badge me-1" title="{{ g.name }}">{% firstof g.role_code.code g.name %}</span>{% empty %}{% if user.is_superuser %}Administrateur{% endif %}{% endfor %}</div>
+        </div></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{% url 'core:settings' 'profil' %}"><i class="bi bi-person me-2"></i>Mon profil</a></li>
+        <li><a class="dropdown-item" href="{% url 'core:settings' 'apparence' %}"><i class="bi bi-palette me-2"></i>Apparence</a></li>
+        <li><a class="dropdown-item" href="{% url 'core:settings' 'securite' %}"><i class="bi bi-shield-lock me-2"></i>Mot de passe & sécurité</a></li>
+        <li><a class="dropdown-item" href="{% url 'core:settings' 'bug' %}?page={{ request.get_full_path|urlencode }}"><i class="bi bi-bug me-2"></i>Signaler un problème</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><form method="post" action="{% url 'logout' %}">{% csrf_token %}
+          <button class="dropdown-item text-danger"><i class="bi bi-box-arrow-right me-2"></i>Déconnexion</button></form></li>
+      </ul>
+    </div>
+  </div>
+</header>
+
+<aside class="myc-sidebar" id="sidebar">
+  {% for m in MENU %}
+    {% if m.expanded %}
+      <div class="myc-section">{{ m.label }}</div>
+      {% for item in m.items %}
+        <a class="nav-item {% if item.active %}active{% endif %}" href="{{ item.url }}" title="{{ item.label }}"><i class="bi {{ item.icon }}"></i><span class="nav-label">{{ item.label }}</span></a>
+      {% endfor %}
+      <div class="myc-section">Modules</div>
+    {% else %}
+      {% if m.key == 'admin' %}<div class="myc-sep"></div>{% endif %}
+      <a class="nav-item {% if m.active %}active{% endif %}" href="{{ m.url }}" title="{{ m.label }}"><i class="bi {{ m.icon }}"></i><span class="nav-label">{{ m.label }}</span>{% if m.items %}<i class="bi bi-chevron-right nav-chevron"></i>{% endif %}</a>
+    {% endif %}
+  {% endfor %}
+</aside>
+
+<div class="myc-main">
+  {% if SUBNAV %}
+  <nav class="module-subnav" aria-label="{{ SUBNAV.label }}">
+    <a class="subnav-module" href="{{ SUBNAV.url }}"><i class="bi {{ SUBNAV.icon }}"></i> {{ SUBNAV.label }}</a>
+    {% for i in SUBNAV.items %}<a class="subnav-item {% if i.active %}active{% endif %}" href="{{ i.url }}"><i class="bi {{ i.icon }}"></i> {{ i.label }}</a>{% endfor %}
+  </nav>
+  {% endif %}
+  <main class="myc-content">
+    {% for message in messages %}
+      <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show py-2">
+        {{ message }}<button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="myc-footer">{{ LAB_NAME }} · {{ LAB_INSTITUTION }} — {{ LAB_DEPARTMENT }}</footer>
+</div>
+{% endblock %}
+<script src="{% static 'js/nav.js' %}?v={{ V }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script>
+  // Thème « automatique » : le bouton bascule à partir du thème réellement affiché
+  (function () {
+    var cur = document.getElementById('theme-current');
+    if (cur && document.documentElement.dataset.themePref === 'auto') {
+      var dark = document.documentElement.dataset.bsTheme === 'dark';
+      cur.value = dark ? 'dark' : 'light';
+      document.getElementById('theme-icon').className = 'bi fs-6 ' + (dark ? 'bi-sun' : 'bi-moon-stars');
+    }
+  })();
+  // Barre latérale : repli (écran large) ou ouverture en surimpression (petit écran)
+  (function () {
+    var btn = document.getElementById('sidebar-toggle'), sb = document.getElementById('sidebar');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      if (window.matchMedia('(max-width: 991px)').matches) { sb.classList.toggle('open'); return; }
+      var collapsed = document.documentElement.classList.toggle('sb-collapsed');
+      try { localStorage.setItem('mycogen.sidebar', collapsed ? 'collapsed' : 'open'); } catch (e) {}
+    });
+    document.addEventListener('click', function (e) {  // fermer le menu mobile en cliquant à côté
+      if (sb.classList.contains('open') && !sb.contains(e.target) && !btn.contains(e.target)) sb.classList.remove('open');
+    });
+  })();
+  // Double-clic sur une ligne de tableau : ouvre la fiche
+  document.addEventListener('dblclick', function (e) {
+    var tr = e.target.closest('tr[data-href]');
+    if (tr && !e.target.closest('input, button, a, label')) window.location = tr.dataset.href;
+  });
+  // Listes déroulantes avec recherche pour les formulaires
+  document.querySelectorAll('form.lims-form select:not(.no-ts)').forEach(function (el) {
+    if (!el.multiple && el.options.length < 13) return;  // listes courtes : liste native
+    new TomSelect(el, {maxOptions: 500, allowEmptyOption: true, plugins: el.multiple ? ['remove_button'] : []});
+  });
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

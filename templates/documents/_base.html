@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ ASSET }}css/print.css{% if not PDF %}?v={{ V }}{% endif %}">
+</head>
+<body class="{% block doc_class %}{% endblock %}">
+{% if not PDF %}
+<div class="toolbar">
+  {% if pdf_error %}<span class="warn">PDF indisponible : {{ pdf_error }} — utilisez « Imprimer » puis « Enregistrer au format PDF ».</span>{% endif %}
+  <button onclick="window.print()">🖨 Imprimer</button>
+  <a href="?format=pdf">⬇ Télécharger le PDF</a>
+  {% if back_url %}<a class="light back-btn" href="{{ back_url }}" data-fallback="{{ back_url }}">{% else %}<a class="light back-btn" href="{{ sample.get_absolute_url }}" data-fallback="{{ sample.get_absolute_url }}">{% endif %}‹ Préc.</a>
+</div>
+{% endif %}
+<div class="sheet">
+  <header class="doc-head">
+    <div>
+      <div class="inst">INSTITUT PASTEUR DE MADAGASCAR</div>
+      <div class="unit">Unité des Mycobactéries / Centre National de Référence des Mycobactéries</div>
+      <div class="addr">BP 1274 - Ambatofotsy, Antananarivo</div>
+    </div>
+    {% block head_right %}<div class="tag"><small>PROJET / ÉTUDE</small><b>{{ project_label }}</b></div>{% endblock %}
+  </header>
+  {% block body %}{% endblock %}
+</div>
+{% if not PDF %}<script src="{{ ASSET }}js/nav.js?v={{ V }}"></script>{% endif %}
+</body>
+</html>

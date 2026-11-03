@@ -1,0 +1,5 @@
+<ul class="nav nav-tabs module-tabs mb-3">
+  {% for key, label, icon, url, active in tabs %}
+    <li class="nav-item"><a class="nav-link {% if active %}active{% endif %}" href="{{ url }}"><i class="bi {{ icon }}"></i> {{ label }}</a></li>
+  {% endfor %}
+</ul>

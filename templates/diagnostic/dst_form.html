@@ -1,0 +1,73 @@
+{% extends "base.html" %}{% load lims %}
+{% block title %}{% if object %}Modifier {{ object }}{% else %}Nouvel antibiogramme{% endif %}{% endblock %}
+{% block content %}
+<div class="page-title">
+  {% crud_url crud 'list' as list_url %}{% include "generic/_back.html" with fallback=list_url %}
+  <div class="icon"><i class="bi {{ crud.icon }}"></i></div>
+  <div>
+    <div class="small text-muted"><a href="{% crud_url crud 'list' %}">{{ crud.title }}</a></div>
+    <h1>{% if object %}Modifier {{ object }}{% else %}Nouvel antibiogramme{% endif %}</h1>
+  </div>
+</div>
+<form method="post" class="lims-form" novalidate>
+  {% csrf_token %}
+  <div class="card mb-3">
+    <div class="card-body">
+      {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
+      <div class="row g-3">
+        {% for field in form %}{% if not field.name|slice:":4" == "res_" %}
+          <div class="{% if field.widget_type == 'textarea' %}col-12{% else %}col-md-6 col-xl-4{% endif %} field-{{ field.name }}">
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+            {{ field }}
+            {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+            {{ field.errors }}
+          </div>
+        {% endif %}{% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><i class="bi bi-capsule me-1"></i> Résultats par antibiotique
+      <span class="small text-muted fw-normal ms-2">R = Résistant · S = Sensible · I = Indéterminé · NF = Non fait · NA = Non applicable</span></div>
+    <div class="card-body">
+      <div class="row g-3" id="dst-results">
+        {% for field in form %}{% if field.name|slice:":4" == "res_" %}
+          <div class="col-6 col-md-4 col-xl-2 dst-drug" data-panel="{{ field.field.widget.attrs|get_item:'data-panel' }}">
+            <label class="form-label small fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}{{ field.errors }}
+          </div>
+        {% endif %}{% endfor %}
+      </div>
+      <div class="mt-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-fill="S">Tout « S »</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-fill="NF">Tout « NF »</button>
+      </div>
+    </div>
+    <div class="card-footer bg-white d-flex gap-2">
+      <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Enregistrer</button>
+      <a class="btn btn-light" href="{% if object %}{{ object.get_absolute_url }}{% else %}{% crud_url crud 'list' %}{% endif %}">Annuler</a>
+    </div>
+  </div>
+</form>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  const panel = document.getElementById('id_panel');
+  const cells = [...document.querySelectorAll('.dst-drug')];
+  function show() {
+    cells.forEach(c => {
+      const on = c.dataset.panel === panel.value;
+      c.hidden = !on;
+      c.querySelector('select').disabled = !on;
+    });
+  }
+  panel.addEventListener('change', show);
+  show();
+  document.querySelectorAll('[data-fill]').forEach(b => b.addEventListener('click', () => {
+    cells.filter(c => !c.hidden).forEach(c => { const s = c.querySelector('select'); if (!s.value) s.value = b.dataset.fill; });
+  }));
+})();
+</script>
+{% endblock %}

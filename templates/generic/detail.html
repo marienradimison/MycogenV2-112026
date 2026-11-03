@@ -1,0 +1,33 @@
+{% extends "base.html" %}{% load lims %}
+{% block title %}{{ object }}{% endblock %}
+{% block content %}
+{% block header %}{% include "generic/_detail_header.html" %}{% endblock %}
+
+<div class="row g-3">
+  <div class="col-xl-{% if related %}5{% else %}12{% endif %}">
+    {% block main_card %}
+    <div class="card">
+      <div class="card-header">Informations</div>
+      <div class="card-body">
+        <dl class="row details mb-0">
+          {% for label, name in details %}
+            <dt class="col-sm-5">{{ label }}</dt>
+            <dd class="col-sm-7">{% cell object name %}</dd>
+          {% endfor %}
+          {% for label, value in extra_details %}<dt class="col-sm-5">{{ label }}</dt><dd class="col-sm-7">{{ value }}</dd>{% endfor %}
+          <dt class="col-sm-5">Créé</dt>
+          <dd class="col-sm-7 small text-muted">{{ object.created_at|date:"d/m/Y H:i" }}{% if object.created_by %} · {{ object.created_by }}{% endif %}</dd>
+          <dt class="col-sm-5">Dernière modification</dt>
+          <dd class="col-sm-7 small text-muted">{{ object.updated_at|date:"d/m/Y H:i" }}{% if object.updated_by %} · {{ object.updated_by }}{% endif %}</dd>
+        </dl>
+      </div>
+    </div>
+    {% endblock %}
+  </div>
+  {% if related %}
+  <div class="col-xl-7">
+    {% include "generic/_related.html" %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

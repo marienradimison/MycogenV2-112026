@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ cfg.title }} — suivi en temps réel{% endblock %}
+{% block content %}
+<div class="page-title">
+  <div class="icon"><i class="bi {{ cfg.icon }}"></i></div>
+  <div>
+    <div class="small text-muted">Analyses TB</div>
+    <h1>{{ cfg.title }}</h1>
+  </div>
+  <span class="live-dot ms-2" title="Actualisation automatique toutes les 15 s"><span></span> en direct</span>
+  <div class="ms-auto d-flex gap-2">
+    {% if perms.instruments.change_instrument %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'instruments:instrument_list' %}?kind={{ cfg.kind }}"><i class="bi bi-gear"></i> Appareils</a>{% endif %}
+    <a class="btn btn-sm btn-primary" href="{% url cfg.create %}"><i class="bi bi-plus-lg"></i> Saisie manuelle</a>
+  </div>
+</div>
+{% include "generic/_tabs.html" %}
+<div id="live-body" data-url="{{ request.path }}?partial=1">
+  {% include "diagnostic/_live_body.html" %}
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  const box = document.getElementById('live-body');
+  async function refresh() {
+    if (document.hidden) return;
+    try {
+      const r = await fetch(box.dataset.url, {headers: {'X-Requested-With': 'fetch'}});
+      if (r.ok) box.innerHTML = await r.text();
+    } catch (e) { /* réseau indisponible : nouvel essai au prochain tour */ }
+  }
+  setInterval(refresh, 15000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+})();
+</script>
+{% endblock %}

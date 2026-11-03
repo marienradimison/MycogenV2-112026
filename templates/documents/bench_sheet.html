@@ -1,0 +1,177 @@
+{% extends "documents/_base.html" %}{% load lims %}
+{% block title %}Fiche de paillasse {{ sample.code }}{% endblock %}
+{% block body %}
+<div class="doc-title">FICHE DE PAILLASSE</div>
+<div class="doc-sub">Document technique interne de traçabilité des manipulations de laboratoire</div>
+
+<div class="cols two">
+  <div class="box">
+    <h3>IDENTITÉ DU PATIENT</h3>
+    <dl class="kv">
+      <dt>Nom :</dt><dd>{{ patient.full_name|default:"—" }}</dd>
+      <dt>ID Patient</dt><dd class="mono">{{ patient.code|default:"—" }}</dd>
+      <dt>Âge / Sexe :</dt><dd>{% if patient.age is not None %}{{ patient.age }} ans{% else %}—{% endif %} / {% if patient.sex and patient.sex != 'I' %}{{ patient.get_sex_display }}{% else %}Non renseigné{% endif %}</dd>
+      <dt>Adresse :</dt><dd>{{ patient.address|default:"—" }}</dd>
+    </dl>
+  </div>
+  <div class="box">
+    <h3>CARACTÉRISTIQUES PRÉLÈVEMENT</h3>
+    <dl class="kv">
+      <dt>N° Échantillon :</dt><dd class="mono">{{ sample.code }}</dd>
+      <dt>Nature / Type :</dt><dd>{{ sample.type_display }}</dd>
+      <dt>Date Réception :</dt><dd>{{ sample.received_at|date:"d/m/Y" }}</dd>
+      <dt>Date Manipulation :</dt><dd>{{ today|date:"d/m/Y" }}</dd>
+    </dl>
+  </div>
+</div>
+
+{# 1. Microscopie #}
+<div class="box">
+  <h3>1. MICROSCOPIE (EXAMEN DIRECT) <span class="kind">SECTION TECHNIQUE</span></h3>
+  <div class="grid3">
+    <div>
+      <p class="field">Date frottis : {% if micro %}<b>{{ micro.test_date|date:"d/m/Y" }}</b>{% else %}<span class="line"></span>{% endif %}</p>
+      <p class="field">Coloration : {% if micro %}<b>{{ micro.get_method_display }}</b>{% else %}<span class="line"></span>{% endif %}</p>
+    </div>
+    <div>
+      <p class="field">Résultat microscope : {% if micro %}<b>{{ micro.get_grade_display }}</b>{% else %}<span class="line"></span>{% endif %}</p>
+      <p class="field">Quantification BAAR : {% if micro and micro.afb_count %}<b>{{ micro.afb_count }} BAAR</b>{% elif micro %}<b>{{ micro.grade }}</b>{% else %}<span class="line"></span>{% endif %}</p>
+    </div>
+    <div class="subbox mono">
+      <div>Citrate : <span class="line"></span></div>
+      <div>Tampon Phosphate : <span class="line short"></span></div>
+      <div>ED : <span class="line"></span></div>
+    </div>
+  </div>
+  {% if not micro and 'MICROSCOPY' not in requested %}<div class="na" style="margin-top:4px">Analyse non demandée</div>{% endif %}
+  {% if micro or 'MICROSCOPY' in requested %}{% include "documents/_validation.html" with r=micro %}{% endif %}
+</div>
+
+{# 2. GeneXpert MTB/RIF #}
+<div class="box">
+  <h3>2. GENEXPERT MTB/RIF <span class="kind">AUTOMATE / PCR</span></h3>
+  <div class="split">
+    <div>
+      <p class="field">Date de PCR : {% if xpert %}<b>{{ xpert.test_date|date:"d/m/Y" }}</b>{% elif 'XPERT_ULTRA' in requested %}<span class="line"></span>{% else %}<b class="na">Analyse Non Faite</b>{% endif %}</p>
+      <p class="field">N° Lot Cartouche : {% if xpert.cartridge_lot %}<b class="mono">{{ xpert.cartridge_lot }}</b>{% else %}<span class="line" style="min-width:38mm"></span>{% endif %}</p>
+      {% if xpert.instrument %}<p class="field">Module : <b>{{ xpert.instrument }}</b></p>{% endif %}
+    </div>
+    <div class="subbox">
+      <div class="cap">Résultats automate MTB/RIF :</div>
+      <p class="field">Détection de MTB : <b>{% if xpert %}{{ xpert.mtb_result|mtb_res }}{% else %}<span class="line"></span>{% endif %}</b></p>
+      <p class="field" style="margin:0">Résistance à la Rifampicine : <b>{% if xpert %}{{ xpert.rif_result|res_res }}{% else %}<span class="line"></span>{% endif %}</b></p>
+    </div>
+  </div>
+  {% if xpert or 'XPERT_ULTRA' in requested %}{% include "documents/_validation.html" with r=xpert %}{% endif %}
+</div>
+
+{# 2B. GeneXpert XDR #}
+<div class="box">
+  <h3>2B. GENEXPERT XDR <span class="kind">AUTOMATE / PCR</span></h3>
+  <div class="split">
+    <div>
+      <p class="field">Date de PCR XDR : {% if xdr %}<b>{{ xdr.test_date|date:"d/m/Y" }}</b>{% elif 'XPERT_XDR' in requested %}<span class="line"></span>{% else %}<b class="na">Analyse Non Faite</b>{% endif %}</p>
+      <p class="field">N° Lot Cartouche : {% if xdr.cartridge_lot %}<b class="mono">{{ xdr.cartridge_lot }}</b>{% else %}<span class="line" style="min-width:38mm"></span>{% endif %}</p>
+      <p class="field">Détection MTB : <b>{% if xdr %}{{ xdr.mtb_result|mtb_res }}{% elif 'XPERT_XDR' in requested %}<span class="line"></span>{% else %}Non Applicable{% endif %}</b></p>
+    </div>
+    <div class="subbox">
+      <div class="cap">Résultats des antibiotiques (GeneXpert XDR) :</div>
+      <table class="drugs">
+        <tr><th>Molécule</th><th class="c">Sensible</th><th class="c">Résistant</th><th class="c">Autre/ND</th></tr>
+        {% for label, value in xdr_rows %}
+          <tr><td>{{ label }}</td>
+            <td class="c"><span class="chk {% if value == 'NOT_DETECTED' %}on{% endif %}"></span></td>
+            <td class="c"><span class="chk {% if value == 'DETECTED' %}on{% endif %}"></span></td>
+            <td class="c">{% if value == 'INDETERMINATE' %}Indét.{% else %}—{% endif %}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+  {% if xdr or 'XPERT_XDR' in requested %}{% include "documents/_validation.html" with r=xdr %}{% endif %}
+</div>
+
+{# 3. Culture #}
+<div class="box">
+  <h3>3. CULTURE MYCOBACTÉRIENNE <span class="kind">CULTURE</span></h3>
+  <div class="grid3">
+    <div>
+      <p class="field">Date d'Ensemencement :<br>{% if culture %}<b>{{ culture.inoculated_on|date:"d/m/Y" }}</b>{% else %}<span class="line"></span>{% endif %}</p>
+      <p class="field">Date de Sortie :<br>{% if culture_end %}<b>{{ culture_end|date:"d/m/Y" }}</b>{% if culture_end_expected %} <span class="na">(prévue)</span>{% endif %}{% else %}<span class="line"></span>{% endif %}</p>
+      <p class="field">Temps de croissance :<br>{% if culture.ttp_days %}<b>{{ culture.ttp_days }} j</b>{% else %}<span class="line"></span>{% endif %}</p>
+    </div>
+    <div>
+      <p class="field">Résultat :<br>{% if culture and culture.result != 'PENDING' %}<b>{{ culture.get_result_display }}</b>{% else %}<span class="line"></span>{% endif %}</p>
+      <p class="field">Identification :<br>{% if culture.identification %}<b>{{ culture.get_identification_display }}</b>{% else %}<span class="line"></span>{% endif %}</p>
+      <p class="field">Comptage :<br>{% if culture.colony_count %}<b>{{ culture.colony_count }} colonies</b>{% elif culture.lj_grade %}<b>{{ culture.lj_grade }}</b>{% else %}<span class="line"></span>{% endif %}</p>
+    </div>
+    <div>
+      <p class="field"><b>Support / Tubes :</b></p>
+      <p class="field"><span class="chk {% if culture.medium == 'LJ' %}on{% endif %}"></span> &nbsp;<b>Solide (LJ)</b></p>
+      <p class="field"><span class="chk {% if culture.medium == 'MGIT' %}on{% endif %}"></span> &nbsp;<b>Liquide (MGIT)</b></p>
+      {% if culture %}<p class="field">Nombre de tubes : <b>{{ culture.tube_count }}</b></p>{% endif %}
+    </div>
+  </div>
+  {% if not culture and 'CULTURE' not in requested %}<div class="na">Analyse non demandée</div>{% endif %}
+  {% if culture or 'CULTURE' in requested %}{% include "documents/_validation.html" with r=culture %}{% endif %}
+</div>
+
+{# Analyses complémentaires demandées #}
+{% if npoc or 'NPOC' in requested %}
+<div class="box">
+  <h3>4. NPOC — PLUSLIFE MTB <span class="kind">AUTOMATE / NAAT</span></h3>
+  <div class="split">
+    <div>
+      <p class="field">Date d'analyse : {% if npoc %}<b>{{ npoc.test_date|date:"d/m/Y" }}</b>{% else %}<span class="line"></span>{% endif %}</p>
+      <p class="field">N° Lot : {% if npoc.kit_lot %}<b class="mono">{{ npoc.kit_lot }}</b>{% else %}<span class="line"></span>{% endif %}</p>
+    </div>
+    <div class="subbox">
+      <p class="field">Résultat : <b>{% if npoc %}{{ npoc.get_mtb_result_display }}{% else %}<span class="line"></span>{% endif %}</b></p>
+      <p class="field" style="margin:0">Valeur de signal : <b>{% if npoc.signal_value %}{{ npoc.signal_value }}{% else %}<span class="line short"></span>{% endif %}</b></p>
+    </div>
+  </div>
+  {% include "documents/_validation.html" with r=npoc %}
+</div>
+{% endif %}
+
+{% if dsts or 'DST' in requested %}
+<div class="box">
+  <h3>5. ANTIBIOGRAMME PHÉNOTYPIQUE <span class="kind">DST</span></h3>
+  <table class="drugs">
+    <tr><th>Groupe / antibiotique</th><th class="c">R</th><th class="c">S</th><th class="c">I</th><th class="c">NF</th><th class="c">NA</th><th>Validé</th></tr>
+    {% for d in dsts %}
+      <tr><th colspan="7" class="sub">{{ d.get_panel_display }} — {{ d.get_method_display }}</th></tr>
+      {% for code, name, value, label in d.drug_results %}
+      <tr><td>{{ name }} ({{ code }})</td>
+        {% for v in "R S I NF NA"|split %}<td class="c"><span class="chk {% if value == v %}on{% endif %}"></span></td>{% endfor %}
+        <td>{% if forloop.first and d.is_validated %}{{ d.validated_by }} · {{ d.validated_at|date:"d/m" }}{% endif %}</td></tr>
+      {% endfor %}
+    {% empty %}
+      <tr><th colspan="7" class="sub">Première ligne (SIRE + PZA) — méthode : <span class="line short"></span></th></tr>
+      {% for name in first_line_drugs %}<tr><td>{{ name }}</td>
+        {% for v in "R S I NF NA"|split %}<td class="c"><span class="chk"></span></td>{% endfor %}<td></td></tr>{% endfor %}
+    {% endfor %}
+  </table>
+  {% for d in dsts %}{% include "documents/_validation.html" with r=d %}{% endfor %}
+</div>
+{% endif %}
+
+{% if qft or 'QFT' in requested %}
+<div class="box">
+  <h3>6. QUANTIFERON-TB GOLD PLUS <span class="kind">IGRA</span></h3>
+  <div class="grid3">
+    <div><p class="field">Nil : {% if qft %}<b>{{ qft.nil }}</b>{% else %}<span class="line short"></span>{% endif %} UI/mL</p>
+      <p class="field">Mitogène : {% if qft %}<b>{{ qft.mitogen }}</b>{% else %}<span class="line short"></span>{% endif %} UI/mL</p></div>
+    <div><p class="field">TB1 : {% if qft %}<b>{{ qft.tb1 }}</b>{% else %}<span class="line short"></span>{% endif %} UI/mL</p>
+      <p class="field">TB2 : {% if qft %}<b>{{ qft.tb2 }}</b>{% else %}<span class="line short"></span>{% endif %} UI/mL</p></div>
+    <div class="subbox"><p class="field" style="margin:0">Interprétation : <b>{% if qft %}{{ qft.get_interpretation_display }}{% else %}<span class="line short"></span>{% endif %}</b></p></div>
+  </div>
+  {% include "documents/_validation.html" with r=qft %}
+</div>
+{% endif %}
+
+<div class="rule"></div>
+<div class="sign" style="grid-template-columns:1fr">
+  <div class="obs">OBSERVATIONS / COMMENTAIRES DE PAILLASSE :
+    <div class="area">{% if sample.notes or comments %}{{ sample.notes }}{% for c in comments %}{% if sample.notes or not forloop.first %} · {% endif %}{{ c }}{% endfor %}{% else %}Aucun commentaire renseigné sur la paillasse.{% endif %}</div></div>
+</div>
+{% endblock %}

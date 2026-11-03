@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Support{% endblock %}
+{% block content %}
+<div class="page-title">
+  <div class="icon"><i class="bi bi-life-preserver"></i></div>
+  <h1>Support</h1>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">Demandes de réinitialisation de mot de passe</div>
+  <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+    <thead><tr><th>Date</th><th>Identifiant saisi</th><th>Compte</th><th>Message</th><th>Statut</th><th></th></tr></thead>
+    <tbody>
+    {% for r in resets %}
+      <tr><td>{{ r.created_at|date:"d/m/Y H:i" }}</td><td>{{ r.username }}</td>
+        <td>{% if r.user %}<a href="{% url 'admin:auth_user_password_change' r.user.pk %}" title="Définir un nouveau mot de passe">{{ r.user.get_full_name|default:r.user.username }} <i class="bi bi-key"></i></a>{% else %}<span class="text-danger">compte inconnu</span>{% endif %}</td>
+        <td class="small">{{ r.message }}</td>
+        <td><span class="badge {% if r.status == 'OPEN' %}text-bg-warning{% elif r.status == 'DONE' %}text-bg-success{% else %}text-bg-secondary{% endif %}">{{ r.get_status_display }}</span>
+          {% if r.handled_by %}<div class="small text-muted">{{ r.handled_by }} · {{ r.handled_at|date:"d/m H:i" }}</div>{% endif %}</td>
+        <td class="text-end">{% if r.status == 'OPEN' %}
+          <form method="post" action="{% url 'core:support_action' 'reset' r.pk %}" class="d-inline">{% csrf_token %}
+            <button class="btn btn-sm btn-success" name="status" value="DONE">Traitée</button>
+            <button class="btn btn-sm btn-outline-secondary" name="status" value="REJECTED">Refuser</button></form>{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="6" class="text-muted text-center py-3">Aucune demande.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+  <div class="card-footer small text-muted fw-normal">Cliquer sur le compte ouvre la page de l'administration pour définir un mot de passe temporaire, puis marquer la demande « Traitée ».</div>
+</div>
+
+<div class="card">
+  <div class="card-header">Rapports de bug</div>
+  <ul class="list-group list-group-flush">
+  {% for b in bugs %}
+    <li class="list-group-item">
+      <div class="d-flex gap-2 align-items-start">
+        <div class="flex-grow-1">
+          <div class="fw-semibold">#{{ b.pk }} {{ b.title }}
+            <span class="badge {% if b.severity == 'HIGH' %}text-bg-danger{% elif b.severity == 'MEDIUM' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">{{ b.get_severity_display }}</span></div>
+          <div class="small text-muted">{{ b.created_at|date:"d/m/Y H:i" }} · {{ b.reporter|default:"—" }}{% if b.page %} · <code>{{ b.page }}</code>{% endif %}</div>
+          <div class="mt-1" style="white-space:pre-line">{{ b.description }}</div>
+          {% if b.screenshot %}<a class="small" href="{{ b.screenshot.url }}" target="_blank"><i class="bi bi-image"></i> Capture d'écran</a>{% endif %}
+        </div>
+        <form method="post" action="{% url 'core:support_action' 'bug' b.pk %}" style="min-width:260px">{% csrf_token %}
+          <select class="form-select form-select-sm mb-1" name="status">
+            {% for k, v in bug_statuses %}<option value="{{ k }}" {% if b.status == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+          </select>
+          <textarea class="form-control form-control-sm mb-1" name="response" rows="2" placeholder="Réponse visible par l'utilisateur">{{ b.response }}</textarea>
+          <button class="btn btn-sm btn-outline-primary w-100">Mettre à jour</button>
+        </form>
+      </div>
+    </li>
+  {% empty %}<li class="list-group-item text-muted">Aucun signalement.</li>{% endfor %}
+  </ul>
+</div>
+{% endblock %}

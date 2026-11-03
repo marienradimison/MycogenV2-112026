@@ -1,0 +1,80 @@
+{% extends "documents/_base.html" %}{% load lims %}
+{% block doc_class %}report{% endblock %}
+{% block head_right %}<img class="ipm-logo" src="{{ ASSET }}img/Logo_ipm.png" alt="Institut Pasteur de Madagascar">{% endblock %}
+{% block title %}Compte rendu {{ sample.code }}{% endblock %}
+{% block body %}
+<div class="doc-title">COMPTE RENDU DE RÉSULTATS</div>
+<div class="doc-sub">Seuls les résultats validés par un biologiste figurent sur ce document</div>
+
+<div class="cols two">
+  <div class="box">
+    <h3>PATIENT</h3>
+    <dl class="kv">
+      <dt>Nom :</dt><dd>{{ patient.full_name|default:"—" }}</dd>
+      <dt>ID Patient</dt><dd class="mono">{{ patient.code|default:"—" }}</dd>
+      <dt>Âge / Sexe :</dt><dd>{% if patient.age is not None %}{{ patient.age }} ans{% else %}—{% endif %} / {% if patient.sex and patient.sex != 'I' %}{{ patient.get_sex_display }}{% else %}Non renseigné{% endif %}</dd>
+      <dt>Adresse :</dt><dd>{{ patient.address|default:"—" }}</dd>
+    </dl>
+  </div>
+  <div class="box">
+    <h3>ÉCHANTILLON</h3>
+    <dl class="kv">
+      <dt>N° Échantillon :</dt><dd class="mono">{{ sample.code }}</dd>
+      <dt>Nature / Type :</dt><dd>{{ sample.type_display }}</dd>
+      <dt>Prélevé / reçu :</dt><dd>{{ sample.collected_at|date:"d/m/Y"|default:"—" }} / {{ sample.received_at|date:"d/m/Y" }}</dd>
+      <dt>Provenance :</dt><dd>{{ sample.facility.name|default:"—" }}</dd>
+      <dt>Prescripteur :</dt><dd>{{ sample.requester|default:"—" }}</dd>
+    </dl>
+  </div>
+</div>
+
+{% for a, rows in validated %}
+<div class="box">
+  <h3>{{ a.label|upper }} <span class="kind">{{ a.code }}</span></h3>
+  <table class="results">
+    {% if a.kind == 'XPERT_ULTRA' %}
+      <tr><th>Date</th><th>Détection MTB</th><th>Résistance rifampicine</th></tr>
+      {% for r in rows %}<tr><td>{{ r.test_date|date:"d/m/Y" }}</td><td class="{{ r.mtb_result|positive }}">{{ r.mtb_result|mtb_res }}</td>
+        <td class="{% if r.rif_result == 'DETECTED' %}res-pos{% endif %}">{{ r.rif_result|res_res }}</td></tr>{% endfor %}
+    {% elif a.kind == 'XPERT_XDR' %}
+      <tr><th>Date</th><th>MTB</th><th>INH</th><th>FLQ</th><th>AMK</th><th>KAN</th><th>CAP</th><th>ETH</th></tr>
+      {% for r in rows %}<tr><td>{{ r.test_date|date:"d/m/Y" }}</td><td class="{{ r.mtb_result|positive }}">{{ r.mtb_result|mtb_res }}</td>
+        {% for v in r.xdr_values %}<td class="rs {% if v == 'DETECTED' %}res-pos{% elif v == 'NOT_DETECTED' %}res-neg{% endif %}">{{ v|rs }}</td>{% endfor %}</tr>{% endfor %}
+      <tr><td colspan="8" class="legend">R : résistance détectée · S : sensible (résistance non détectée) · I : indéterminé</td></tr>
+    {% elif a.kind == 'MICROSCOPY' %}
+      <tr><th>Date</th><th>Méthode</th><th>Résultat</th></tr>
+      {% for r in rows %}<tr><td>{{ r.test_date|date:"d/m/Y" }}</td><td>{{ r.get_method_display }}</td>
+        <td class="{{ r.grade|positive }}">{{ r.get_grade_display }}{% if r.afb_count %} ({{ r.afb_count }} BAAR){% endif %}</td></tr>{% endfor %}
+    {% elif a.kind == 'CULTURE' %}
+      <tr><th>Milieu</th><th>Ensemencement</th><th>Date de résultat</th><th>Résultat</th><th>Cotation / colonies</th><th>Identification</th><th>Délai de positivité</th></tr>
+      {% for r in rows %}<tr><td>{{ r.medium }}</td><td>{{ r.inoculated_on|date:"d/m/Y" }}</td><td>{{ r.result_date|date:"d/m/Y"|default:"—" }}</td>
+        <td class="{{ r.result|positive }}">{{ r.get_result_display }}</td>
+        <td>{% if r.colony_count %}{{ r.colony_count }} colonie{{ r.colony_count|pluralize }}{% elif r.lj_grade %}{{ r.lj_grade }}{% else %}—{% endif %}</td>
+        <td>{{ r.get_identification_display|default:"—" }}</td><td>{% if r.ttp_days is not None %}{{ r.ttp_days|floatformat:"-1" }} j{% else %}—{% endif %}</td></tr>{% endfor %}
+    {% elif a.kind == 'DST' %}
+      <tr><th>Groupe</th><th>Méthode</th><th>Antibiotique</th><th>Résultat</th></tr>
+      {% for r in rows %}{% for code, name, value, label in r.drug_results %}<tr>
+        {% if forloop.first %}<td rowspan="{{ r.drug_results|length }}">{{ r.get_panel_display }}</td><td rowspan="{{ r.drug_results|length }}">{{ r.get_method_display }}</td>{% endif %}
+        <td>{{ name }} ({{ code }})</td><td class="{{ value|positive }}">{{ label }}</td></tr>{% endfor %}{% endfor %}
+    {% elif a.kind == 'NPOC' %}
+      <tr><th>Date</th><th>Test</th><th>Résultat</th></tr>
+      {% for r in rows %}<tr><td>{{ r.test_date|date:"d/m/Y" }}</td><td>{{ r.get_assay_display }}</td><td class="{{ r.mtb_result|positive }}">{{ r.get_mtb_result_display }}</td></tr>{% endfor %}
+    {% elif a.kind == 'QFT' %}
+      <tr><th>Date</th><th>Nil</th><th>TB1 − Nil</th><th>TB2 − Nil</th><th>Mitogène − Nil</th><th>Interprétation</th></tr>
+      {% for r in rows %}<tr><td>{{ r.test_date|date:"d/m/Y" }}</td><td>{{ r.nil }}</td><td>{{ r.tb1_minus_nil }}</td><td>{{ r.tb2_minus_nil }}</td><td>{{ r.mitogen_minus_nil }}</td>
+        <td class="{{ r.interpretation|positive }}">{{ r.get_interpretation_display }}</td></tr>{% endfor %}
+    {% endif %}
+  </table>
+  {% for r in rows %}{% if r.comment and 'Importé automatiquement' not in r.comment %}<div class="field" style="margin-top:5px"><i>Observation technique : {{ r.comment }}</i></div>{% endif %}{% endfor %}
+  {% for r in rows %}{% include "documents/_validation.html" %}{% endfor %}
+</div>
+{% empty %}
+<div class="box"><span class="na">Aucun résultat validé pour cet échantillon.</span></div>
+{% endfor %}
+
+{% if pending %}
+<div class="pending-list">Analyses en cours : {% for a in pending %}{{ a.code }}{% if not forloop.last %}, {% endif %}{% endfor %}.</div>
+{% endif %}
+
+<div class="doc-foot"><span>Édité le {{ now|date:"d/m/Y à H:i" }} — MYCOGEN</span><span>N° {{ sample.code }}</span></div>
+{% endblock %}

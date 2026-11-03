@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Mot de passe oublié{% endblock %}
+{% block body %}
+<div class="login-wrap">
+  <div class="card login-card shadow-lg border-0">
+    <div class="card-body p-4 p-md-5">
+      <div class="text-center mb-4">
+        <img src="{% static 'img/Mycogen_main_logo.png' %}" alt="" style="width:90px">
+        <h1 class="h5 fw-bold mt-2 mb-0">Mot de passe oublié</h1>
+      </div>
+      {% if sent %}
+        <div class="alert alert-success small">Votre demande a été transmise à l'administrateur de {{ LAB_NAME }}. Il vous communiquera un mot de passe temporaire.</div>
+      {% else %}
+        <p class="small text-muted">Indiquez votre identifiant : un administrateur vous attribuera un nouveau mot de passe temporaire.</p>
+        <form method="post" novalidate>{% csrf_token %}
+          {% for f in form %}<div class="mb-3"><label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{{ f.errors }}</div>{% endfor %}
+          <button class="btn btn-primary w-100">Envoyer la demande</button>
+        </form>
+      {% endif %}
+      <div class="text-center mt-3"><a class="small" href="{% url 'login' %}">← Retour à la connexion</a></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

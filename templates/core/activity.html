@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Journal d'activité{% endblock %}
+{% block content %}
+<div class="page-title">
+  <div class="icon"><i class="bi bi-clock-history"></i></div>
+  <h1>Journal d'activité</h1>
+  <span class="small text-muted">300 dernières actions</span>
+</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Type</th><th>Objet</th><th>Modifications</th></tr></thead>
+      <tbody>
+      {% for l in logs %}
+        <tr><td class="text-nowrap">{{ l.timestamp|date:"d/m/Y H:i:s" }}</td><td>{{ l.user|default:"—" }}</td>
+          <td><span class="badge text-bg-{% if l.action == 'DELETE' %}danger{% elif l.action == 'VALIDATE' %}success{% elif l.action == 'CREATE' %}primary{% else %}secondary{% endif %}">{{ l.get_action_display }}</span></td>
+          <td>{{ l.model }}</td><td>{{ l.object_repr }}</td>
+          <td class="small text-muted">{% for k, v in l.changes.items %}{{ k }} → {{ v }}{% if not forloop.last %} ; {% endif %}{% endfor %}</td></tr>
+      {% empty %}<tr><td colspan="6" class="text-center text-muted py-3">Aucune activité.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

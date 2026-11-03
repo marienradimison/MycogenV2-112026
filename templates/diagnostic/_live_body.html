@@ -1,0 +1,92 @@
+{% load lims %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-xl"><div class="card stat"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ stats.running }}</div><div class="label">Tests en cours</div></div>
+    <i class="bi bi-hourglass-split ico"></i></div></div></div>
+  <div class="col-6 col-xl"><div class="card stat"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ stats.today }}</div><div class="label">Tests aujourd'hui</div></div>
+    <i class="bi bi-calendar-check ico"></i></div></div></div>
+  <div class="col-6 col-xl"><div class="card stat accent"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ stats.positive }}</div><div class="label">MTB détecté (jour)</div></div>
+    <i class="bi bi-plus-circle ico"></i></div>
+    {% if stats.rr is not None %}<div class="small text-muted mt-1"><span class="text-danger fw-semibold">{{ stats.rr }}</span> résistance RIF</div>{% endif %}</div></div>
+  <div class="col-6 col-xl"><div class="card stat"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ stats.failed }}</div><div class="label">Erreurs / invalides (jour)</div></div>
+    <i class="bi bi-exclamation-triangle ico"></i></div></div></div>
+  <div class="col-6 col-xl"><a class="card stat stat-link green" href="{% url 'core:validation' %}?analyse={{ module }}"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ stats.to_validate }}</div><div class="label">À valider</div></div>
+    <i class="bi bi-patch-check ico"></i></div></a></div>
+</div>
+
+{% if stats.unmatched %}
+<div class="alert alert-warning py-2 d-flex align-items-center">
+  <i class="bi bi-inbox me-2"></i> {{ stats.unmatched }} message(s) d'appareil à traiter (échantillon inconnu ou format non reconnu).
+  <a class="ms-auto" href="{% url 'instruments:message_list' %}?status=todo">Voir les messages</a>
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-xxl-7">
+    {% for i in instruments %}
+    <div class="card mb-3">
+      <div class="card-header d-flex align-items-center gap-2">
+        <span class="status-dot {% if i.online %}on{% endif %}"></span>
+        <a href="{{ i.obj.get_absolute_url }}">{{ i.obj.name }}</a>
+        <span class="small text-muted fw-normal">{% if i.obj.room %}Salle {{ i.obj.room.number }}{% endif %}{% if i.obj.serial_number %} · S/N {{ i.obj.serial_number }}{% endif %}</span>
+        <span class="ms-auto small fw-normal text-muted">{% if i.online %}connecté{% else %}dernière communication : {{ i.obj.last_seen|date:"d/m H:i"|default:"jamais" }}{% endif %} · {{ i.today }} résultat(s) aujourd'hui</span>
+      </div>
+      <div class="card-body">
+        {% for r in i.running %}
+          <div class="run-row">
+            <div class="d-flex align-items-baseline gap-2">
+              {% if r.sample %}<a class="fw-semibold mono" href="{{ r.sample.get_absolute_url }}">{{ r.ref }}</a>
+                <span class="small text-muted">{{ r.sample.patient.full_name|default:"" }}</span>
+              {% else %}<span class="fw-semibold mono">{{ r.ref }}</span> <span class="badge text-bg-warning">inconnu de MYCOGEN</span>{% endif %}
+              <span class="ms-auto small {% if r.late %}text-danger fw-semibold{% else %}text-muted{% endif %}">
+                démarré {{ r.started|date:"H:i" }} · {{ r.elapsed }} min{% if r.late %} · dépassement{% elif r.overdue %} · résultat attendu{% else %} · fin prévue ≈ {{ r.end|date:"H:i" }}{% endif %}</span>
+            </div>
+            <div class="progress mt-1" role="progressbar" aria-valuenow="{{ r.progress }}" aria-valuemin="0" aria-valuemax="100" style="height:8px">
+              <div class="progress-bar {% if r.late %}bg-danger{% else %}progress-bar-striped progress-bar-animated{% endif %}" style="width:{{ r.progress }}%"></div>
+            </div>
+          </div>
+        {% empty %}
+          <div class="text-muted small"><i class="bi bi-moon"></i> Aucun test en cours sur cet appareil.</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% empty %}
+    <div class="card mb-3"><div class="card-body text-muted">
+      <i class="bi bi-hdd-network fs-4 d-block mb-1"></i>
+      Aucun appareil {{ cfg.title }} n'est encore configuré. Le suivi en temps réel s'affichera dès qu'un appareil sera connecté
+      {% if perms.instruments.add_instrument %}(<a href="{% url 'instruments:instrument_create' %}?kind={{ cfg.kind }}">déclarer un appareil</a>){% endif %}.
+    </div></div>
+    {% endfor %}
+    {% if module == 'npoc' and instruments %}
+      <div class="small text-muted">Le Pluslife transmet ses résultats par fichiers d'export : seuls les tests annoncés par l'appareil apparaissent « en cours ».</div>
+    {% endif %}
+  </div>
+
+  <div class="col-xxl-5">
+    <div class="card">
+      <div class="card-header d-flex">Derniers résultats <a class="ms-auto small fw-normal" href="{% url cfg.list %}">Tous les tests</a></div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle mb-0">
+          <thead><tr><th>Échantillon</th><th>Test</th><th>Résultat</th><th>Statut</th></tr></thead>
+          <tbody>
+          {% for t in recent %}
+            <tr data-href="{{ t.get_absolute_url }}">
+              <td><a class="fw-semibold mono" href="{{ t.get_absolute_url }}">{{ t.sample.code }}</a>
+                <div class="small text-muted">{{ t.sample.patient.full_name|default:"" }} · {{ t.test_date|date:"d/m" }}</div></td>
+              <td>{% if module == 'genexpert' %}<span class="code-badge">{% if t.assay == 'XDR' %}GNX-XDR{% else %}GNX-RIF{% endif %}</span>{% else %}<span class="code-badge">NPOC</span>{% endif %}</td>
+              <td>{% cell t "mtb_result" %}{% if module == 'genexpert' and t.assay == 'ULTRA' and t.rif_result != 'NA' %}<div class="small">RIF : {{ t.get_rif_result_display|lower }}</div>{% endif %}</td>
+              <td>{% cell t "result_status" %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" class="text-muted text-center py-3">Aucun test enregistré.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

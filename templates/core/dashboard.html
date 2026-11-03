@@ -1,0 +1,160 @@
+{% extends "base.html" %}{% load static lims %}
+{% block title %}Tableau de bord{% endblock %}
+{% block content %}
+<div class="page-title">
+  <div class="icon"><i class="bi bi-speedometer2"></i></div>
+  <h1>Tableau de bord</h1>
+  <div class="ms-auto d-flex gap-2">
+    {% if perms.core.add_sample %}<a class="btn btn-sm btn-primary" href="{% url 'core:register' %}"><i class="bi bi-plus-lg"></i> Enregistrer un échantillon</a>{% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  {% with s=stats %}
+  <div class="col-6 col-xl-3"><a class="card stat stat-link" href="{% url 'core:sample_list' %}"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ s.samples_today }}</div><div class="label">Échantillons aujourd'hui</div></div>
+    <i class="bi bi-droplet ico"></i></div><div class="small text-muted mt-1">{{ s.samples_week }} cette semaine · {{ s.samples_open }} en cours</div></a></div>
+  <div class="col-6 col-xl-3"><a class="card stat stat-link accent" href="{% url 'diagnostic:genexpert_list' %}"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ s.xpert_pos }}<span class="fs-6 text-muted"> / {{ s.xpert_year }}</span></div><div class="label">Xpert MTB+ (année)</div></div>
+    <i class="bi bi-cpu ico"></i></div><div class="small text-muted mt-1"><span class="text-danger fw-semibold">{{ s.rr }}</span> résistance RIF détectée</div></a></div>
+  <div class="col-6 col-xl-3"><a class="card stat stat-link" href="{% url 'diagnostic:microscopy_list' %}"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ s.micro_pos }}<span class="fs-6 text-muted"> / {{ s.micro_year }}</span></div><div class="label">Microscopies BAAR+ (année)</div></div>
+    <i class="bi bi-eye ico"></i></div><div class="small text-muted mt-1">{{ s.micro_today }} aujourd'hui · FM {{ s.micro_fm }} · ZN {{ s.micro_zn }}</div></a></div>
+  <div class="col-6 col-xl-3"><a class="card stat stat-link green" href="{% url 'diagnostic:culture_list' %}?result=PENDING"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ s.cultures_running }}</div><div class="label">Cultures en cours</div></div>
+    <i class="bi bi-moisture ico"></i></div><div class="small text-muted mt-1">{{ s.patients }} patients enregistrés</div></a></div>
+  {% endwith %}
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-8">
+    <div class="card mb-3">
+      <div class="card-header">Échantillons reçus — 30 derniers jours</div>
+      <div class="card-body"><canvas id="chart" height="95"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-header d-flex align-items-center">
+        <i class="bi bi-diagram-3 me-2 text-secondary"></i> Organigramme de l'Unité des Mycobactéries
+        <button class="btn btn-sm btn-link ms-auto" data-bs-toggle="modal" data-bs-target="#orgModal"><i class="bi bi-arrows-fullscreen"></i> Agrandir</button>
+      </div>
+      <div class="card-body p-2">
+        <img class="org-chart" src="{% static 'img/organigramme_2026.webp' %}" alt="Organigramme de l'Unité des Mycobactéries 2026"
+             data-bs-toggle="modal" data-bs-target="#orgModal">
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header"><i class="bi bi-newspaper me-1"></i> Actualités scientifiques — tuberculose</div>
+      <div class="row g-0 news-list">
+        {% for a in news %}
+          <div class="col-md-4 news-item">
+            <span class="badge text-bg-light border mb-1">{{ a.get_source_display }}</span>
+            <a class="news-title" href="{{ a.url }}" target="_blank" rel="noopener noreferrer">{{ a.title }}</a>
+            <div class="small text-muted mt-1">{{ a.publisher }}{% if a.published %} · {{ a.published|date:"d/m/Y" }}{% endif %}</div>
+            {% if a.summary %}<div class="small text-muted mt-1 news-summary">{{ a.summary }}</div>{% endif %}
+          </div>
+        {% empty %}
+          <div class="col-12 news-item small text-muted">Les actualités de la semaine sont en cours de récupération
+            (connexion Internet du serveur requise). Revenez dans quelques minutes.</div>
+        {% endfor %}
+      </div>
+      <div class="card-footer small text-muted fw-normal">3 sélections par semaine · PubMed, OMS, presse scientifique</div>
+    </div>
+  </div>
+
+  <div class="col-xl-4">
+    {% if pending %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-patch-exclamation me-1"></i> Résultats en attente de validation</div>
+      <ul class="list-group list-group-flush">
+        {% for crud, n in pending %}
+          <li class="list-group-item d-flex"><a href="{% crud_url crud 'list' %}?result_status=DRAFT">{{ crud.title }}</a>
+            <span class="badge text-bg-warning ms-auto">{{ n }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="card hot-card mb-3">
+      <div class="card-header d-flex align-items-center">
+        <span class="hot-title"><i class="bi bi-fire"></i> Chaud Chaud Chaud!!!</span>
+        <a class="small ms-auto fw-normal" href="{% url 'feed:archive' %}">Tout voir</a>
+      </div>
+      <form id="hot-compose" class="hot-compose" action="{% url 'feed:create' %}" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="hidden" name="kind" value="MESSAGE">
+        <div class="hot-kinds btn-group btn-group-sm mb-2" role="group">
+          <button type="button" class="btn btn-outline-secondary active" data-kind="MESSAGE"><i class="bi bi-chat-text"></i> Message</button>
+          <button type="button" class="btn btn-outline-secondary" data-kind="POLL"><i class="bi bi-bar-chart"></i> Sondage</button>
+          <button type="button" class="btn btn-outline-secondary" data-kind="CHALLENGE"><i class="bi bi-puzzle"></i> Challenge</button>
+        </div>
+        <div class="d-flex gap-2">
+          {% avatar user 34 %}
+          <textarea class="form-control form-control-sm" name="text" rows="2" maxlength="3000" required
+                    placeholder="Une info urgente à partager, {{ user.first_name|default:user.username }} ?"
+                    data-placeholders='{"MESSAGE": "Une info urgente à partager, {{ user.first_name|default:user.username|escapejs }} ?", "POLL": "La question du sondage…", "CHALLENGE": "Énigme, jeu de mots, devinette…"}'></textarea>
+        </div>
+        <div class="compose-extra" data-for="POLL" hidden>
+          <div class="poll-inputs">
+            <input class="form-control form-control-sm mt-1" name="option" maxlength="150" placeholder="Choix 1">
+            <input class="form-control form-control-sm mt-1" name="option" maxlength="150" placeholder="Choix 2">
+          </div>
+          <button type="button" class="btn btn-link btn-sm p-0 add-option"><i class="bi bi-plus"></i> Ajouter un choix</button>
+        </div>
+        <div class="compose-extra row g-1 mt-1" data-for="CHALLENGE" hidden>
+          <div class="col-sm-6"><input class="form-control form-control-sm" name="answer" maxlength="200" placeholder="Réponse attendue (cachée)"></div>
+          <div class="col-sm-6"><input class="form-control form-control-sm" name="hint" maxlength="200" placeholder="Indice (facultatif)"></div>
+          <div class="col-12 small text-muted">Accents, majuscules et ponctuation ne comptent pas dans la vérification.</div>
+        </div>
+        <div class="d-flex align-items-center gap-2 mt-2">
+          <label class="btn btn-sm btn-light mb-0" title="Ajouter une photo"><i class="bi bi-image"></i>
+            <input type="file" name="photo" accept="image/*" hidden></label>
+          <span class="file-name small text-muted text-truncate" style="max-width:120px"></span>
+          <div class="form-check form-switch mb-0 ms-auto small">
+            <input class="form-check-input" type="checkbox" role="switch" id="hot-urgent" name="priority" value="URGENT">
+            <label class="form-check-label text-danger" for="hot-urgent">Urgent</label>
+          </div>
+          <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-send"></i> Publier</button>
+        </div>
+        <div class="compose-error small text-danger mt-1"></div>
+      </form>
+      <div id="hot-feed" class="hot-feed" data-url="{% url 'feed:feed' %}" data-state-url="{% url 'feed:state' %}">
+        <div class="text-center text-muted small py-3"><span class="spinner-border spinner-border-sm"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="orgModal" tabindex="-1" aria-label="Organigramme">
+  <div class="modal-dialog modal-fullscreen">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title">Organigramme de l'Unité des Mycobactéries — 2026</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+      </div>
+      <div class="modal-body d-flex align-items-center justify-content-center p-2" style="background:#e6f7fa">
+        <img src="{% static 'img/organigramme_2026.webp' %}" alt="" style="max-width:100%;max-height:100%;object-fit:contain">
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{{ chart_labels|json_script:"labels" }}{{ chart_values|json_script:"values" }}
+<script>
+const dark = document.documentElement.dataset.bsTheme === 'dark';
+Chart.defaults.font.family = '"Creato Display", "Segoe UI", sans-serif';
+Chart.defaults.color = dark ? '#8fa9b3' : '#5f7680';
+new Chart(document.getElementById('chart'), {
+  type: 'bar',
+  data: {labels: JSON.parse(document.getElementById('labels').textContent),
+         datasets: [{label: 'Échantillons', data: JSON.parse(document.getElementById('values').textContent),
+                     backgroundColor: '#6eafc4', borderRadius: 4}]},
+  options: {plugins: {legend: {display: false}}, scales: {
+            y: {beginAtZero: true, ticks: {precision: 0}, grid: {color: dark ? '#24414c' : '#e3e9ec'}},
+            x: {grid: {display: false}}}}
+});
+</script>
+<script src="{% static 'js/hotfeed.js' %}?v={{ V }}"></script>
+{% endblock %}

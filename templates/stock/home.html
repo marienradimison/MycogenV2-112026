@@ -1,0 +1,84 @@
+{% extends "base.html" %}{% load lims %}
+{% block title %}Stock{% endblock %}
+{% block content %}
+<div class="page-title">
+  <div class="icon"><i class="bi bi-boxes"></i></div>
+  <div><div class="small text-muted">Stock</div><h1>Stock du laboratoire</h1></div>
+  <div class="ms-auto d-flex gap-2">
+    {% if perms.stock.add_lot %}<a class="btn btn-sm btn-outline-primary" href="{% url 'stock:lot_create' %}"><i class="bi bi-box-arrow-in-down"></i> Réception d'un lot</a>{% endif %}
+    {% if perms.stock.add_article %}<a class="btn btn-sm btn-outline-primary" href="{% url 'stock:article_create' %}"><i class="bi bi-plus-lg"></i> Article</a>{% endif %}
+  </div>
+</div>
+{% include "generic/_tabs.html" %}
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-xl"><a class="card stat stat-link" href="{% url 'stock:article_list' %}"><div class="value">{{ stats.articles }}</div><div class="label">Articles suivis</div></a></div>
+  <div class="col-6 col-xl"><div class="card stat accent"><div class="value">{{ stats.low }}</div><div class="label">Sous le seuil / épuisés</div></div></div>
+  <div class="col-6 col-xl"><div class="card stat accent"><div class="value">{{ stats.expired }}</div><div class="label">Lots périmés en stock</div></div></div>
+  <div class="col-6 col-xl"><div class="card stat"><div class="value">{{ stats.soon }}</div><div class="label">Péremption ≤ {{ warn_days }} j</div></div></div>
+  <div class="col-6 col-xl"><a class="card stat stat-link green" href="{% url 'stock:movement_list' %}?kind=OUT"><div class="value">{{ stats.month_out }}</div><div class="label">Sorties ce mois-ci</div></a></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-8">
+    <div class="card mb-3 {% if alerts.low %}border-danger{% endif %}">
+      <div class="card-header d-flex"><i class="bi bi-exclamation-octagon text-danger me-2"></i>Articles sous le seuil d'alerte
+        <span class="badge ms-auto {% if alerts.low %}text-bg-danger{% else %}text-bg-light border{% endif %}">{{ alerts.low|length }}</span></div>
+      {% if alerts.low %}
+      <div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+        <thead><tr><th>Article</th><th>Catégorie</th><th>Disponible</th><th>Seuil</th><th>Fournisseur</th></tr></thead>
+        <tbody>{% for a in alerts.low %}
+          <tr data-href="{{ a.get_absolute_url }}"><td><a class="fw-semibold" href="{{ a.get_absolute_url }}">{{ a.name }}</a><div class="small text-muted">{{ a.reference }}</div></td>
+            <td>{{ a.get_category_display }}</td>
+            <td class="fw-semibold {% if a.level == 'out' %}text-danger{% else %}text-warning-emphasis{% endif %}">{{ a.quantity|floatformat:"-2" }} {{ a.get_unit_display }}</td>
+            <td>{{ a.min_stock|floatformat:"-2" }}</td><td class="small">{{ a.supplier }}</td></tr>
+        {% endfor %}</tbody></table></div>
+      {% else %}<div class="card-body small text-muted"><i class="bi bi-check2-circle text-success"></i> Tous les articles sont au-dessus de leur seuil.</div>{% endif %}
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header d-flex"><i class="bi bi-calendar-x me-2 text-warning"></i>Péremptions (lots encore en stock)
+        <span class="badge ms-auto text-bg-light border">{{ stats.expired|add:stats.soon }}</span></div>
+      {% if alerts.expired or alerts.soon %}
+      <div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+        <thead><tr><th>Article</th><th>Lot</th><th>Péremption</th><th>Restant</th><th></th></tr></thead>
+        <tbody>{% for l in alerts.expired %}
+          <tr data-href="{{ l.get_absolute_url }}"><td>{{ l.article.name }}</td><td class="mono">{{ l.lot_number }}</td>
+            <td class="text-danger fw-semibold">{{ l.expiry_date|date:"d/m/Y" }}</td><td>{{ l.remaining|floatformat:"-2" }} {{ l.unit_label }}</td>
+            <td><span class="badge text-bg-danger">Périmé</span></td></tr>
+        {% endfor %}{% for l in alerts.soon %}
+          <tr data-href="{{ l.get_absolute_url }}"><td>{{ l.article.name }}</td><td class="mono">{{ l.lot_number }}</td>
+            <td class="text-warning-emphasis fw-semibold">{{ l.expiry_date|date:"d/m/Y" }}</td><td>{{ l.remaining|floatformat:"-2" }} {{ l.unit_label }}</td>
+            <td><span class="badge text-bg-warning">Bientôt</span></td></tr>
+        {% endfor %}</tbody></table></div>
+      {% else %}<div class="card-body small text-muted"><i class="bi bi-check2-circle text-success"></i> Aucun lot périmé ni proche de la péremption.</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="col-xl-4">
+    {% if can_move %}
+    <form method="post" class="card mb-3 lims-form" novalidate>{% csrf_token %}
+      <div class="card-header"><i class="bi bi-box-arrow-up me-1"></i> Sortie rapide</div>
+      <div class="card-body">
+        {% for f in form %}{% if f.name in "lot kind quantity destination" %}
+          <div class="mb-2"><label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}
+            {% for e in f.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}</div>
+        {% else %}{{ f.as_hidden }}{% endif %}{% endfor %}
+        <div class="form-text">Les lots sont proposés du plus proche de la péremption au plus lointain (FEFO).</div>
+      </div>
+      <div class="card-footer"><button class="btn btn-primary w-100"><i class="bi bi-check-lg"></i> Enregistrer</button></div>
+    </form>
+    {% endif %}
+    <div class="card">
+      <div class="card-header d-flex">Derniers mouvements <a class="ms-auto small fw-normal" href="{% url 'stock:movement_list' %}">Tout voir</a></div>
+      <ul class="list-group list-group-flush small">
+        {% for m in recent %}
+          <li class="list-group-item"><span class="text-muted">{{ m.date|date:"d/m" }}</span>
+            <b class="{% if m.signed < 0 %}text-danger{% else %}text-success{% endif %}">{% if m.signed > 0 %}+{% endif %}{{ m.signed|floatformat:"-2" }}</b>
+            {{ m.lot.article.name }} <span class="text-muted">· {{ m.get_kind_display|lower }}{% if m.destination %} · {{ m.destination }}{% endif %}</span></li>
+        {% empty %}<li class="list-group-item text-muted">Aucun mouvement.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}

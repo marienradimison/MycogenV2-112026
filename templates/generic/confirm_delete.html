@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Supprimer {{ object }}{% endblock %}
+{% block content %}
+<div class="card border-danger" style="max-width:560px">
+  <div class="card-body">
+    <h5 class="card-title text-danger"><i class="bi bi-exclamation-triangle"></i> Confirmer la suppression</h5>
+    <p>Supprimer définitivement <strong>{{ object }}</strong> ? Cette action est tracée dans le journal d'activité et ne peut pas être annulée.</p>
+    <form method="post">{% csrf_token %}
+      <button class="btn btn-danger">Supprimer</button>
+      <a class="btn btn-light" href="{{ object.get_absolute_url }}">Annuler</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "base.html" %}{% load lims %}
+{% block title %}Message automate #{{ msg.pk }}{% endblock %}
+{% block content %}
+<div class="page-title">
+  {% url 'instruments:message_list' as list_url %}{% include "generic/_back.html" with fallback=list_url %}
+  <div class="icon"><i class="bi bi-envelope-paper"></i></div>
+  <div>
+    <div class="small text-muted"><a href="{% url 'instruments:message_list' %}">Messages des automates</a></div>
+    <h1>{{ msg.instrument.name }} · {{ msg.get_kind_display }} · {{ msg.sample_ref|default:"?" }}</h1>
+  </div>
+  <span class="ms-2">{% cell msg "status" %}</span>
+</div>
+<div class="row g-3">
+  <div class="col-xl-5">
+    <div class="card mb-3"><div class="card-body">
+      <dl class="row details mb-0">
+        <dt class="col-5">Reçu le</dt><dd class="col-7">{{ msg.received_at|date:"d/m/Y H:i:s" }}</dd>
+        <dt class="col-5">Automate</dt><dd class="col-7"><a href="{{ msg.instrument.get_absolute_url }}">{{ msg.instrument }}</a></dd>
+        <dt class="col-5">ID échantillon reçu</dt><dd class="col-7">{{ msg.sample_ref|default:"—" }}</dd>
+        <dt class="col-5">Échantillon Mycogen</dt><dd class="col-7">{% if msg.sample %}<a href="{{ msg.sample.get_absolute_url }}">{{ msg.sample }}</a>{% else %}—{% endif %}</dd>
+        <dt class="col-5">Résumé</dt><dd class="col-7">{{ msg.summary|default:"—" }}</dd>
+        {% if msg.detail %}<dt class="col-5">Détail</dt><dd class="col-7 text-danger">{{ msg.detail }}</dd>{% endif %}
+        {% with r=msg.result %}{% if r %}<dt class="col-5">Résultat créé</dt><dd class="col-7"><a href="{{ r.get_absolute_url }}">{{ r }}</a> {% cell r "result_status" %}</dd>{% endif %}{% endwith %}
+      </dl>
+    </div></div>
+    {% if perms.instruments.change_instrumentmessage and msg.kind == 'RESULT' and msg.status != 'IMPORTED' %}
+    <div class="card"><div class="card-header">Traiter ce message</div><div class="card-body">
+      <form method="post" action="{% url 'instruments:message_action' msg.pk %}" class="mb-3">{% csrf_token %}
+        <label class="form-label">Associer à l'échantillon (code Mycogen)</label>
+        <div class="input-group">
+          <input class="form-control" name="sample_code" placeholder="26-0001" required>
+          <button class="btn btn-primary" name="action" value="assign">Associer et importer</button>
+        </div>
+        <div class="form-text">Ex. ID mal saisi sur l'automate. Le résultat sera créé au statut « Saisi » pour validation.</div>
+      </form>
+      <form method="post" action="{% url 'instruments:message_action' msg.pk %}" class="d-flex gap-2">{% csrf_token %}
+        <button class="btn btn-sm btn-outline-primary" name="action" value="retry"><i class="bi bi-arrow-repeat"></i> Réessayer l'import</button>
+        <button class="btn btn-sm btn-outline-secondary" name="action" value="ignore"><i class="bi bi-eye-slash"></i> Ignorer</button>
+      </form>
+    </div></div>
+    {% endif %}
+  </div>
+  <div class="col-xl-7">
+    <div class="card"><div class="card-header">Message brut</div>
+      <pre class="card-body small mb-0" style="white-space:pre-wrap">{% for line in raw_lines %}{{ line }}
+{% endfor %}</pre>
+    </div>
+  </div>
+</div>
+{% endblock %}

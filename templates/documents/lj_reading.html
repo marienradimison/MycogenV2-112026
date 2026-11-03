@@ -1,0 +1,49 @@
+{% extends "documents/_base.html" %}
+{% block title %}Fiche de lecture d'étuve — {% if reading %}{{ reading.date|date:"d/m/Y" }}{% else %}à remplir{% endif %}{% endblock %}
+{% block head_right %}<img class="ipm-logo" src="{{ ASSET }}img/Logo_ipm.png" alt="">{% endblock %}
+{% block body %}
+<div class="doc-title">FICHE DE LECTURE D'ÉTUVE — CULTURE LJ</div>
+{% if reading %}
+<div class="doc-sub">Lecture du {{ reading.date|date:"l d F Y" }}{% if reading.incubator %} · {{ reading.incubator.name }}{% endif %}
+  · Lecteur : {{ reading.operator.get_full_name|default:reading.operator }} · {{ entries|length }} culture(s) lue(s)</div>
+
+<table class="results summary-table">
+  <tr>{% for title, cls, rows in sections %}<th>{{ title }}</th>{% endfor %}<th>Tubes jetés</th><th>Restent en étuve</th></tr>
+  <tr>{% for title, cls, rows in sections %}<td class="num">{{ rows|length }}</td>{% endfor %}<td class="num">{{ discarded|length }}</td><td class="num">{{ remaining|length }}</td></tr>
+</table>
+
+<table class="results reading-sheet">
+  <tr><th>#</th><th>N° échantillon</th><th>Patient</th><th>Ensemencé le</th><th>Âge</th><th>Tube 1</th><th>Tube 2</th><th>Test SD</th><th>Décision</th></tr>
+  {% for e in entries %}
+  <tr class="dec-{{ e.action|lower }}">
+    <td>{{ forloop.counter }}</td><td class="mono">{{ e.culture.sample.code }}</td><td>{{ e.culture.sample.patient.full_name|default:"—" }}</td>
+    <td>{{ e.culture.inoculated_on|date:"d/m/Y" }}</td><td>{{ e.age_days }} j</td>
+    <td>{{ e.get_tube1_display|default:"—" }}</td><td>{{ e.get_tube2_display|default:"—" }}</td>
+    <td>{{ e.get_sd_test_display|default:"—" }}</td>
+    <td><b>{{ e.get_action_display }}</b>{% if e.discarded_tubes %} <span class="na">(tube{{ e.discarded_tubes|length|pluralize }} {{ e.discarded_tubes }} jeté{{ e.discarded_tubes|length|pluralize }})</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% if reading.notes %}<div class="field"><b>Remarques :</b> {{ reading.notes }}</div>{% endif %}
+{% else %}
+<div class="doc-sub">Fiche à remplir lors de la lecture · {{ entries|length }} culture(s) en étuve au {{ now|date:"d/m/Y" }}
+  · Date de lecture : ____ / ____ / ________ · Lecteur : ______________________</div>
+<table class="results reading-sheet blank">
+  <tr><th>#</th><th>N° échantillon</th><th>Ensemencé le</th><th>Âge</th><th>Tube 1<br><small>RAS · P · C</small></th><th>Tube 2<br><small>RAS · P · C</small></th><th>Test SD<br><small>+ / −</small></th><th>Sortie</th></tr>
+  {% for c in entries %}
+  <tr><td>{{ forloop.counter }}</td><td class="mono">{{ c.sample.code }}</td><td>{{ c.inoculated_on|date:"d/m/Y" }}</td>
+    <td>{{ c.age_days }} j{% if c.age_days >= 90 %} <b>≥ 90</b>{% endif %}</td>
+    {% for t in c.sheet_tubes %}<td>{% if t %}{% if t.active %}☐ &nbsp;☐ &nbsp;☐{% if t.status == 'GROWTH' %} <span class="na">(pousse)</span>{% endif %}{% else %}<span class="na">{{ t.get_status_display }}</span>{% endif %}{% else %}—{% endif %}</td>{% endfor %}
+    <td>{% if c.growth_on %}☐ + &nbsp;☐ −{% else %}<span class="na">—</span>{% endif %}</td><td>☐</td></tr>
+  {% endfor %}
+</table>
+<div class="field" style="margin-top:6px"><span class="na">RAS = pas de pousse · P = pousse · C = contaminé (tube jeté)</span></div>
+{% endif %}
+
+<div class="sign" style="margin-top:12px">
+  <div class="obs">OBSERVATIONS :<div class="area"></div></div>
+  <div class="who">LECTEUR<div class="name">{% if reading %}{{ reading.operator.get_full_name|default:reading.operator }}{% endif %}</div><div class="visa">VISA &amp; DATE</div></div>
+  <div class="who">BIOLOGISTE<div class="name"></div><div class="visa">VISA &amp; DATE</div></div>
+</div>
+<div class="doc-foot"><span>Édité le {{ now|date:"d/m/Y à H:i" }} — MYCOGEN</span><span>{% if reading %}Lecture n° {{ reading.pk }}{% else %}Fiche vierge{% endif %}</span></div>
+{% endblock %}

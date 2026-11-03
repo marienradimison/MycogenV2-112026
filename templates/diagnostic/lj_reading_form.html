@@ -1,0 +1,94 @@
+{% extends "base.html" %}{% load lims %}
+{% block title %}Culture LJ — lecture d'étuve{% endblock %}
+{% block content %}
+{% include "diagnostic/_lj_header.html" %}
+<form method="post" id="reading-form">{% csrf_token %}
+  <div class="card mb-3">
+    <div class="card-body row g-3 align-items-end">
+      <div class="col-md-3"><label class="form-label">Date de lecture</label>
+        <input class="form-control" type="date" name="date" value="{{ date|date:'Y-m-d' }}" required></div>
+      <div class="col-md-4"><label class="form-label">Étuve</label>
+        <select class="form-select" name="incubator"><option value="">— toutes —</option>
+          {% for i in incubators %}<option value="{{ i.pk }}">{{ i.name }}{% if i.room %} (salle {{ i.room.number }}){% endif %}</option>{% endfor %}</select></div>
+      <div class="col-md-5 small text-muted">
+        Laisser « — » pour un tube sans observation particulière. Une pousse déclenche le test SD ;
+        au-delà de {{ neg_days }} j sans pousse, la sortie négative est proposée (case cochée).</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header d-flex align-items-center">{{ cultures|length }} culture(s) en étuve
+      <div class="ms-auto d-flex gap-2 small fw-normal">
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'diagnostic:lj_blank_sheet' %}"><i class="bi bi-printer"></i> Fiche de lecture vierge</a>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="all-nogrowth">Tout « pas de pousse »</button>
+      </div></div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0 reading-table">
+        <thead><tr><th>N° échantillon</th><th>Âge</th><th>Tube 1</th><th>Tube 2</th><th>Test SD</th><th>Sortie négative</th><th>Décision prévue</th></tr></thead>
+        <tbody>
+        {% for c in cultures %}
+          <tr data-culture="{{ c.pk }}" data-age="{{ c.age_days }}" data-growth="{% if c.growth_on %}1{% endif %}">
+            <td><a class="mono fw-semibold" href="{{ c.get_absolute_url }}" target="_blank">{{ c.sample.code }}</a>
+              <div class="small text-muted">{{ c.sample.patient.full_name|default:"" }}</div></td>
+            <td><span class="fw-semibold">{{ c.age_days }} j</span><div class="small text-muted">{{ c.inoculated_on|date:"d/m/y" }}</div></td>
+            {% for n in "12" %}{% with t=c.active_tubes|get_item:n %}
+            <td>{% if t and t.active %}
+                <select class="form-select form-select-sm obs" name="t{{ n }}_{{ c.pk }}">
+                  <option value="">{% if t.status == 'GROWTH' %}Pousse (déjà notée){% else %}—{% endif %}</option>
+                  {% for v, l in obs_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+                </select>
+              {% elif t %}{% include "diagnostic/_tube.html" %}{% else %}—{% endif %}</td>
+            {% endwith %}{% endfor %}
+            <td><select class="form-select form-select-sm sd" name="sd_{{ c.pk }}" {% if not c.growth_on %}disabled{% endif %}>
+                <option value="">—</option>{% for v, l in sd_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></td>
+            <td class="text-center">{% if c.age_days >= neg_days %}<input class="form-check-input neg" type="checkbox" name="neg_{{ c.pk }}" {% if c.suggest_negative %}checked{% endif %}>{% else %}<span class="small text-muted">{{ neg_days|add:0 }} j</span>{% endif %}</td>
+            <td><span class="decision small"></span></td>
+          </tr>
+        {% empty %}<tr><td colspan="7" class="text-center text-muted py-4">Aucune culture en étuve.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if cultures %}
+    <div class="card-body border-top">
+      <label class="form-label">Remarques de lecture</label>
+      <textarea class="form-control" name="notes" rows="2" placeholder="Ex. température de l'étuve, incidents…"></textarea>
+    </div>
+    <div class="card-footer d-flex"><button class="btn btn-primary ms-auto" onclick="return confirm('Enregistrer la lecture et appliquer les décisions ?')"><i class="bi bi-check-lg"></i> Enregistrer la lecture</button></div>
+    {% endif %}
+  </div>
+</form>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  const NEG = {{ neg_days }}, MIN = {{ growth_min }};
+  function decide(tr) {
+    const obs = [...tr.querySelectorAll('select.obs')];
+    const vals = obs.map(s => s.value);
+    const activeCount = obs.length;
+    const cont = vals.filter(v => v === 'CONTAMINATED').length;
+    const growth = vals.includes('GROWTH') || tr.dataset.growth === '1';
+    const sdSel = tr.querySelector('select.sd');
+    sdSel.disabled = !growth;
+    if (!growth) sdSel.value = '';
+    const sd = sdSel.value, age = +tr.dataset.age, neg = tr.querySelector('input.neg');
+    let txt, cls;
+    if (activeCount && cont === activeCount) { txt = 'Contaminée → à retraiter'; cls = 'text-danger'; }
+    else if (growth && sd === 'POS') { txt = 'Positive CMTB → sortie'; cls = 'text-danger fw-semibold'; }
+    else if (growth && sd === 'NEG') { txt = 'Non CMTB → LPA'; cls = 'text-warning-emphasis fw-semibold'; }
+    else if (growth) { txt = 'Pousse → test SD' + (age < MIN ? ` (précoce, < ${MIN} j)` : ''); cls = 'text-warning-emphasis'; }
+    else if (neg && neg.checked) { txt = 'Négative → sortie'; cls = 'text-success fw-semibold'; }
+    else { txt = cont ? `Tube contaminé jeté, reste en étuve` : 'Reste en étuve'; cls = cont ? 'text-warning-emphasis' : 'text-muted'; }
+    const d = tr.querySelector('.decision'); d.textContent = txt; d.className = 'decision small ' + cls;
+  }
+  document.querySelectorAll('tr[data-culture]').forEach(tr => {
+    tr.addEventListener('change', () => decide(tr)); decide(tr);
+  });
+  const all = document.getElementById('all-nogrowth');
+  if (all) all.addEventListener('click', () => {
+    document.querySelectorAll('select.obs').forEach(s => { if (!s.value) s.value = 'NOGROWTH'; });
+    document.querySelectorAll('tr[data-culture]').forEach(decide);
+  });
+})();
+</script>
+{% endblock %}

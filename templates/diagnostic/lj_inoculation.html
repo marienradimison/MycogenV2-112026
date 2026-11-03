@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Culture LJ — ensemencement{% endblock %}
+{% block content %}
+{% include "diagnostic/_lj_header.html" %}
+<form method="post" class="lims-form">{% csrf_token %}
+  <div class="card mb-3">
+    <div class="card-body row g-3 align-items-end">
+      <div class="col-md-3"><label class="form-label">{{ form.inoculated_on.label }}</label>{{ form.inoculated_on }}</div>
+      <div class="col-md-3"><label class="form-label">{{ form.incubator.label }}</label>{{ form.incubator }}
+        {% if no_incubator %}<div class="form-text">Aucune étuve déclarée : ajoutez-la dans <a href="{% url 'quality:equipment_create' %}?category=INCUB">Qualité → Matériels</a> (catégorie « Incubateur / étuve »).</div>{% endif %}</div>
+      <div class="col-md-2"><label class="form-label">{{ form.decontamination.label }}</label>{{ form.decontamination }}</div>
+      <div class="col-md-1"><label class="form-label">Tubes</label>{{ form.tube_count }}</div>
+      <div class="col-md-2 text-end"><button class="btn btn-primary w-100" id="go" disabled><i class="bi bi-check-lg"></i> Ensemencer <span id="n">0</span></button></div>
+      <div class="col-12 small text-muted">La date d'ensemencement est la date de mise en étuve. Pour un retraitement, c'est aussi la date de retraitement. Chaque tube est suivi individuellement.</div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header d-flex align-items-center">Échantillons à ensemencer <span class="small text-muted fw-normal ms-2">culture LJ demandée, pas encore ensemencée</span>
+      {% if samples %}<label class="ms-auto small fw-normal"><input type="checkbox" class="form-check-input me-1" data-all="samples"> Tout sélectionner</label>{% endif %}</div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead><tr><th style="width:32px"></th><th>N° échantillon</th><th>Patient</th><th>Type</th><th>Provenance</th><th>Reçu le</th></tr></thead>
+        <tbody>
+        {% for s in samples %}
+          <tr><td><input class="form-check-input pick" type="checkbox" name="samples" value="{{ s.pk }}"></td>
+            <td><a class="mono fw-semibold" href="{{ s.get_absolute_url }}">{{ s.code }}</a></td>
+            <td>{{ s.patient.full_name|default:"—" }}</td><td>{{ s.type_display }}</td>
+            <td>{{ s.facility.name|default:"—" }}</td><td>{{ s.received_at|date:"d/m/Y" }}</td></tr>
+        {% empty %}<tr><td colspan="6" class="text-muted text-center py-3">Aucun échantillon en attente d'ensemencement LJ.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if retreat %}
+  <div class="card">
+    <div class="card-header d-flex align-items-center"><i class="bi bi-arrow-repeat me-1"></i> Retraitements (cultures contaminées)
+      <label class="ms-auto small fw-normal"><input type="checkbox" class="form-check-input me-1" data-all="retreat"> Tout sélectionner</label></div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0">
+        <thead><tr><th style="width:32px"></th><th>N° échantillon</th><th>Patient</th><th>Ensemencement initial</th><th>Contaminée le</th></tr></thead>
+        <tbody>
+        {% for c in retreat %}
+          <tr><td><input class="form-check-input pick" type="checkbox" name="retreat" value="{{ c.pk }}"></td>
+            <td><a class="mono fw-semibold" href="{{ c.get_absolute_url }}">{{ c.sample.code }}</a></td>
+            <td>{{ c.sample.patient.full_name|default:"—" }}</td><td>{{ c.inoculated_on|date:"d/m/Y" }}</td><td>{{ c.result_date|date:"d/m/Y" }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</form>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  const picks = [...document.querySelectorAll('.pick')], go = document.getElementById('go'), n = document.getElementById('n');
+  const refresh = () => { const k = picks.filter(p => p.checked).length; n.textContent = k; go.disabled = !k; };
+  picks.forEach(p => p.addEventListener('change', refresh));
+  document.querySelectorAll('[data-all]').forEach(a => a.addEventListener('change', () => {
+    document.querySelectorAll(`input.pick[name="${a.dataset.all}"]`).forEach(p => p.checked = a.checked); refresh();
+  }));
+})();
+</script>
+{% endblock %}

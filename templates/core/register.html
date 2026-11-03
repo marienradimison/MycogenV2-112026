@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}{% if sample %}Modifier {{ sample.code }}{% else %}Enregistrer un échantillon{% endif %}{% endblock %}
+{% block content %}
+<div class="page-title">
+  {% include "generic/_back.html" with fallback=sample.get_absolute_url|default:"/sample/" %}
+  <div class="icon"><i class="bi {% if sample %}bi-pencil-square{% else %}bi-clipboard-plus{% endif %}"></i></div>
+  <div>
+    {% if sample %}<div class="small text-muted"><a href="{{ sample.get_absolute_url }}">Échantillon {{ sample.code }}</a></div>{% endif %}
+    <h1>{% if sample %}Modifier l'échantillon <span class="mono">{{ sample.code }}</span>{% else %}Enregistrer un échantillon{% endif %}</h1>
+  </div>
+  <span class="ms-auto small text-muted"><span class="text-danger">*</span> champ obligatoire</span>
+</div>
+
+<form method="post" class="lims-form wizard" id="wizard" data-step="{{ step }}" novalidate>
+  {% csrf_token %}
+  <ol class="wizard-steps">
+    <li data-goto="1"><span class="num">1</span><span><b>Général</b><small>Fiche patient & échantillon</small></span></li>
+    <li data-goto="2"><span class="num">2</span><span><b>Examens</b><small>Analyses demandées</small></span></li>
+  </ol>
+  {% if form.non_field_errors %}<div class="alert alert-danger py-2">{{ form.non_field_errors }}</div>{% endif %}
+
+  <!-- ===== Étape 1 : Général ===== -->
+  <section class="wizard-panel" data-panel="1">
+    <div class="row g-3">
+      <div class="col-xl-7">
+        <div class="card h-100">
+          <div class="card-header"><i class="bi bi-person-vcard me-1"></i> Informations patient</div>
+          <div class="card-body"><div class="row g-3">
+            {% for f in patient_fields %}
+              {% if f.name == 'birth_date' %}
+                <div class="col-md-4 field-{{ f.name }}">{% include "core/_wizard_field.html" %}</div>
+                <div class="col-md-3"><label class="form-label">Âge</label>
+                  <input class="form-control" id="age-display" value="" readonly tabindex="-1" placeholder="auto"></div>
+              {% elif f.name == 'sex' %}
+                <div class="col-md-5 field-{{ f.name }}">{% include "core/_wizard_field.html" %}</div>
+              {% elif f.name == 'full_name' or f.name == 'patient_notes' %}
+                <div class="col-12 field-{{ f.name }}">{% include "core/_wizard_field.html" %}</div>
+              {% elif f.name == 'research_consent' %}
+                <div class="col-md-4 field-{{ f.name }} d-flex align-items-end"><div class="form-check mb-2">{{ f }}
+                  <label class="form-check-label" for="{{ f.id_for_label }}">{{ f.label }}</label></div></div>
+              {% elif f.name == 'patient_id' or f.name == 'address' %}
+                <div class="col-md-6 field-{{ f.name }}">{% include "core/_wizard_field.html" %}</div>
+              {% else %}
+                <div class="col-md-4 field-{{ f.name }}">{% include "core/_wizard_field.html" %}</div>
+              {% endif %}
+              {% if f.name == 'patient_id' %}<div class="col-12 mt-1"><div id="patient-found" class="alert alert-info py-2 small mb-0 d-none"></div></div>{% endif %}
+            {% endfor %}
+          </div></div>
+        </div>
+      </div>
+      <div class="col-xl-5">
+        <div class="card h-100">
+          <div class="card-header"><i class="bi bi-droplet me-1"></i> Informations échantillon</div>
+          <div class="card-body"><div class="row g-3">
+            {% for f in sample_fields %}
+              <div class="{% if f.name == 'code' %}col-md-5{% elif f.name == 'sample_type' %}col-md-7{% elif f.name == 'facility' %}col-12{% else %}col-md-6{% endif %} field-{{ f.name }}">{% include "core/_wizard_field.html" %}</div>
+            {% endfor %}
+          </div></div>
+        </div>
+      </div>
+    </div>
+    <div class="wizard-nav">
+      <a class="btn btn-light" href="{% if sample %}{{ sample.get_absolute_url }}{% else %}{% url 'core:sample_list' %}{% endif %}">Annuler</a>
+      <button type="button" class="btn btn-primary ms-auto" data-next>Suivant : Examens <i class="bi bi-arrow-right"></i></button>
+    </div>
+  </section>
+  <!-- ===== Étape 2 : Examens ===== -->
+  <section class="wizard-panel" data-panel="2">
+    <div class="row g-3">
+      <div class="col-xl-7">
+        <div class="card mb-3">
+          <div class="card-header"><i class="bi bi-journal-bookmark me-1"></i> Projet de recherche <span class="small text-muted fw-normal">(facultatif)</span></div>
+          <div class="card-body"><div class="row g-3">
+            <div class="col-md-4">{% with f=form.project %}{% include "core/_wizard_field.html" %}{% endwith %}</div>
+            <div class="col-md-4"><label class="form-label" for="id_study">Étude</label>
+              <select class="form-select no-ts" name="study" id="id_study">
+                <option value="">—</option>
+                {% for s in form.fields.study.queryset %}<option value="{{ s.pk }}" data-project="{{ s.project_id }}" data-mode="{{ s.case_mode }}" data-label="{{ s.case_label }}" data-cases="{% for c in s.cases.all %}{{ c.pk }}{% if not forloop.last %},{% endif %}{% endfor %}" {% if form.study.value|stringformat:'s' == s.pk|stringformat:'s' %}selected{% endif %}>{{ s.code }}{% if s.name %} — {{ s.name }}{% endif %}</option>{% endfor %}
+              </select>{{ form.study.errors }}</div>
+            <div class="col-md-4" id="case-col"><label class="form-label" for="id_case" id="case-label">Cas</label>
+              <select class="form-select no-ts" name="case" id="id_case">
+                <option value="">—</option>
+                {% for c in form.fields.case.queryset %}{% if c.active or form.case.value|stringformat:'s' == c.pk|stringformat:'s' %}<option value="{{ c.pk }}" data-project="{{ c.project_id }}" {% if form.case.value|stringformat:'s' == c.pk|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>{% endif %}{% endfor %}
+              </select>
+              <input type="text" class="form-control d-none" name="case_text" id="id_case_text" maxlength="120" value="{{ form.case_text.value|default:'' }}" placeholder="Saisir le cas">
+              {{ form.case.errors }}{{ form.case_text.errors }}</div>
+          </div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><i class="bi bi-ui-checks-grid me-1"></i> Analyses demandées</div>
+          <div class="card-body">
+            <div class="analysis-grid">
+              {% for value, label in form.fields.analyses.choices %}
+                <label class="analysis-choice">
+                  <input type="checkbox" name="analyses" value="{{ value }}" {% if value in form.analyses.value %}checked{% endif %}>
+                  <span><b class="mono">{{ value }}</b><small class="d-block text-muted fw-normal">{{ label }}</small></span>
+                </label>
+              {% endfor %}
+            </div>
+            {{ form.analyses.errors }}
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-5">
+        <div class="card mb-3">
+          <div class="card-header"><i class="bi bi-clipboard-check me-1"></i> Réception</div>
+          <div class="card-body"><div class="row g-3">
+            <div class="col-12"><div class="form-check form-switch">{{ form.conform }}
+              <label class="form-check-label fw-semibold" for="id_conform">{{ form.conform.label }}</label></div></div>
+            <div class="col-12 field-non_conformity">{% with f=form.non_conformity %}{% include "core/_wizard_field.html" %}{% endwith %}</div>
+            {% if sample %}<div class="col-md-6"><label class="form-label">Statut de l'échantillon</label>
+              <div class="form-control-plaintext">{{ sample.get_status_display }} <span class="small text-muted">— mis à jour automatiquement</span></div></div>{% endif %}
+            <div class="col-12">{% with f=form.notes %}{% include "core/_wizard_field.html" %}{% endwith %}</div>
+          </div></div>
+        </div>
+        <div class="card recap">
+          <div class="card-header"><i class="bi bi-card-checklist me-1"></i> Récapitulatif</div>
+          <div class="card-body"><dl class="row details mb-0" id="recap"></dl></div>
+        </div>
+      </div>
+    </div>
+    <div class="wizard-nav">
+      <button type="button" class="btn btn-light" data-prev><i class="bi bi-arrow-left"></i> Précédent</button>
+      {% if sample %}
+      <button type="submit" class="btn btn-primary ms-auto"><i class="bi bi-check-lg"></i> Enregistrer les modifications</button>
+      {% else %}
+      <button type="submit" class="btn btn-outline-primary ms-auto" name="another" value="1"><i class="bi bi-plus-lg"></i> Enregistrer et nouveau</button>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Enregistrer</button>
+      {% endif %}
+    </div>
+  </section>
+</form>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function () {
+  const form = document.getElementById('wizard');
+  const $ = (id) => document.getElementById(id);
+
+  // ---- Navigation entre les étapes ----
+  function show(step) {
+    form.dataset.step = step;
+    form.querySelectorAll('.wizard-steps li').forEach(li => {
+      const n = +li.dataset.goto;
+      li.classList.toggle('active', n === step);
+      li.classList.toggle('done', n < step);
+    });
+    if (step === 2) buildRecap();
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  }
+  function step1Valid() {
+    let ok = true;
+    form.querySelectorAll('[data-panel="1"] input, [data-panel="1"] select').forEach(el => {
+      if (!el.checkValidity()) { el.classList.add('is-invalid'); ok = false; } else el.classList.remove('is-invalid');
+    });
+    if (!ok) form.querySelector('[data-panel="1"] .is-invalid').focus();
+    return ok;
+  }
+  form.querySelector('[data-next]').addEventListener('click', () => { if (step1Valid()) show(2); });
+  form.querySelector('[data-prev]').addEventListener('click', () => show(1));
+  form.querySelectorAll('.wizard-steps li').forEach(li => li.addEventListener('click', () => {
+    const n = +li.dataset.goto; if (n === 1 || step1Valid()) show(n);
+  }));
+  form.addEventListener('input', (e) => e.target.classList.remove('is-invalid'));
+  form.addEventListener('keydown', (e) => {  // Entrée à l'étape 1 = Suivant (pas d'envoi prématuré)
+    if (e.key === 'Enter' && form.dataset.step === '1' && e.target.tagName === 'INPUT') {
+      e.preventDefault(); form.querySelector('[data-next]').click();
+    }
+  });
+
+  // ---- Âge calculé depuis la date de naissance ----
+  function updateAge() {
+    const v = $('id_birth_date').value, out = $('age-display');
+    if (!v) { out.value = ''; return; }
+    const b = new Date(v), t = new Date();
+    let age = t.getFullYear() - b.getFullYear();
+    if (t.getMonth() < b.getMonth() || (t.getMonth() === b.getMonth() && t.getDate() < b.getDate())) age--;
+    if (age < 1) {
+      const months = (t.getFullYear() - b.getFullYear()) * 12 + t.getMonth() - b.getMonth() - (t.getDate() < b.getDate() ? 1 : 0);
+      out.value = months >= 0 ? months + ' mois' : '';
+    } else out.value = age + ' ans';
+  }
+  $('id_birth_date').addEventListener('change', updateAge); updateAge();
+
+  // ---- Patient déjà connu (ID Patient) ----
+  $('id_patient_id').addEventListener('change', async () => {
+    const id = $('id_patient_id').value.trim(), box = $('patient-found');
+    box.classList.add('d-none');
+    if (!id) return;
+    const r = await (await fetch('{% url "core:patient_lookup" %}?id=' + encodeURIComponent(id))).json();
+    if (!r.found) { box.textContent = 'Nouveau patient : il sera créé avec cet ID.'; box.classList.remove('d-none'); return; }
+    ["full_name", "birth_date", "sex", "national_id", "tb_register_number", "phone", "address", "district",
+     "region", "hiv_status", "tb_history", "patient_notes"].forEach(k => {
+      const el = $("id_" + k);
+      if (el && r[k] && (!el.value || el.tagName === "SELECT")) el.value = r[k];
+    });
+    $("id_research_consent").checked = !!r.research_consent;
+    updateAge();
+    if (r.facility && $('id_facility').tomselect && !$('id_facility').value) $('id_facility').tomselect.setValue(r.facility);
+    box.innerHTML = '<i class="bi bi-person-check"></i> Patient connu : <b>' + r.full_name + '</b> — ' + r.samples + ' échantillon(s) déjà enregistré(s). Informations reprises.';
+    box.classList.remove('d-none');
+  });
+
+  // ---- Motif de non-conformité visible seulement si non conforme ----
+  function toggleConform() { document.querySelector(".field-non_conformity").style.display = $("id_conform").checked ? "none" : ""; }
+  $("id_conform").addEventListener("change", toggleConform); toggleConform();
+
+  // ---- Études filtrées selon le projet ; cas selon la configuration de l'étude ----
+  // (cas spécifiques à l'étude, tous les cas du projet, texte à saisir ou pas de cas)
+  function filterByProject() {
+    const project = $('id_project').value, sel = $('id_study');
+    sel.querySelectorAll('option[data-project]').forEach(o => {
+      o.hidden = o.disabled = o.dataset.project !== project;
+      if (o.hidden && o.selected) sel.value = '';
+    });
+    sel.disabled = !project;
+    filterCases();
+  }
+  function filterCases() {
+    const project = $('id_project').value, study = $('id_study').selectedOptions[0];
+    const mode = study && study.dataset.mode ? study.dataset.mode : 'PROJECT';
+    const allowed = study && mode === 'LIST' ? study.dataset.cases.split(',').filter(Boolean) : null;
+    const sel = $('id_case'), txt = $('id_case_text');
+    sel.querySelectorAll('option[data-project]').forEach(o => {
+      const ok = o.dataset.project === project && (!allowed || allowed.includes(o.value));
+      o.hidden = o.disabled = !ok;
+      if (!ok && o.selected) sel.value = '';
+    });
+    sel.disabled = !project;
+    sel.classList.toggle('d-none', mode === 'TEXT');
+    txt.classList.toggle('d-none', mode !== 'TEXT');
+    txt.disabled = mode !== 'TEXT';
+    $('case-col').style.display = mode === 'NONE' ? 'none' : '';
+    $('case-label').textContent = mode === 'TEXT' && study.dataset.label ? study.dataset.label : 'Cas';
+    $('case-label').htmlFor = mode === 'TEXT' ? 'id_case_text' : 'id_case';
+  }
+  $('id_project').addEventListener('change', filterByProject);
+  $('id_study').addEventListener('change', filterCases);
+  filterByProject();
+
+  // ---- Récapitulatif ----
+  function text(id) {
+    const el = $(id);
+    if (!el) return '';
+    if (el.tagName === 'SELECT') return el.value ? el.options[el.selectedIndex].text : '';
+    return el.value;
+  }
+  function buildRecap() {
+    const rows = [
+      ['Patient', text('id_full_name')], ['Âge / sexe', [ $('age-display').value, text('id_sex').replace('—', '') ].filter(Boolean).join(' · ')],
+      ['ID patient', text('id_patient_id') || 'nouveau (attribué automatiquement)'], ['Provenance', text('id_facility')],
+      ['N° échantillon', text('id_code')], ['Prélèvement', [text('id_sample_type'), text('id_type_detail')].filter(Boolean).join(' — ')],
+      ['Réception', $('id_received_at').value.replace('T', ' ')],
+    ];
+    $('recap').innerHTML = rows.map(([k, v]) =>
+      `<dt class="col-5">${k}</dt><dd class="col-7">${v ? v.replace(/</g, '&lt;') : '—'}</dd>`).join('');
+  }
+
+  show(+form.dataset.step);
+})();
+</script>
+{% endblock %}

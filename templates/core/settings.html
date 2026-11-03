@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Paramètres{% endblock %}
+{% block content %}
+<div class="page-title">
+  <div class="icon"><i class="bi bi-gear"></i></div>
+  <h1>Paramètres du compte</h1>
+</div>
+<div class="row g-3">
+  <div class="col-lg-3">
+    <div class="card"><div class="card-body p-2">
+      <nav class="nav flex-column settings-nav">
+        <a class="nav-link {% if section == 'profil' %}active{% endif %}" href="{% url 'core:settings' 'profil' %}"><i class="bi bi-person"></i> Profil</a>
+        <a class="nav-link {% if section == 'apparence' %}active{% endif %}" href="{% url 'core:settings' 'apparence' %}"><i class="bi bi-palette"></i> Apparence</a>
+        <a class="nav-link {% if section == 'securite' %}active{% endif %}" href="{% url 'core:settings' 'securite' %}"><i class="bi bi-shield-lock"></i> Mot de passe & sécurité</a>
+        <a class="nav-link {% if section == 'bug' %}active{% endif %}" href="{% url 'core:settings' 'bug' %}"><i class="bi bi-bug"></i> Signaler un problème</a>
+      </nav>
+    </div></div>
+  </div>
+
+  <div class="col-lg-9">
+  {% if section == 'profil' %}
+    <form method="post" enctype="multipart/form-data" class="card" novalidate>{% csrf_token %}
+      <div class="card-header">Profil</div>
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-3 mb-4">
+          {% if profile.photo %}<img class="avatar lg" src="{{ profile.photo.url }}" alt="">
+          {% else %}<span class="avatar lg">{{ profile.initials }}</span>{% endif %}
+          <div class="flex-grow-1">
+            <label class="form-label" for="id_photo">Photo de profil (PNG, JPG, WebP — 2 Mo max.)</label>
+            {{ profile_form.photo }}{{ profile_form.photo.errors }}
+            {% if profile.photo %}<div class="form-check mt-2">{{ profile_form.remove_photo }}
+              <label class="form-check-label" for="id_remove_photo">Supprimer la photo</label></div>{% endif %}
+          </div>
+        </div>
+        <div class="row g-3">
+          {% for f in user_form %}<div class="col-md-4"><label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{{ f.errors }}</div>{% endfor %}
+          <div class="col-md-4"><label class="form-label" for="id_job_title">Fonction</label>{{ profile_form.job_title }}</div>
+          <div class="col-md-4"><label class="form-label" for="id_phone">Téléphone</label>{{ profile_form.phone }}</div>
+          <div class="col-md-4"><label class="form-label">Identifiant</label><input class="form-control" value="{{ user.username }}" disabled></div>
+        </div>
+      </div>
+      <div class="card-footer"><button class="btn btn-primary"><i class="bi bi-check-lg"></i> Enregistrer</button></div>
+    </form>
+
+  {% elif section == 'apparence' %}
+    <form method="post" class="card">{% csrf_token %}
+      <div class="card-header">Apparence</div>
+      <div class="card-body">
+        <div class="row g-3" style="max-width:640px">
+          {% for value, label in theme_form.fields.theme.choices %}
+          <div class="col-4">
+            <label class="theme-choice d-block">
+              <div class="preview {{ value }}"><span></span><span></span></div>
+              <input class="form-check-input me-1" type="radio" name="theme" value="{{ value }}" {% if profile.theme == value %}checked{% endif %}>
+              {{ label }}
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+        <p class="small text-muted mt-3 mb-0">« Automatique » suit le réglage clair/sombre de l'ordinateur. Le bouton <i class="bi bi-moon-stars"></i> du bandeau permet aussi de basculer rapidement.</p>
+      </div>
+      <div class="card-footer"><button class="btn btn-primary"><i class="bi bi-check-lg"></i> Appliquer</button></div>
+    </form>
+
+  {% elif section == 'securite' %}
+    <form method="post" class="card mb-3" novalidate>{% csrf_token %}
+      <div class="card-header">Changer mon mot de passe</div>
+      <div class="card-body" style="max-width:520px">
+        {% for f in password_form %}
+          <div class="mb-3"><label class="form-label" for="{{ f.id_for_label }}">{{ f.label }}</label>{{ f }}{{ f.errors }}
+            {% if f.help_text %}<div class="form-text">{{ f.help_text|safe }}</div>{% endif %}</div>
+        {% endfor %}
+      </div>
+      <div class="card-footer"><button class="btn btn-primary">Modifier le mot de passe</button></div>
+    </form>
+    <div class="card">
+      <div class="card-header">Réinitialisation par l'administrateur</div>
+      <div class="card-body">
+        <p class="mb-3">En cas de problème avec votre compte, l'administrateur peut vous attribuer un nouveau mot de passe temporaire.</p>
+        {% if my_resets %}
+          <div class="alert alert-info py-2 mb-0"><i class="bi bi-hourglass-split"></i> Une demande est déjà en attente de traitement.</div>
+        {% else %}
+          <form method="post">{% csrf_token %}<button class="btn btn-outline-primary" name="action" value="reset_request">
+            <i class="bi bi-envelope"></i> Demander une réinitialisation</button></form>
+        {% endif %}
+      </div>
+    </div>
+
+  {% elif section == 'bug' %}
+    <form method="post" enctype="multipart/form-data" class="card mb-3" novalidate>{% csrf_token %}
+      <div class="card-header">Signaler un problème</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-8"><label class="form-label" for="id_title">Titre <span class="text-danger">*</span></label>{{ bug_form.title }}{{ bug_form.title.errors }}</div>
+          <div class="col-md-4"><label class="form-label" for="id_severity">Gravité</label>{{ bug_form.severity }}</div>
+          <div class="col-12"><label class="form-label" for="id_page">Page concernée</label>{{ bug_form.page }}</div>
+          <div class="col-12"><label class="form-label" for="id_description">Description <span class="text-danger">*</span></label>{{ bug_form.description }}
+            <div class="form-text">{{ bug_form.description.help_text }}</div>{{ bug_form.description.errors }}</div>
+          <div class="col-md-6"><label class="form-label" for="id_screenshot">Capture d'écran (facultatif)</label>{{ bug_form.screenshot }}</div>
+        </div>
+      </div>
+      <div class="card-footer"><button class="btn btn-primary"><i class="bi bi-send"></i> Envoyer</button></div>
+    </form>
+    {% if my_bugs %}
+    <div class="card"><div class="card-header">Mes signalements</div>
+      <ul class="list-group list-group-flush">
+        {% for b in my_bugs %}
+        <li class="list-group-item">
+          <div class="d-flex"><span class="fw-semibold">#{{ b.pk }} {{ b.title }}</span>
+            <span class="ms-auto badge {% if b.status == 'RESOLVED' or b.status == 'CLOSED' %}text-bg-success{% elif b.status == 'IN_PROGRESS' %}text-bg-info{% else %}text-bg-warning{% endif %}">{{ b.get_status_display }}</span></div>
+          <div class="small text-muted">{{ b.created_at|date:"d/m/Y H:i" }} · {{ b.get_severity_display }}</div>
+          {% if b.response %}<div class="small mt-1"><i class="bi bi-reply"></i> {{ b.response }}</div>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% load lims %}
+<div class="page-title">
+  {% crud_url crud 'list' as list_url %}{% include "generic/_back.html" with fallback=list_url %}
+  <div class="icon"><i class="bi {{ crud.icon }}"></i></div>
+  <div>
+    <div class="small text-muted"><a href="{% crud_url crud 'list' %}">{{ crud.title }}</a></div>
+    <h1>{{ object }}</h1>
+  </div>
+  {% if object.validatable %}
+    <span class="ms-2">{% cell object "result_status" %}</span>
+    {% if object.is_validated %}<span class="small text-muted">par {{ object.validated_by }} le {{ object.validated_at|date:"d/m/Y H:i" }}</span>{% endif %}
+  {% endif %}
+  <div class="ms-auto d-flex gap-2 no-print">
+    {% if plan_url %}<a class="btn btn-sm btn-outline-secondary" href="{{ plan_url }}"><i class="bi bi-map"></i> Voir sur le plan</a>{% endif %}
+    {% if can_validate %}
+      <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#validateModal"><i class="bi bi-patch-check"></i> Valider</button>
+    {% endif %}
+    {% crud_perm user crud "change" as can_change %}
+    {% if can_change %}<a class="btn btn-sm btn-outline-primary" href="{% crud_url crud 'update' object.pk %}"><i class="bi bi-pencil"></i> Modifier</a>{% endif %}
+    {% crud_perm user crud "delete" as can_delete %}
+    {% if can_delete %}<a class="btn btn-sm btn-outline-danger" href="{% crud_url crud 'delete' object.pk %}"><i class="bi bi-trash"></i></a>{% endif %}
+  </div>
+</div>
+{% if can_validate %}
+<div class="modal fade" id="validateModal" tabindex="-1" aria-label="Validation">
+  <div class="modal-dialog"><form class="modal-content" method="post" action="{% crud_url crud 'validate' object.pk %}">{% csrf_token %}
+    <div class="modal-header"><h5 class="modal-title"><i class="bi bi-patch-check text-success"></i> Valider le résultat</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button></div>
+    <div class="modal-body">
+      <p class="mb-2">{{ object }}</p>
+      <label class="form-label" for="validation_comment">Commentaire du validateur <span class="text-muted fw-normal">(facultatif)</span></label>
+      <textarea class="form-control" name="validation_comment" id="validation_comment" rows="3" maxlength="2000"
+                placeholder="Ex. résultat concordant avec la microscopie ; contrôler sur un 2e prélèvement…"></textarea>
+      <div class="form-text">Ce commentaire figure sur la fiche paillasse et le compte rendu.</div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+      <button class="btn btn-success"><i class="bi bi-patch-check"></i> Valider</button></div>
+  </form></div>
+</div>
+{% endif %}

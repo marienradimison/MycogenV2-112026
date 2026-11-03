@@ -1,0 +1,28 @@
+{% load lims %}
+{% for t in related %}
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center">
+    <i class="bi {{ t.crud.icon }} me-2 text-secondary"></i>{{ t.crud.title }}
+    <span class="badge text-bg-light border ms-2">{{ t.rows|length }}</span>
+    {% if t.can_add %}
+      <a class="btn btn-sm btn-outline-primary ms-auto no-print"
+         href="{% crud_url t.crud 'create' %}?{{ t.fk }}={{ object.pk }}&next={{ request.path|urlencode }}">
+        <i class="bi bi-plus-lg"></i> Ajouter</a>
+    {% endif %}
+  </div>
+  {% if t.rows %}
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead><tr>{% for name, label in t.columns %}<th>{{ label }}</th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for row in t.rows %}
+        <tr>{% for name, label in t.columns %}
+          <td>{% if forloop.first %}{% cell_link row name %}{% else %}{% cell row name %}{% endif %}</td>
+        {% endfor %}</tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}

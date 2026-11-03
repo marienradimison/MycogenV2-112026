@@ -1,0 +1,22 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Chaud Chaud Chaud!!!{% endblock %}
+{% block content %}
+<div class="page-title">
+  <div class="icon"><i class="bi bi-fire"></i></div>
+  <h1>Chaud Chaud Chaud!!! — toutes les publications</h1>
+</div>
+{% csrf_token %}
+<div class="card hot-card" style="max-width:760px">
+  <div id="hot-feed" class="hot-feed archive" data-url="{% url 'feed:feed' %}?page={{ page_obj.number }}" data-state-url="{% url 'feed:state' %}">
+    <div class="text-center text-muted small py-3"><span class="spinner-border spinner-border-sm"></span></div>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <div class="card-footer d-flex gap-3 small fw-normal">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">‹ Plus récentes</a>{% endif %}
+    <span class="text-muted">Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Plus anciennes ›</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'js/hotfeed.js' %}?v={{ V }}"></script>{% endblock %}
