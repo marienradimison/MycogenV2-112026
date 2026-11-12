@@ -2,35 +2,48 @@
 {% block title %}Culture LJ — lecture d'étuve{% endblock %}
 {% block content %}
 {% include "diagnostic/_lj_header.html" %}
-<form method="post" id="reading-form">{% csrf_token %}
+<form method="post" id="reading-form" data-filtre="{{ filtre }}">{% csrf_token %}
+  <input type="hidden" name="filtre" value="{{ filtre }}">
   <div class="card mb-3">
     <div class="card-body row g-3 align-items-end">
       <div class="col-md-3"><label class="form-label">Date de lecture</label>
-        <input class="form-control" type="date" name="date" value="{{ date|date:'Y-m-d' }}" required></div>
+        <input class="form-control" type="date" name="date" id="reading-date" value="{{ date|date:'Y-m-d' }}" required></div>
       <div class="col-md-4"><label class="form-label">Étuve</label>
         <select class="form-select" name="incubator"><option value="">— toutes —</option>
           {% for i in incubators %}<option value="{{ i.pk }}">{{ i.name }}{% if i.room %} (salle {{ i.room.number }}){% endif %}</option>{% endfor %}</select></div>
       <div class="col-md-5 small text-muted">
-        Laisser « — » pour un tube sans observation particulière. Une pousse déclenche le test SD ;
-        au-delà de {{ neg_days }} j sans pousse, la sortie négative est proposée (case cochée).</div>
+        Laisser « — » pour un tube sans observation particulière. Une pousse ouvre la fiche de l'échantillon
+        (colonies, morphologie, test SD…) ; au-delà de {{ neg_days }} j sans pousse, la sortie négative est proposée
+        (colonies = 0). Le temps de croissance est calculé depuis l'ensemencement.</div>
     </div>
   </div>
 
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-3" id="age-filters">
+    <span class="small text-muted">Afficher :</span>
+    {% for f in filters %}
+      <a class="btn btn-sm {% if f.active %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="?filtre={{ f.key }}&date={{ date|date:'Y-m-d' }}" data-filtre="{{ f.key }}">{{ f.label }}
+        <span class="badge text-bg-light">{{ f.count }}</span></a>
+    {% endfor %}
+    {% if filtre == "90s" %}<span class="small text-muted">Fin de semaine : dimanche {{ week_end|date:"d/m/Y" }}</span>{% endif %}
+  </div>
+
   <div class="card">
-    <div class="card-header d-flex align-items-center">{{ cultures|length }} culture(s) en étuve
+    <div class="card-header d-flex align-items-center">{{ cultures|length }} culture(s) sur {{ total }} en étuve
       <div class="ms-auto d-flex gap-2 small fw-normal">
-        <a class="btn btn-sm btn-outline-secondary" href="{% url 'diagnostic:lj_blank_sheet' %}"><i class="bi bi-printer"></i> Fiche de lecture vierge</a>
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'diagnostic:lj_blank_sheet' %}?filtre={{ filtre }}&date={{ date|date:'Y-m-d' }}"><i class="bi bi-printer"></i> Fiche de lecture vierge</a>
         <button type="button" class="btn btn-sm btn-outline-secondary" id="all-nogrowth">Tout « pas de pousse »</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="open-all">Ouvrir toutes les fiches</button>
       </div></div>
     <div class="table-responsive">
       <table class="table table-sm align-middle mb-0 reading-table">
-        <thead><tr><th>N° échantillon</th><th>Âge</th><th>Tube 1</th><th>Tube 2</th><th>Test SD</th><th>Sortie négative</th><th>Décision prévue</th></tr></thead>
-        <tbody>
+        <thead><tr><th>N° échantillon</th><th>Tps de croiss.</th><th>Tube 1</th><th>Tube 2</th><th><label class="mb-0"><input class="form-check-input me-1" type="checkbox" id="neg-all" title="Tout sélectionner (hors cultures avec pousse)">Sortie négative</label></th><th>Décision prévue</th><th></th></tr></thead>
         {% for c in cultures %}
-          <tr data-culture="{{ c.pk }}" data-age="{{ c.age_days }}" data-growth="{% if c.growth_on %}1{% endif %}">
-            <td><a class="mono fw-semibold" href="{{ c.get_absolute_url }}" target="_blank">{{ c.sample.code }}</a>
+        <tbody class="reading-row" data-culture="{{ c.pk }}" data-age="{{ c.read_age }}" data-growth="{% if c.growth_on %}1{% endif %}">
+          <tr class="main-row">
+            <td><input type="hidden" name="cultures" value="{{ c.pk }}"><a class="mono fw-semibold" href="{{ c.get_absolute_url }}" target="_blank">{{ c.sample.code }}</a>
               <div class="small text-muted">{{ c.sample.patient.full_name|default:"" }}</div></td>
-            <td><span class="fw-semibold">{{ c.age_days }} j</span><div class="small text-muted">{{ c.inoculated_on|date:"d/m/y" }}</div></td>
+            <td><span class="fw-semibold">{{ c.growth_days }} j</span><div class="small text-muted">{{ c.inoculated_on|date:"d/m/y" }}</div>
+              {% if c.can_negative and c.read_age < neg_days %}<div class="small text-warning-emphasis">{{ neg_days }} j le {{ c.reaches_on|date:"d/m" }}</div>{% endif %}</td>
             {% for n in "12" %}{% with t=c.active_tubes|get_item:n %}
             <td>{% if t and t.active %}
                 <select class="form-select form-select-sm obs" name="t{{ n }}_{{ c.pk }}">
@@ -39,15 +52,42 @@
                 </select>
               {% elif t %}{% include "diagnostic/_tube.html" %}{% else %}—{% endif %}</td>
             {% endwith %}{% endfor %}
-            <td><select class="form-select form-select-sm sd" name="sd_{{ c.pk }}" {% if not c.growth_on %}disabled{% endif %}>
-                <option value="">—</option>{% for v, l in sd_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></td>
-            <td class="text-center">{% if c.age_days >= neg_days %}<input class="form-check-input neg" type="checkbox" name="neg_{{ c.pk }}" {% if c.suggest_negative %}checked{% endif %}>{% else %}<span class="small text-muted">{{ neg_days|add:0 }} j</span>{% endif %}</td>
+            <td class="text-center">{% if c.can_negative %}<input class="form-check-input neg" type="checkbox" name="neg_{{ c.pk }}" {% if c.suggest_negative %}checked{% endif %}>{% else %}<span class="small text-muted">{{ neg_days|add:0 }} j</span>{% endif %}</td>
             <td><span class="decision small"></span></td>
+            <td class="text-end"><button type="button" class="btn btn-sm btn-light toggle-sheet" title="Fiche de l'échantillon"><i class="bi bi-card-list"></i></button></td>
           </tr>
-        {% empty %}<tr><td colspan="7" class="text-center text-muted py-4">Aucune culture en étuve.</td></tr>{% endfor %}
+          <tr class="sheet-row" hidden>
+            <td colspan="7">
+              {% with p=c.prev %}
+              <div class="sheet-fields">
+                <div><label>Nbre de colonies</label>
+                  <input class="form-control form-control-sm colonies" type="number" min="0" max="32767" list="colony-options" name="colonies_{{ c.pk }}" value="{{ p.colonies|default:'' }}"></div>
+                <div><label>Morphologie</label>
+                  <div class="morph">{% for v, l in morph_choices %}<label title="{{ l }}"><input type="checkbox" name="morph_{{ c.pk }}" value="{{ v }}" {% if p and v in p.morphology %}checked{% endif %}> {{ v }}</label>{% endfor %}</div></div>
+                <div><label>Pigment</label>
+                  <input class="form-control form-control-sm" list="pigment-options" maxlength="60" name="pigment_{{ c.pk }}" value="{{ p.pigment|default:'' }}"></div>
+                <div><label>Aspect BAAR (ZN)</label>
+                  <input class="form-control form-control-sm" list="baar-options" maxlength="80" name="baar_{{ c.pk }}" value="{{ p.baar_aspect|default:'' }}"></div>
+                <div><label>SD MPT64 — C</label>
+                  <select class="form-select form-select-sm sdc" name="sdc_{{ c.pk }}"><option value="">—</option>{% for v, l in sd_control_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+                <div><label>SD MPT64 — T</label>
+                  <select class="form-select form-select-sm sd" name="sd_{{ c.pk }}"><option value="">—</option><option value="POS">+</option><option value="NEG">−</option></select></div>
+                <div><label>Conclusion</label>
+                  <select class="form-select form-select-sm conclusion" name="conclusion_{{ c.pk }}"><option value="">—</option>{% for v, l in conclusion_choices %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+                <div><label>CJ</label>
+                  <div class="morph"><label><input type="checkbox" name="cjlj_{{ c.pk }}" {% if p.cj_lj %}checked{% endif %}> LJ</label>
+                    <label><input type="checkbox" name="cjpyr_{{ c.pk }}" {% if p.cj_pyr %}checked{% endif %}> Pyr</label></div></div>
+              </div>
+              {% endwith %}
+            </td>
+          </tr>
         </tbody>
+        {% empty %}<tbody><tr><td colspan="7" class="text-center text-muted py-4">{% if filtre %}Aucune culture ne correspond à ce filtre.{% else %}Aucune culture en étuve.{% endif %}</td></tr></tbody>{% endfor %}
       </table>
     </div>
+    <datalist id="colony-options"><option value="0"><option value="100"><option value="200"><option value="300"></datalist>
+    <datalist id="pigment-options">{% for v in pigments %}<option value="{{ v }}">{% endfor %}</datalist>
+    <datalist id="baar-options">{% for v in baar_aspects %}<option value="{{ v }}">{% endfor %}</datalist>
     {% if cultures %}
     <div class="card-body border-top">
       <label class="form-label">Remarques de lecture</label>
@@ -61,33 +101,67 @@
 {% block extra_js %}
 <script>
 (function () {
-  const NEG = {{ neg_days }}, MIN = {{ growth_min }};
-  function decide(tr) {
-    const obs = [...tr.querySelectorAll('select.obs')];
-    const vals = obs.map(s => s.value);
-    const activeCount = obs.length;
-    const cont = vals.filter(v => v === 'CONTAMINATED').length;
-    const growth = vals.includes('GROWTH') || tr.dataset.growth === '1';
-    const sdSel = tr.querySelector('select.sd');
-    sdSel.disabled = !growth;
-    if (!growth) sdSel.value = '';
-    const sd = sdSel.value, age = +tr.dataset.age, neg = tr.querySelector('input.neg');
+  const MIN = {{ growth_min }};
+  const rows = [...document.querySelectorAll('tbody.reading-row')];
+  const hasGrowth = row => row.dataset.growth === '1' || [...row.querySelectorAll('select.obs')].some(s => s.value === 'GROWTH');
+  function decide(row) {
+    const obs = [...row.querySelectorAll('select.obs')];
+    const cont = obs.filter(s => s.value === 'CONTAMINATED').length;
+    const growth = hasGrowth(row);
+    const sdSel = row.querySelector('select.sd'), sdC = row.querySelector('select.sdc');
+    sdSel.disabled = sdC.disabled = !growth;
+    if (!growth) { sdSel.value = ''; sdC.value = ''; }
+    if (growth) row.querySelector('.sheet-row').hidden = false;
+    const sd = sdSel.value, age = +row.dataset.age, neg = row.querySelector('input.neg');
+    const conclusion = row.querySelector('select.conclusion'), colonies = row.querySelector('input.colonies');
     let txt, cls;
-    if (activeCount && cont === activeCount) { txt = 'Contaminée → à retraiter'; cls = 'text-danger'; }
+    if (obs.length && cont === obs.length) { txt = 'Contaminée → à retraiter'; cls = 'text-danger'; }
+    else if (growth && sd && sdC.value === '-') { txt = 'Test SD invalide (contrôle −) → à refaire'; cls = 'text-danger'; }
     else if (growth && sd === 'POS') { txt = 'Positive CMTB → sortie'; cls = 'text-danger fw-semibold'; }
     else if (growth && sd === 'NEG') { txt = 'Non CMTB → LPA'; cls = 'text-warning-emphasis fw-semibold'; }
     else if (growth) { txt = 'Pousse → test SD' + (age < MIN ? ` (précoce, < ${MIN} j)` : ''); cls = 'text-warning-emphasis'; }
-    else if (neg && neg.checked) { txt = 'Négative → sortie'; cls = 'text-success fw-semibold'; }
-    else { txt = cont ? `Tube contaminé jeté, reste en étuve` : 'Reste en étuve'; cls = cont ? 'text-warning-emphasis' : 'text-muted'; }
-    const d = tr.querySelector('.decision'); d.textContent = txt; d.className = 'decision small ' + cls;
+    else if (neg && neg.checked) { txt = 'Négative → sortie (0 colonie)'; cls = 'text-success fw-semibold'; }
+    else { txt = cont ? 'Tube contaminé jeté, reste en étuve' : 'Reste en étuve'; cls = cont ? 'text-warning-emphasis' : 'text-muted'; }
+    if ((sd === 'POS' && conclusion.value === 'ATYP') || (sd === 'NEG' && conclusion.value === 'CMTB')) {
+      txt += ' — ⚠ conclusion différente du test SD'; cls = 'text-danger';
+    }
+    const d = row.querySelector('.decision'); d.textContent = txt; d.className = 'decision small ' + cls;
+    colonies.placeholder = neg && neg.checked && !growth ? '0' : '';
   }
-  document.querySelectorAll('tr[data-culture]').forEach(tr => {
-    tr.addEventListener('change', () => decide(tr)); decide(tr);
+  rows.forEach(row => {
+    row.addEventListener('change', e => {
+      // conclusion proposée selon le test T, modifiable
+      if (e.target.matches('select.sd') && !row.querySelector('select.conclusion').value) {
+        row.querySelector('select.conclusion').value = {POS: 'CMTB', NEG: 'ATYP'}[e.target.value] || '';
+      }
+      decide(row);
+    });
+    row.querySelector('.toggle-sheet').addEventListener('click', () => {
+      const s = row.querySelector('.sheet-row'); s.hidden = !s.hidden;
+    });
+    decide(row);
   });
-  const all = document.getElementById('all-nogrowth');
-  if (all) all.addEventListener('click', () => {
+  const openAll = document.getElementById('open-all');
+  openAll.addEventListener('click', () => rows.forEach(r => { r.querySelector('.sheet-row').hidden = false; }));
+  // Sortie négative en groupe (les cultures avec pousse restent exclues)
+  const negAll = document.getElementById('neg-all');
+  const selectable = () => rows.filter(r => r.querySelector('input.neg') && !hasGrowth(r));
+  const syncAll = () => { const s = selectable(); negAll.checked = s.length > 0 && s.every(r => r.querySelector('input.neg').checked); };
+  negAll.addEventListener('change', () => {
+    selectable().forEach(r => { r.querySelector('input.neg').checked = negAll.checked; decide(r); });
+  });
+  rows.forEach(r => r.addEventListener('change', syncAll));
+  syncAll();
+  // La liste filtrée dépend de la date de lecture
+  const dateInput = document.getElementById('reading-date'), filtre = document.getElementById('reading-form').dataset.filtre;
+  document.querySelectorAll('#age-filters a').forEach(a => a.addEventListener('click', (e) => {
+    e.preventDefault();
+    location.search = `?filtre=${a.dataset.filtre}&date=${dateInput.value}`;
+  }));
+  if (filtre) dateInput.addEventListener('change', () => { location.search = `?filtre=${filtre}&date=${dateInput.value}`; });
+  document.getElementById('all-nogrowth').addEventListener('click', () => {
     document.querySelectorAll('select.obs').forEach(s => { if (!s.value) s.value = 'NOGROWTH'; });
-    document.querySelectorAll('tr[data-culture]').forEach(decide);
+    rows.forEach(decide);
   });
 })();
 </script>

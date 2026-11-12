@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% load lims %}
+{% block title %}{{ object }}{% endblock %}
+{% block content %}
+{% include "generic/_detail_header.html" %}
+<div class="card mb-3">
+  <div class="card-header">Informations sur le run</div>
+  <div class="card-body">
+    <dl class="row details mb-0">
+      {% for label, name in details %}
+        <dt class="col-sm-3 col-xl-2">{{ label }}</dt>
+        <dd class="col-sm-9 col-xl-4">{% cell object name %}</dd>
+      {% endfor %}
+    </dl>
+  </div>
+</div>
+{% include "generic/_related.html" %}
+{% endblock %}

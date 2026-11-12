@@ -35,9 +35,10 @@ MODULES = [
     {"key": "research", "label": "Recherche", "icon": "bi-journal-bookmark", "items": [
         ("research:project_list", "bi-journal-bookmark", "Projets", "research.view_project", "Projets de recherche", None),
         ("research:study_list", "bi-collection", "Études & cas", "research.view_study", "Études et cas par projet", None),
-        ("research:run_list", "bi-diagram-3", "Runs de séquençage", "research.view_sequencingrun", "WGS, tNGS — ONT, Illumina", None),
-        ("research:library_list", "bi-upc", "Librairies", "research.view_sequencinglibrary", "Librairies séquencées", None),
-        ("research:pcr_list", "bi-thermometer-half", "PCR (RISK6, Sweeney3)", "research.view_pcrassay", "Signatures transcriptionnelles", None),
+        ("research:run_list", "bi-diagram-3", "Runs de séquençage", "research.view_sequencingrun", "WGS, tNGS — ONT, Illumina",
+         lambda r: r.path.startswith(("/recherche/run/", "/recherche/library/"))),
+        ("research:pcrrun_list", "bi-thermometer-half", "Runs PCR (RISK6, Sweeney3)", "research.view_pcrrun", "Signatures transcriptionnelles",
+         lambda r: r.path.startswith(("/recherche/pcrrun/", "/recherche/pcr/"))),
         ("research:lpa_list", "bi-bar-chart-steps", "LPA (Hain)", "research.view_lpatest", "MTBDRplus, MTBDRsl, CM/AS", None),
         ("bioinfo:analysis_list", "bi-terminal", "Analyses génomiques", "bioinfo.view_analysis",
          "Bioinformatique : lignées, résistances, clusters", "/bioinformatique/analysis/"),

@@ -95,7 +95,7 @@
 <div class="myc-main">
   {% if SUBNAV %}
   <nav class="module-subnav" aria-label="{{ SUBNAV.label }}">
-    <a class="subnav-module" href="{{ SUBNAV.url }}"><i class="bi {{ SUBNAV.icon }}"></i> {{ SUBNAV.label }}</a>
+    {% if SUBNAV.key != "analyses" %}<a class="subnav-module" href="{{ SUBNAV.url }}"><i class="bi {{ SUBNAV.icon }}"></i> {{ SUBNAV.label }}</a>{% endif %}
     {% for i in SUBNAV.items %}<a class="subnav-item {% if i.active %}active{% endif %}" href="{{ i.url }}"><i class="bi {{ i.icon }}"></i> {{ i.label }}</a>{% endfor %}
   </nav>
   {% endif %}

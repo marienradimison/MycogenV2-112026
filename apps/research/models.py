@@ -160,20 +160,54 @@ class SequencingLibrary(LimsModel):
         return f"{self.library_id} / {self.run.run_id}"
 
 
+class PCRRun(LimsModel):
+    """Run de RT-qPCR (une plaque, une signature) : regroupe les échantillons analysés."""
+
+    url_base = "research:pcrrun"
+
+    ASSAYS = [("RISK6", "RISK6"), ("SWEENEY3", "Sweeney3"), ("OTHER", "Autre")]
+    STATUS = SequencingRun.STATUS
+
+    run_id = models.CharField("identifiant du run / plaque", max_length=60, unique=True)
+    assay = models.CharField("signature", max_length=10, choices=ASSAYS)
+    project = models.ForeignKey(Project, verbose_name="projet", on_delete=models.SET_NULL,
+                                null=True, blank=True, related_name="pcr_runs")
+    instrument = models.CharField("thermocycleur", max_length=60, blank=True)
+    kit_lot = models.CharField("lot du kit", max_length=60, blank=True)
+    reference_gene = models.CharField("gène de référence", max_length=30, blank=True)
+    threshold = models.DecimalField("seuil de positivité", max_digits=8, decimal_places=3, null=True, blank=True)
+    run_date = models.DateField("date du run", default=timezone.localdate)
+    operator = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="opérateur", on_delete=models.SET_NULL,
+                                 null=True, blank=True, related_name="+")
+    status = models.CharField("statut", max_length=8, choices=STATUS, default="PLANNED")
+    notes = models.TextField("remarques", blank=True)
+
+    class Meta:
+        verbose_name = "run PCR"
+        verbose_name_plural = "runs PCR"
+        ordering = ["-run_date", "-id"]
+
+    def __str__(self):
+        return f"{self.run_id} ({self.get_assay_display()})"
+
+    @property
+    def n_results(self):
+        return self.results.count()
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        for result in self.results.exclude(result_status="VALIDATED"):  # signature, seuil ou date modifiés
+            result.save()
+
+
 class PCRAssay(TestResult):
-    """Signatures transcriptionnelles par RT-qPCR (RISK6, Sweeney3)."""
+    """Résultat d'un échantillon dans un run PCR (signatures RISK6, Sweeney3)."""
 
     url_base = "research:pcr"
 
-    ASSAYS = [("RISK6", "RISK6"), ("SWEENEY3", "Sweeney3"), ("OTHER", "Autre")]
     OUTCOMES = [("POS", "Signature positive"), ("NEG", "Signature négative"), ("NA", "Non déterminé")]
 
-    project = models.ForeignKey(Project, verbose_name="projet", on_delete=models.SET_NULL,
-                                null=True, blank=True, related_name="pcr_assays")
-    assay = models.CharField("signature", max_length=10, choices=ASSAYS)
-    instrument = models.CharField("thermocycleur", max_length=60, blank=True)
-    plate_id = models.CharField("plaque / run", max_length=60, blank=True)
-    reference_gene = models.CharField("gène de référence", max_length=30, blank=True)
+    run = models.ForeignKey(PCRRun, verbose_name="run PCR", on_delete=models.PROTECT, related_name="results")
     ref_ct = models.DecimalField("Ct référence", max_digits=5, decimal_places=2, null=True, blank=True)
     # RISK6
     ct_gbp2 = models.DecimalField("Ct GBP2", max_digits=5, decimal_places=2, null=True, blank=True)
@@ -189,7 +223,6 @@ class PCRAssay(TestResult):
 
     score = models.DecimalField("score", max_digits=8, decimal_places=3, null=True, blank=True,
                                 help_text="Sweeney3 : calculé automatiquement. RISK6 : saisir le score du logiciel.")
-    threshold = models.DecimalField("seuil de positivité", max_digits=8, decimal_places=3, null=True, blank=True)
     outcome = models.CharField("conclusion", max_length=3, choices=OUTCOMES, default="NA", editable=False)
 
     class Meta(TestResult.Meta):
@@ -197,20 +230,23 @@ class PCRAssay(TestResult):
         verbose_name_plural = "PCR signatures"
 
     def __str__(self):
-        return f"{self.get_assay_display()} — {self.sample.code}"
+        return f"{self.run.get_assay_display()} — {self.sample.code}"
 
     def compute(self):
         # Sweeney3 = moy(expr GBP5, DUSP3) − expr KLF2, avec expr = −ΔCt ;
         # le Ct de référence s'annule : score = Ct_KLF2 − (Ct_GBP5 + Ct_DUSP3) / 2
-        if self.assay == "SWEENEY3" and None not in (self.ct_gbp5, self.ct_dusp3, self.ct_klf2):
+        if self.run.assay == "SWEENEY3" and None not in (self.ct_gbp5, self.ct_dusp3, self.ct_klf2):
             self.score = (self.ct_klf2 - (self.ct_gbp5 + self.ct_dusp3) / Decimal(2)).quantize(Decimal("0.001"))
-        if self.score is not None and self.threshold is not None:
-            self.outcome = "POS" if self.score >= self.threshold else "NEG"
+        if self.score is not None and self.run.threshold is not None:
+            self.outcome = "POS" if self.score >= self.run.threshold else "NEG"
         else:
             self.outcome = "NA"
 
     def save(self, *args, **kwargs):
         self.compute()
+        self.test_date = self.run.run_date   # la date d'analyse est celle du run
+        if not self.performed_by_id:
+            self.performed_by = self.run.operator
         super().save(*args, **kwargs)
 
 

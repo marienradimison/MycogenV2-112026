@@ -43,7 +43,7 @@
               {% else %}
                 <div class="col-md-4 field-{{ f.name }}">{% include "core/_wizard_field.html" %}</div>
               {% endif %}
-              {% if f.name == 'patient_id' %}<div class="col-12 mt-1"><div id="patient-found" class="alert alert-info py-2 small mb-0 d-none"></div></div>{% endif %}
+              {% if f.name == 'patient_id' %}{{ form.patient_pk }}<div class="col-12 mt-1"><div id="patient-found" class="alert alert-info py-2 small mb-0 d-none"></div></div>{% endif %}
             {% endfor %}
           </div></div>
         </div>
@@ -53,8 +53,10 @@
           <div class="card-header"><i class="bi bi-droplet me-1"></i> Informations échantillon</div>
           <div class="card-body"><div class="row g-3">
             {% for f in sample_fields %}
-              <div class="{% if f.name == 'code' %}col-md-5{% elif f.name == 'sample_type' %}col-md-7{% elif f.name == 'facility' %}col-12{% else %}col-md-6{% endif %} field-{{ f.name }}">{% include "core/_wizard_field.html" %}</div>
+              <div class="{% if f.name == 'code' %}col-md-5{% elif f.name == 'host' %}col-md-7{% elif f.name == 'sample_type' %}col-12{% elif f.name == 'facility' %}col-12{% else %}col-md-6{% endif %} field-{{ f.name }}">{% include "core/_wizard_field.html" %}</div>
             {% endfor %}
+            <datalist id="aspect-options">{% for a in aspects %}<option value="{{ a }}">{% endfor %}</datalist>
+            <datalist id="host-options">{% for h in hosts %}<option value="{{ h }}">{% endfor %}</datalist>
           </div></div>
         </div>
       </div>
@@ -182,13 +184,36 @@
   }
   $('id_birth_date').addEventListener('change', updateAge); updateAge();
 
-  // ---- Patient déjà connu (ID Patient) ----
+  // ---- Identifiant externe : il peut être partagé par plusieurs patients → choix explicite ----
+  const lookupUrl = '{% url "core:patient_lookup" %}';
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
   $('id_patient_id').addEventListener('change', async () => {
     const id = $('id_patient_id').value.trim(), box = $('patient-found');
     box.classList.add('d-none');
     if (!id) return;
-    const r = await (await fetch('{% url "core:patient_lookup" %}?id=' + encodeURIComponent(id))).json();
-    if (!r.found) { box.textContent = 'Nouveau patient : il sera créé avec cet ID.'; box.classList.remove('d-none'); return; }
+    const r = await (await fetch(lookupUrl + '?id=' + encodeURIComponent(id))).json();
+    if (!r.found) {
+      $('id_patient_pk').value = 'new';
+      box.textContent = 'Aucun patient avec cet identifiant : un nouveau patient sera créé.';
+      box.classList.remove('d-none'); return;
+    }
+    box.innerHTML = `<div class="mb-1"><i class="bi bi-people"></i> ${r.matches.length} patient(s) avec cet identifiant — choisir :</div>`
+      + r.matches.map(m => `<button type="button" class="btn btn-sm btn-outline-primary me-1 mb-1" data-pk="${m.pk}">
+          <b>${esc(m.full_name)}</b>${m.birth_date ? ' · né(e) le ' + m.birth_date : ''}${m.sex ? ' · ' + esc(m.sex) : ''} · ${m.samples} échantillon(s)</button>`).join('')
+      + '<button type="button" class="btn btn-sm btn-outline-secondary mb-1" data-pk="new"><i class="bi bi-person-plus"></i> Nouveau patient</button>';
+    box.classList.remove('d-none');
+  });
+  $('patient-found').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-pk]');
+    if (!b) return;
+    const box = $('patient-found');
+    if (b.dataset.pk === 'new') {
+      $('id_patient_pk').value = 'new';
+      box.innerHTML = '<i class="bi bi-person-plus"></i> Nouveau patient (même identifiant externe qu\'un autre patient).';
+      return;
+    }
+    const r = await (await fetch(lookupUrl + '?pk=' + b.dataset.pk)).json();
+    $('id_patient_pk').value = b.dataset.pk;
     ["full_name", "birth_date", "sex", "national_id", "tb_register_number", "phone", "address", "district",
      "region", "hiv_status", "tb_history", "patient_notes"].forEach(k => {
       const el = $("id_" + k);
@@ -197,8 +222,8 @@
     $("id_research_consent").checked = !!r.research_consent;
     updateAge();
     if (r.facility && $('id_facility').tomselect && !$('id_facility').value) $('id_facility').tomselect.setValue(r.facility);
-    box.innerHTML = '<i class="bi bi-person-check"></i> Patient connu : <b>' + r.full_name + '</b> — ' + r.samples + ' échantillon(s) déjà enregistré(s). Informations reprises.';
-    box.classList.remove('d-none');
+    box.innerHTML = '<i class="bi bi-person-check"></i> Patient choisi : <b>' + esc(r.full_name) + '</b> — ' + r.samples
+      + ' échantillon(s) déjà enregistré(s). Informations reprises ; ce nouvel échantillon lui sera rattaché.';
   });
 
   // ---- Motif de non-conformité visible seulement si non conforme ----
@@ -248,8 +273,8 @@
   function buildRecap() {
     const rows = [
       ['Patient', text('id_full_name')], ['Âge / sexe', [ $('age-display').value, text('id_sex').replace('—', '') ].filter(Boolean).join(' · ')],
-      ['ID patient', text('id_patient_id') || 'nouveau (attribué automatiquement)'], ['Provenance', text('id_facility')],
-      ['N° échantillon', text('id_code')], ['Prélèvement', [text('id_sample_type'), text('id_type_detail')].filter(Boolean).join(' — ')],
+      ['Identifiant externe', text('id_patient_id') || 'nouveau (attribué automatiquement)'], ['Provenance', text('id_facility')],
+      ['N° échantillon', text('id_code')], ['Prélèvement', [text('id_sample_type'), text('id_type_detail'), text('id_aspect')].filter(Boolean).join(' — ')],
       ['Réception', $('id_received_at').value.replace('T', ' ')],
     ];
     $('recap').innerHTML = rows.map(([k, v]) =>

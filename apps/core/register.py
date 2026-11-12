@@ -35,7 +35,8 @@ def analysis_choices(sample=None):
 
 PATIENT_FIELDS = ["full_name", "birth_date", "sex", "patient_id", "national_id", "tb_register_number", "phone",
                   "address", "district", "region", "hiv_status", "tb_history", "research_consent", "patient_notes"]
-SAMPLE_FIELDS = ["code", "sample_type", "type_detail", "collected_on", "received_at", "facility", "requester"]
+SAMPLE_FIELDS = ["code", "host", "sample_type", "type_detail", "aspect", "collected_on", "received_at", "facility",
+                 "requester", "requester_contact"]
 
 
 class RegistrationForm(BootstrapFormMixin, forms.Form):
@@ -44,8 +45,12 @@ class RegistrationForm(BootstrapFormMixin, forms.Form):
                                 widget=forms.TextInput(attrs={"placeholder": "RAKOTO Jean", "autocomplete": "off"}))
     birth_date = forms.DateField(label="Date de naissance", widget=forms.DateInput(attrs=DATE, format=ISO))
     sex = forms.ChoiceField(label="Sexe", required=False, choices=[("", "—")] + Patient.SEX[:2])
-    patient_id = forms.CharField(label="ID Patient", max_length=30, required=False,
-                                 help_text="Patient déjà connu : ses informations sont reprises. Vide : ID attribué automatiquement.")
+    patient_id = forms.CharField(label="Identifiant externe", max_length=30, required=False,
+                                 help_text="Un identifiant peut être partagé par plusieurs patients : en cas de "
+                                           "correspondance, choisir le patient ou « nouveau patient ». "
+                                           "Vide : identifiant attribué automatiquement.")
+    # patient choisi : n° interne d'un patient existant, « new » pour un nouveau patient, vide = non précisé
+    patient_pk = forms.CharField(required=False, widget=forms.HiddenInput)
     national_id = forms.CharField(label="N° CIN / identifiant", max_length=50, required=False)
     tb_register_number = forms.CharField(label="N° registre TB", max_length=50, required=False)
     phone = forms.CharField(label="Téléphone", max_length=30, required=False)
@@ -60,15 +65,22 @@ class RegistrationForm(BootstrapFormMixin, forms.Form):
     # --- Étape 1 : échantillon
     code = forms.CharField(label="N° Échantillon", max_length=30,
                            widget=forms.TextInput(attrs={"pattern": r"\d{2}-\d{4,}", "placeholder": "26-0001"}))
+    host = forms.CharField(label="Hôte", max_length=60, required=False,
+                           widget=forms.TextInput(attrs={"list": "host-options", "autocomplete": "off"}))
     sample_type = forms.ChoiceField(label="Type de prélèvement", choices=[("", "—")] + Sample.TYPES)
     type_detail = forms.CharField(label="Précision", max_length=120, required=False,
                                   widget=forms.TextInput(attrs={"placeholder": "Ex. 2 mL"}))
+    aspect = forms.CharField(label="Aspect", max_length=60, required=False,
+                             widget=forms.TextInput(attrs={"list": "aspect-options", "autocomplete": "off",
+                                                           "placeholder": "Ex. Muco-purulent"}))
     collected_on = forms.DateField(label="Date de prélèvement", required=False, widget=forms.DateInput(attrs=DATE, format=ISO))
     received_at = forms.DateTimeField(label="Date de réception",
                                       widget=forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"))
     facility = forms.ModelChoiceField(label="Provenance / CDT", required=False,
                                       queryset=Facility.objects.filter(active=True).order_by("code"))
     requester = forms.CharField(label="Prescripteur", max_length=150, required=False)
+    requester_contact = forms.CharField(label="Contact prescripteur", max_length=120, required=False,
+                                        widget=forms.TextInput(attrs={"placeholder": "Téléphone ou e-mail"}))
     # --- Étape 2 : examens
     project = forms.ModelChoiceField(label="Projet", required=False, queryset=None)
     study = forms.ModelChoiceField(label="Étude", required=False, queryset=None)
@@ -152,7 +164,8 @@ def initial_from(sample):
         "code": sample.code, "sample_type": sample.sample_type, "type_detail": sample.type_detail,
         "collected_on": timezone.localtime(sample.collected_at).date() if sample.collected_at else None,
         "received_at": timezone.localtime(sample.received_at).replace(second=0, microsecond=0),
-        "facility": sample.facility_id, "requester": sample.requester, "project": sample.project_id,
+        "facility": sample.facility_id, "requester": sample.requester,
+        "requester_contact": sample.requester_contact, "aspect": sample.aspect, "host": sample.host, "project": sample.project_id,
         "study": sample.study_id, "case": sample.case_id, "case_text": sample.case_text, "analyses": sample.requested_analyses,
         "conform": sample.conform, "non_conformity": sample.non_conformity,
         "notes": sample.notes,
@@ -163,7 +176,7 @@ def initial_from(sample):
 
 
 def patient_initial(p):
-    return {"full_name": p.full_name, "birth_date": p.birth_date, "sex": p.sex if p.sex != "I" else "",
+    return {"patient_pk": str(p.pk), "full_name": p.full_name, "birth_date": p.birth_date, "sex": p.sex if p.sex != "I" else "",
             "patient_id": p.code, "national_id": p.national_id, "tb_register_number": p.tb_register_number,
             "phone": p.phone, "address": p.address, "district": p.district, "region": p.region,
             "hiv_status": p.hiv_status, "tb_history": p.tb_history, "research_consent": p.research_consent,
@@ -177,7 +190,7 @@ def render_wizard(request, form, sample=None):
     return render(request, "core/register.html", {
         "form": form, "sample": sample, "step": form.step_of_errors() if form.is_bound and form.errors else 1,
         "patient_fields": [form[f] for f in PATIENT_FIELDS],
-        "sample_fields": [form[f] for f in SAMPLE_FIELDS],
+        "sample_fields": [form[f] for f in SAMPLE_FIELDS], "aspects": Sample.ASPECTS, "hosts": Sample.HOSTS,
     })
 
 
@@ -192,7 +205,7 @@ def register(request):
             return redirect("core:register" if "another" in request.POST else sample.get_absolute_url())
     else:
         initial = {"code": Sample.next_code(), "received_at": timezone.localtime().replace(second=0, microsecond=0),
-                   "conform": True, "hiv_status": "INC", "tb_history": "NEW"}
+                   "conform": True, "hiv_status": "INC", "tb_history": "NEW", "host": "Humain"}
         for key in ("facility", "project"):  # liens « Ajouter » depuis une fiche CDT / projet
             if request.GET.get(key, "").isdigit():
                 initial[key] = int(request.GET[key])
@@ -233,18 +246,17 @@ def apply_patient(patient, d, user):
 def save_registration(d, user, sample=None):
     pid = d["patient_id"].strip()
     current = sample.patient if sample else None
-    patient = Patient.objects.filter(code__iexact=pid).first() if pid else None
-    created = False
-    if patient is None:
-        if current and (pid or not current.code):
-            patient = current  # correction de l'ID du patient de cet échantillon
-            if pid:
-                patient.code = pid
-        elif current and not pid:
-            patient = current
-        else:
-            patient = Patient(code=pid, created_by=user)
-            created = True
+    choice = (d.get("patient_pk") or "").strip()
+    # Un identifiant externe peut être partagé par plusieurs patients : le patient existant n'est repris
+    # que s'il a été choisi explicitement (sinon, nouveau patient ; en modification, patient actuel).
+    patient = Patient.objects.filter(pk=choice).first() if choice.isdigit() else None
+    if patient is None and choice != "new" and current:
+        patient = current
+    created = patient is None
+    if created:
+        patient = Patient(code=pid, created_by=user)
+    elif pid or not patient.code:
+        patient.code = pid
     apply_patient(patient, d, user)
     patient.save()
     log(user, "CREATE" if created else "UPDATE", patient)
@@ -252,6 +264,7 @@ def save_registration(d, user, sample=None):
     collected = d["collected_on"]
     values = {
         "code": d["code"], "patient": patient, "facility": d["facility"], "requester": d["requester"],
+        "requester_contact": d["requester_contact"], "aspect": d["aspect"], "host": d["host"],
         "sample_type": d["sample_type"], "type_detail": d["type_detail"],
         "collected_at": timezone.make_aware(datetime.combine(collected, time(0, 0))) if collected else None,
         "received_at": d["received_at"], "project": d["project"], "study": d["study"], "case": d["case"],
@@ -277,10 +290,16 @@ def save_registration(d, user, sample=None):
 @login_required
 @permission_required("core.view_patient", raise_exception=True)
 def patient_lookup(request):
-    """Préremplissage du formulaire quand l'ID patient saisi existe déjà."""
-    p = Patient.objects.filter(code__iexact=request.GET.get("id", "").strip()).first()
-    if not p:
-        return JsonResponse({"found": False})
+    """Patients ayant l'identifiant externe saisi (?id=) ; ou fiche complète d'un patient choisi (?pk=)."""
+    if request.GET.get("pk"):
+        p = get_object_or_404(Patient, pk=request.GET["pk"])
+    else:
+        pid = request.GET.get("id", "").strip()
+        matches = Patient.objects.filter(code__iexact=pid).order_by("last_name", "first_name") if pid else []
+        return JsonResponse({"found": bool(matches), "matches": [{
+            "pk": m.pk, "full_name": m.full_name, "birth_date": m.birth_date.strftime("%d/%m/%Y") if m.birth_date else "",
+            "age": m.age, "sex": m.get_sex_display() if m.sex != "I" else "", "samples": m.samples.count(),
+        } for m in matches[:20]]})
     data = patient_initial(p)
     data["birth_date"] = p.birth_date.isoformat() if p.birth_date else ""
     last = p.samples.order_by("-received_at").first()

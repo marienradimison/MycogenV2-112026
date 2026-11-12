@@ -9,7 +9,7 @@
     <h3>IDENTITÉ DU PATIENT</h3>
     <dl class="kv">
       <dt>Nom :</dt><dd>{{ patient.full_name|default:"—" }}</dd>
-      <dt>ID Patient</dt><dd class="mono">{{ patient.code|default:"—" }}</dd>
+      <dt>Identifiant externe</dt><dd class="mono">{{ patient.code|default:"—" }}</dd>
       <dt>Âge / Sexe :</dt><dd>{% if patient.age is not None %}{{ patient.age }} ans{% else %}—{% endif %} / {% if patient.sex and patient.sex != 'I' %}{{ patient.get_sex_display }}{% else %}Non renseigné{% endif %}</dd>
       <dt>Adresse :</dt><dd>{{ patient.address|default:"—" }}</dd>
     </dl>

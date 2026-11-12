@@ -1,5 +1,7 @@
 # Mycogen — LIMS
 
+> **Mise en production sur le serveur : [docs/MISE_EN_PRODUCTION.md](docs/MISE_EN_PRODUCTION.md)** (pas à pas).
+>
 > Guide complet (installation, base de données, utilisation, suivi) : [docs/GUIDE_MYCOGEN.md](docs/GUIDE_MYCOGEN.md) — version PDF : `docs/GUIDE_MYCOGEN.pdf` (régénérer avec `.venv\Scripts\python docs\build_guide_pdf.py`).
 
 **Institut Pasteur de Madagascar · Mycobacteria Unit**

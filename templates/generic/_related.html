@@ -2,7 +2,7 @@
 {% for t in related %}
 <div class="card mb-3">
   <div class="card-header d-flex align-items-center">
-    <i class="bi {{ t.crud.icon }} me-2 text-secondary"></i>{{ t.crud.title }}
+    <i class="bi {{ t.crud.icon }} me-2 text-secondary"></i>{{ t.title|default:t.crud.title }}
     <span class="badge text-bg-light border ms-2">{{ t.rows|length }}</span>
     {% if t.can_add %}
       <a class="btn btn-sm btn-outline-primary ms-auto no-print"

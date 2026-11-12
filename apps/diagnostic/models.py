@@ -313,6 +313,11 @@ class IncubatorReading(models.Model):
 
 class ReadingEntry(models.Model):
     OBS = [("", "—"), ("NOGROWTH", "Pas de pousse"), ("GROWTH", "Pousse"), ("CONTAMINATED", "Contaminé")]
+    MORPHOLOGY = [("E", "Eugonique"), ("d", "Dysgonique"), ("R", "Rugueux"), ("s", "Lisse")]
+    SD_SIGNS = [("+", "+"), ("-", "−")]
+    CONCLUSIONS = [("CMTB", "CMTB"), ("ATYP", "Atypique")]
+    PIGMENTS = ["Non pigmenté", "Beige", "Crème", "Jaune", "Orange"]
+    BAAR_ASPECTS = ["id BK", "Court", "Long", "Fin", "Trapu", "Coccobacille"]
     ACTIONS = [
         ("NONE", "Reste en étuve"), ("TUBE_DISCARDED", "Tube contaminé jeté"),
         ("GROWTH_SD", "Pousse — test SD à faire"), ("POSITIVE", "Positive CMTB — sortie"),
@@ -327,10 +332,37 @@ class ReadingEntry(models.Model):
     sd_test = models.CharField("test SD", max_length=3, choices=Culture.SD_RESULTS, blank=True)
     action = models.CharField("décision", max_length=14, choices=ACTIONS, default="NONE")
     discarded_tubes = models.CharField("tubes jetés", max_length=10, blank=True)
+    # Fiche de lecture (MYC-FIC-008) : renseignée pour chaque échantillon
+    colonies = models.CharField("nombre de colonies", max_length=5, blank=True,
+                                help_text="0, nombre exact de colonies, 100, 200 ou 300")
+    morphology = models.CharField("morphologie", max_length=4, blank=True, help_text="E, d, R, s")
+    pigment = models.CharField("pigment", max_length=60, blank=True)
+    baar_aspect = models.CharField("aspect BAAR (ZN)", max_length=80, blank=True)
+    sd_control = models.CharField("SD MPT64 — contrôle", max_length=1, choices=SD_SIGNS, blank=True)
+    conclusion = models.CharField("conclusion", max_length=4, choices=CONCLUSIONS, blank=True)
+    cj_lj = models.BooleanField("CJ — LJ", default=False)
+    cj_pyr = models.BooleanField("CJ — Pyr", default=False)
 
     class Meta:
         verbose_name = "ligne de lecture"
         ordering = ["reading", "culture__sample__code"]
+
+    @property
+    def growth_days(self):
+        """Temps de croissance : de l'ensemencement à la pousse, sinon à la date de lecture."""
+        c = self.culture
+        end = self.reading.date
+        if c.growth_on and c.growth_on <= end:
+            end = c.growth_on
+        return (end - c.inoculated_on).days
+
+    @property
+    def sd_sign(self):
+        return {"POS": "+", "NEG": "−"}.get(self.sd_test, "")
+
+    @property
+    def control_sign(self):
+        return {"+": "+", "-": "−"}.get(self.sd_control, "")
 
 
 class TemperatureLog(models.Model):

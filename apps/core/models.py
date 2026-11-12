@@ -222,7 +222,8 @@ def result_kind(obj):
 class Patient(CodedModel):
     url_base = "core:patient"
     code_prefix = "PT"
-    code = models.CharField("ID patient", max_length=30, unique=True, blank=True)
+    code = models.CharField("identifiant externe", max_length=30, blank=True, db_index=True,
+                            help_text="Peut être partagé par plusieurs patients (ex. n° de registre du CDT)")
 
     SEX = [("M", "Masculin"), ("F", "Féminin"), ("I", "Indéterminé")]
     HIV = [("POS", "Positif"), ("NEG", "Négatif"), ("INC", "Inconnu")]
@@ -307,13 +308,11 @@ class Sample(CodedModel):
         ("STOOL", "Selles"),
         ("OTHER", "Autres"),
     ]
-    ASPECTS = [
-        ("", "—"),
-        ("SAL", "Salivaire"),
-        ("MUC", "Muqueux"),
-        ("MP", "Muco-purulent"),
-        ("BLO", "Sanglant"),
-    ]
+    # Suggestions pour le champ libre « aspect » (crachat, liquides, urines…)
+    ASPECTS = ["Salivaire", "Muqueux", "Muco-purulent", "Purulent", "Sanglant", "Hémorragique", "Clair",
+               "Trouble", "Jaune", "Citrin", "Louche", "Visqueux"]
+    HOSTS = ["Humain", "Bovin", "Porcin", "Ovin", "Caprin", "Canin", "Félin", "Faune sauvage"]
+    PULMONARY = {"SPUTUM", "BAL", "GASTRIC_LAV", "GASTRIC_ASP"}
     REASONS = [
         ("DIAG", "Diagnostic"),
         ("FU", "Suivi de traitement"),
@@ -344,23 +343,29 @@ class Sample(CodedModel):
                                  help_text="Pour les études dont le cas est saisi au lieu d'être choisi dans une liste.")
     case = models.ForeignKey("research.ProjectCase", verbose_name="cas", on_delete=models.SET_NULL,
                              null=True, blank=True, related_name="samples")
-    external_id = models.CharField("identifiant externe", max_length=60, blank=True,
-                                   help_text="N° du bon de demande, ID étude…")
+    external_id = models.CharField("n° bon de demande / réf.", max_length=60, blank=True,
+                                   help_text="N° du bon de demande, référence du laboratoire d'origine…")
+    host = models.CharField("hôte", max_length=60, blank=True, default="Humain",
+                            help_text="Humain, bovin… : hôte dont provient l'échantillon")
     sample_type = models.CharField("type de prélèvement", max_length=13, choices=TYPES, default="SPUTUM")
     type_detail = models.CharField("précision", max_length=120, blank=True,
                                    help_text="Ex. 2 mL, lobe inférieur droit, ganglion cervical…")
-    aspect = models.CharField("aspect", max_length=3, choices=ASPECTS, blank=True)
+    aspect = models.CharField("aspect", max_length=60, blank=True, help_text="Aspect de l'échantillon")
     volume_ml = models.DecimalField("volume (mL)", max_digits=6, decimal_places=2, null=True, blank=True)
     reason = models.CharField("motif", max_length=5, choices=REASONS, default="DIAG")
     followup_month = models.CharField("mois de suivi", max_length=3, choices=FOLLOWUP, blank=True)
     collected_at = models.DateTimeField("date de prélèvement", null=True, blank=True)
     received_at = models.DateTimeField("date de réception", default=timezone.now)
     requester = models.CharField("prescripteur", max_length=150, blank=True)
+    requester_contact = models.CharField("contact prescripteur", max_length=120, blank=True,
+                                         help_text="Téléphone ou e-mail du prescripteur")
     requested_analyses = models.JSONField("analyses demandées", default=list, blank=True)
     conform = models.BooleanField("conforme", default=True)
     non_conformity = models.CharField("motif de non-conformité", max_length=255, blank=True)
     status = models.CharField("statut", max_length=20, choices=STATUS, default="RECEIVED", editable=False)
     notes = models.TextField("remarques", blank=True)
+    legacy_ref = models.CharField("réf. ancien LIMS", max_length=40, blank=True, db_index=True, editable=False,
+                                  help_text="Identifiant de la fiche reprise de l'ancien LIMS")
 
     class Meta:
         verbose_name = "échantillon"
@@ -383,6 +388,11 @@ class Sample(CodedModel):
     def type_display(self):
         label = self.get_sample_type_display()
         return f"{label} ({self.type_detail})" if self.type_detail else label
+
+    @property
+    def tb_form(self):
+        """Forme de tuberculose déduite du type de prélèvement."""
+        return "Pulmonaire" if self.sample_type in self.PULMONARY else "Extrapulmonaire"
 
     @property
     def case_display(self):

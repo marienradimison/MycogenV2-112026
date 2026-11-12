@@ -44,4 +44,18 @@
   </div>
 </div>
 <div class="small text-muted mt-3">{{ remaining|length }} culture(s) restent en étuve après cette lecture.</div>
+
+<div class="card mt-3">
+  <div class="card-header">Fiche de lecture</div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead><tr><th>N° labo</th><th>Colonies</th><th>Morph.</th><th>Pigment</th><th>Aspect BAAR</th><th>Tps de croiss.</th><th>SD C</th><th>SD T</th><th>Conclusion</th><th>LJ</th><th>Pyr</th><th>Décision</th></tr></thead>
+      <tbody>{% for r in sheet_rows %}
+        <tr><td><a class="mono fw-semibold" href="{{ r.url }}">{{ r.code }}</a></td><td>{{ r.colonies|default:"—" }}</td><td>{{ r.morphology|default:"—" }}</td>
+          <td>{{ r.pigment|default:"—" }}</td><td>{{ r.baar|default:"—" }}</td><td>{{ r.growth_time }}</td><td>{{ r.sd_c|default:"—" }}</td><td>{{ r.sd_t|default:"—" }}</td>
+          <td>{{ r.conclusion|default:"—" }}</td><td>{{ r.lj }}</td><td>{{ r.pyr }}</td><td class="small">{{ r.remark }}</td></tr>
+      {% endfor %}</tbody>
+    </table>
+  </div>
+</div>
 {% endblock %}

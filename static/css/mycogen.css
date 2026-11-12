@@ -397,6 +397,11 @@ dl.details dd { margin-bottom: .55rem; }
 .stage-exit { background: #e8f5ec; border-color: #a9d8b8; color: #1c6b30; }
 .stage-lpa { background: #fff4dc; border-color: #f0d18a; color: #8a5a00; }
 .reading-table select { min-width: 130px; }
+.reading-table .sheet-row > td { background: var(--bs-tertiary-bg); }
+.sheet-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 8px 12px; padding: 4px 6px 8px; }
+.sheet-fields > div > label { display: block; font-size: .72rem; font-weight: 600; color: var(--bs-secondary-color); margin-bottom: 2px; }
+.sheet-fields select { min-width: 0; }
+.sheet-fields .morph { display: flex; flex-wrap: wrap; gap: 2px 10px; padding-top: 4px; font-size: .85rem; }
 .reading-sec.sec-pos .card-header { color: #a12a1f; }
 .reading-sec.sec-neg .card-header { color: #1c6b30; }
 .reading-sec.sec-lpa .card-header, .reading-sec.sec-sd .card-header { color: #8a5a00; }

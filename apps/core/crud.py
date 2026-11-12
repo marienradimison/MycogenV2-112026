@@ -6,6 +6,7 @@ modification, suppression et validation des résultats, avec permissions Django
 et journal d'audit.
 """
 import csv
+from urllib.parse import urlencode
 from functools import reduce
 import operator
 
@@ -17,6 +18,7 @@ from django.forms import modelform_factory
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.urls import path, reverse
+from django.utils.dateparse import parse_date
 from django.utils.text import capfirst
 from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
@@ -63,7 +65,8 @@ def log(user, action, obj, changes=None):
 class Crud:
     def __init__(self, model, prefix, *, fields, list_display, search_fields=(), list_filter=(),
                  form_class=None, title=None, icon="bi-table", detail_template=None,
-                 form_template=None, ordering=None, group=None, extra_context=None, exclude_urls=(), create_url=None, update_url=None,
+                 form_template=None, ordering=None, group=None, extra_context=None, exclude_urls=(), create_url=None, update_url=None, exporter=None,
+                 date_filters=(), hidden_filters=(), list_title=None,
                  header_links=(), list_tabs=None):
         self.model = model
         self.prefix = prefix
@@ -79,6 +82,10 @@ class Crud:
         self.ordering = ordering
         self.group = group
         self.extra_context = extra_context
+        self.exporter = exporter  # export CSV spécifique : exporter(queryset) -> HttpResponse
+        self.date_filters = date_filters      # filtres par date (champ de saisie)
+        self.hidden_filters = hidden_filters  # filtres fixés par le lien du menu, sans liste déroulante
+        self.list_title = list_title          # titre de la liste selon la requête : list_title(request)
         self.exclude_urls = exclude_urls
         self.create_url = create_url  # vues dédiées (ex. assistant d'enregistrement)
         self.update_url = update_url
@@ -131,6 +138,11 @@ class Crud:
                         "choices": choices, "value": request.GET.get(name, "")})
         return out
 
+    def date_filter_fields(self, request):
+        return [{"name": n, "label": capfirst(self.opts.get_field(n).verbose_name).split(" (")[0],
+                 "value": request.GET.get(n, "")}
+                for n in self.date_filters]
+
     # -- views -----------------------------------------------------------
     def urls(self):
         crud = self
@@ -163,10 +175,19 @@ class Crud:
                         if f.get_internal_type() == "BooleanField":
                             v = v == "1"
                         qs = qs.filter(**{name: v})
+                for name in crud.hidden_filters:
+                    if self.request.GET.get(name):
+                        qs = qs.filter(**{name: self.request.GET[name]})
+                for name in crud.date_filters:
+                    d = parse_date(self.request.GET.get(name) or "")
+                    if d:
+                        qs = qs.filter(**{name: d})
                 return qs
 
             def get(self, request, *args, **kwargs):
                 if request.GET.get("export") == "csv":
+                    if crud.exporter:
+                        return crud.exporter(self.get_queryset())
                     return self.export(self.get_queryset())
                 return super().get(request, *args, **kwargs)
 
@@ -190,11 +211,19 @@ class Crud:
             def get_context_data(self, **kwargs):
                 ctx = super().get_context_data(**kwargs)
                 ctx["columns"] = crud.columns()
+                for name in crud.hidden_filters:  # liste non restreinte : la colonne reste utile
+                    if not self.request.GET.get(name):
+                        ctx["columns"].insert(2, (name, field_label(crud.model, name)))
+                ctx["page_title"] = crud.list_title(self.request) if crud.list_title else None
+                ctx["date_filters"] = crud.date_filter_fields(self.request)
+                ctx["hidden_params"] = [(n, self.request.GET[n]) for n in crud.hidden_filters if self.request.GET.get(n)]
+                ctx["hidden_query"] = urlencode(ctx["hidden_params"])
                 ctx["tabs"] = crud.list_tabs() if crud.list_tabs else None
                 ctx["filters"] = crud.filters(self.request)
                 params = self.request.GET.copy()
                 params.pop("page", None)
                 ctx["querystring"] = params.urlencode()
+                ctx["has_filters"] = ctx["querystring"] != ctx["hidden_query"]
                 return ctx
 
         class Detail(Mixin, DetailView):
@@ -314,7 +343,7 @@ class Crud:
         return urls
 
 
-def related_tables(obj, user):
+def related_tables(obj, user, limit=50):
     """Tableaux des objets liés (relations inverses) affichés sur une fiche."""
     tables = []
     for rel in obj._meta.related_objects:
@@ -324,7 +353,8 @@ def related_tables(obj, user):
         if not crud or not user.has_perm(crud.perm("view")):
             continue
         accessor = rel.get_accessor_name()
-        qs = getattr(obj, accessor).all()[:50]
+        qs = getattr(obj, accessor).all()
+        qs = qs[:limit] if limit else qs
         tables.append({
             "crud": crud,
             "rows": qs,

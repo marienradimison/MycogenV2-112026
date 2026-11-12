@@ -38,12 +38,12 @@
         {% if patient %}
         <dl class="row details mb-0">
           <dt class="col-sm-4">Nom & prénom</dt><dd class="col-sm-8 fw-semibold">{{ patient.full_name }}</dd>
-          <dt class="col-sm-4">ID patient</dt><dd class="col-sm-8 mono">{{ patient.code }}</dd>
+          <dt class="col-sm-4">Identifiant externe</dt><dd class="col-sm-8 mono">{{ patient.code }}</dd>
           <dt class="col-sm-4">Naissance / âge</dt><dd class="col-sm-8">{{ patient.birth_date|date:"d/m/Y"|default:"—" }}{% if patient.age is not None %} · {{ patient.age }} ans{% endif %}</dd>
           <dt class="col-sm-4">Sexe</dt><dd class="col-sm-8">{% if patient.sex != 'I' %}{{ patient.get_sex_display }}{% else %}Non renseigné{% endif %}</dd>
           <dt class="col-sm-4">Adresse</dt><dd class="col-sm-8">{{ patient.address|default:"—" }}</dd>
           {% with n=patient.samples.count %}{% if n > 1 %}<dt class="col-sm-4">Historique</dt><dd class="col-sm-8">
-            <a href="{% url 'core:sample_list' %}?q={{ patient.code|urlencode }}">{{ n }} échantillons pour ce patient</a></dd>{% endif %}{% endwith %}
+            <a href="{% url 'core:sample_list' %}?patient={{ patient.pk }}">{{ n }} échantillons pour ce patient</a></dd>{% endif %}{% endwith %}
         </dl>
         {% else %}<span class="text-muted">Aucun patient associé.</span>{% endif %}
       </div>
@@ -54,10 +54,12 @@
       <div class="card-header"><i class="bi bi-droplet me-2 text-secondary"></i> Renseignements échantillon</div>
       <div class="card-body">
         <dl class="row details mb-0">
+          <dt class="col-sm-4">Hôte</dt><dd class="col-sm-8">{{ object.host|default:"—" }}</dd>
           <dt class="col-sm-4">Type</dt><dd class="col-sm-8 fw-semibold">{{ object.type_display }}</dd>
+          {% if object.aspect %}<dt class="col-sm-4">Aspect</dt><dd class="col-sm-8">{{ object.aspect }}</dd>{% endif %}
           <dt class="col-sm-4">Prélevé / reçu</dt><dd class="col-sm-8">{{ object.collected_at|date:"d/m/Y"|default:"—" }} / {{ object.received_at|date:"d/m/Y H:i" }}</dd>
           <dt class="col-sm-4">Provenance / CDT</dt><dd class="col-sm-8">{% cell object "facility" %}</dd>
-          <dt class="col-sm-4">Prescripteur</dt><dd class="col-sm-8">{{ object.requester|default:"—" }}</dd>
+          <dt class="col-sm-4">Prescripteur</dt><dd class="col-sm-8">{{ object.requester|default:"—" }}{% if object.requester_contact %} · <span class="small">{{ object.requester_contact }}</span>{% endif %}</dd>
           {% if object.project %}
           <dt class="col-sm-4">Projet / étude / cas</dt><dd class="col-sm-8">{% cell object "project" %}{% if object.study %} · {{ object.study.code }}{% endif %}{% if object.case_display %} · {{ object.case_display }}{% endif %}</dd>
           {% endif %}

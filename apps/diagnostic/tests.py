@@ -89,10 +89,13 @@ class CultureLJTests(TestCase):
         for c in (neg, pos, ntm, cont2, cont1):
             self.assertIn(c.sample.code, html)
         doc = self.client.get(reading.get_absolute_url() + "?print=1").content.decode()
-        self.assertIn("FICHE DE LECTURE", doc)
-        self.assertEqual(doc.count("<tr class=\"dec-"), 7)   # une seule fiche, une ligne par culture lue
+        self.assertIn("FICHE PAILLASSE SORTIE CULTURES", doc)
+        self.assertIn("MYC-FIC-008/02", doc)
+        self.assertEqual(doc.count('class="fiche-lj"'), 1)      # une seule fiche par lecture
+        self.assertEqual(doc.count('<td class="lab">' + pos.sample.code[:3]), 7)   # une ligne par culture lue
+        self.assertIn(keep.sample.code, doc)
         blank = self.client.get(reverse("diagnostic:lj_blank_sheet")).content.decode()
-        self.assertIn("Fiche vierge", blank)
+        self.assertIn("FICHE PAILLASSE SORTIE CULTURES", blank)
         self.assertIn(keep.sample.code, blank)
         # retraitement
         self.client.post(reverse("diagnostic:lj_inoculation"), {
@@ -101,6 +104,87 @@ class CultureLJTests(TestCase):
         self.assertEqual(cont2.retreat_status, "RETREATED")
         self.assertEqual(Culture.objects.get(retreat_of=cont2).result, "PENDING")
         self.assertEqual(cont2.retreated_on, self.today)   # date de retraitement = 2e ensemencement
+
+    def test_reading_age_filters_and_group_negative(self):
+        monday = self.today - timedelta(days=self.today.weekday())
+        old = Culture.objects.create(sample=Sample.objects.create(), medium="LJ", inoculated_on=monday - timedelta(days=100))
+        soon = Culture.objects.create(sample=Sample.objects.create(), medium="LJ", inoculated_on=monday - timedelta(days=88))
+        young = Culture.objects.create(sample=Sample.objects.create(), medium="LJ", inoculated_on=monday - timedelta(days=10))
+        url = reverse("diagnostic:lj_reading_new")
+        day = monday.isoformat()
+        shown = lambda q: [c.pk for c in self.client.get(url + q).context["cultures"]]
+        self.assertEqual(shown(f"?date={day}"), [old.pk, soon.pk, young.pk])
+        self.assertEqual(shown(f"?filtre=90&date={day}"), [old.pk])
+        self.assertEqual(shown(f"?filtre=90s&date={day}"), [old.pk, soon.pk])
+        self.assertTrue(all(c.suggest_negative for c in self.client.get(url + f"?filtre=90s&date={day}").context["cultures"]))
+        # sans l'option « fin de semaine », une culture de moins de 90 j ne peut pas sortir négative
+        self.client.post(url, {"date": day, "cultures": [soon.pk], f"neg_{soon.pk}": "on"})
+        soon.refresh_from_db()
+        self.assertEqual(soon.result, "PENDING")
+        # sortie en groupe : seules les cultures affichées font partie de la lecture
+        r = self.client.post(url, {"date": day, "filtre": "90s", "cultures": [old.pk, soon.pk],
+                                   f"neg_{old.pk}": "on", f"neg_{soon.pk}": "on"})
+        self.assertEqual(r.status_code, 302)
+        for c in (old, soon, young):
+            c.refresh_from_db()
+        self.assertEqual((old.result, soon.result, young.result), ("NEGATIVE", "NEGATIVE", "PENDING"))
+        reading = IncubatorReading.objects.first()
+        self.assertEqual(reading.entries.count(), 2)
+        self.assertFalse(reading.entries.filter(culture=young).exists())
+
+    def test_reading_sheet_fields(self):
+        pos = self.culture(30)
+        exact = self.culture(28)
+        neg = self.culture(95)
+        invalid = self.culture(26)
+        reading = self.read({
+            f"t1_{pos.pk}": "GROWTH", f"sd_{pos.pk}": "POS", f"sdc_{pos.pk}": "+", f"colonies_{pos.pk}": "200",
+            f"morph_{pos.pk}": ["R", "E"], f"pigment_{pos.pk}": "Beige", f"baar_{pos.pk}": "id BK",
+            f"conclusion_{pos.pk}": "CMTB", f"cjlj_{pos.pk}": "on",
+            f"t1_{exact.pk}": "GROWTH", f"colonies_{exact.pk}": "15",
+            f"neg_{neg.pk}": "on",
+            f"t1_{invalid.pk}": "GROWTH", f"sd_{invalid.pk}": "POS", f"sdc_{invalid.pk}": "-",
+        })
+        for c in (pos, exact, neg, invalid):
+            c.refresh_from_db()
+        e = reading.entries.get(culture=pos)
+        self.assertEqual((e.colonies, e.morphology, e.pigment, e.baar_aspect, e.sd_control, e.conclusion, e.cj_lj, e.cj_pyr),
+                         ("200", "ER", "Beige", "id BK", "+", "CMTB", True, False))
+        self.assertEqual(e.growth_days, 30)
+        self.assertEqual((pos.result, pos.lj_grade, pos.colony_count), ("POSITIVE", "2+", None))
+        self.assertEqual((exact.lj_grade, exact.colony_count), ("1-19", 15))
+        self.assertEqual(reading.entries.get(culture=neg).colonies, "0")
+        self.assertEqual(invalid.result, "PENDING")             # contrôle négatif : test à refaire
+        self.assertEqual(reading.entries.get(culture=invalid).action, "GROWTH_SD")
+        doc = self.client.get(reading.get_absolute_url() + "?print=1").content.decode()
+        for text in ("<td>200</td>", "<td>ER</td>", ">Beige<", ">id BK<", "<td>30 j</td>", ">CMTB<", "<td>X</td>"):
+            self.assertIn(text, doc)
+        self.assertIn("Beige", self.client.get(reading.get_absolute_url()).content.decode())
+        # lecture suivante d'une pousse : la fiche déjà saisie est reprise
+        ctx = self.client.get(reverse("diagnostic:lj_reading_new")).context["cultures"]
+        self.assertEqual(next(c for c in ctx if c.pk == exact.pk).prev.colonies, "15")
+
+    def test_sheet_pages_of_24_rows(self):
+        for i in range(30):
+            Culture.objects.create(sample=Sample.objects.create(), medium="LJ", inoculated_on=self.today - timedelta(days=5))
+        doc = self.client.get(reverse("diagnostic:lj_blank_sheet")).content.decode()
+        self.assertEqual(doc.count('class="fiche-lj"'), 2)
+        self.assertEqual(doc.count('<td class="lab">'), 48)      # 2 pages de 24 lignes, complétées à vide
+        self.assertIn("Page 2 / 2", doc)
+
+    def test_retreatment_page(self):
+        first = self.culture(40, result="CONTAMINATED", result_date=self.today, retreat_status="RETREATED")
+        second = Culture.objects.create(sample=first.sample, medium="LJ", retreat_of=first, inoculated_on=self.today - timedelta(days=20),
+                                        result="CONTAMINATED", result_date=self.today, retreat_status="RETREATED")
+        third = Culture.objects.create(sample=first.sample, medium="LJ", retreat_of=second, inoculated_on=self.today - timedelta(days=2))
+        todo = self.culture(30, result="CONTAMINATED", result_date=self.today, retreat_status="TO_RETREAT")
+        r = self.client.get(reverse("diagnostic:lj_retreatment"))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual([c.pk for c in r.context["to_retreat"]], [todo.pk])
+        row = r.context["history"][0]
+        self.assertEqual((row["sample"], row["count"], row["latest"]), (first.sample, 2, third))
+        self.assertContains(r, "Tous les retraitements")
+        self.assertContains(self.client.get(reverse("diagnostic:lj_home")), reverse("diagnostic:lj_retreatment"))
 
     def test_pages_and_temperature(self):
         self.culture(40)

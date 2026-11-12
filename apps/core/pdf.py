@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 from django.conf import settings
@@ -63,11 +64,34 @@ def html_to_pdf(html, timeout=60):
                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         except subprocess.TimeoutExpired as exc:
             raise PdfError("Délai dépassé pendant la génération du PDF.") from exc
-        if not out.is_file() or out.stat().st_size == 0:
-            raise PdfError("Le navigateur n'a pas produit de PDF.")
-        return out.read_bytes()
+        # Edge peut rendre la main avant d'avoir écrit le fichier : attendre qu'il soit complet
+        deadline = time.monotonic() + timeout
+        size = -1
+        while time.monotonic() < deadline:
+            current = out.stat().st_size if out.is_file() else 0
+            if current and current == size:
+                return out.read_bytes()
+            size = current
+            time.sleep(0.5)
+        raise PdfError("Le navigateur n'a pas produit de PDF.")
     finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+        remove_dir(tmp)
+
+
+def remove_dir(path, attempts=10):
+    """Edge garde quelques instants son profil verrouillé : réessayer, puis purger les restes plus anciens."""
+    for _ in range(attempts):
+        shutil.rmtree(path, ignore_errors=True)
+        if not path.exists():
+            break
+        time.sleep(0.5)
+    limit = time.time() - 600
+    for old in path.parent.glob("mycogen-pdf-*"):
+        try:
+            if old.is_dir() and old.stat().st_mtime < limit:
+                shutil.rmtree(old, ignore_errors=True)
+        except OSError:
+            pass
 
 
 def render_document(request, template, context, filename):

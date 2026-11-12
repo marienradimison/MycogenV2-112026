@@ -8,6 +8,7 @@ import pathlib
 import subprocess
 import sys
 import tempfile
+import time
 
 import markdown
 
@@ -64,13 +65,24 @@ def main():
       <div class="title">Guide de référence et suivi du projet</div>
       <div class="meta">LIMS de l'Unité des Mycobactéries — document interne</div></div>"""
     html = f'<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>{CSS}</style></head><body>{cover}{body}</body></html>'
-    with tempfile.TemporaryDirectory() as tmp:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         page = pathlib.Path(tmp) / "guide.html"
         page.write_text(html, encoding="utf-8")
+        pdf = pathlib.Path(tmp) / "guide.pdf"
         subprocess.run([EDGE, "--headless=new", "--disable-gpu", "--no-pdf-header-footer", "--virtual-time-budget=5000",
                         "--allow-file-access-from-files", f"--user-data-dir={pathlib.Path(tmp) / 'p'}",
-                        f"--print-to-pdf={OUT}", page.as_uri()], timeout=120, check=False)
-    print(OUT if OUT.exists() else "échec", file=sys.stdout)
+                        f"--print-to-pdf={pdf}", page.as_uri()], timeout=120, check=False)
+        # Edge peut rendre la main avant d'avoir écrit le fichier : attendre qu'il soit complet
+        size, deadline = -1, time.monotonic() + 120
+        while time.monotonic() < deadline:
+            current = pdf.stat().st_size if pdf.is_file() else 0
+            if current and current == size:
+                OUT.write_bytes(pdf.read_bytes())
+                print(OUT)
+                return
+            size = current
+            time.sleep(0.5)
+    print("échec : le PDF n'a pas été produit", file=sys.stdout)
 
 
 if __name__ == "__main__":

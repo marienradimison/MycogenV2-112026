@@ -11,7 +11,7 @@
     <h3>PATIENT</h3>
     <dl class="kv">
       <dt>Nom :</dt><dd>{{ patient.full_name|default:"—" }}</dd>
-      <dt>ID Patient</dt><dd class="mono">{{ patient.code|default:"—" }}</dd>
+      <dt>Identifiant externe</dt><dd class="mono">{{ patient.code|default:"—" }}</dd>
       <dt>Âge / Sexe :</dt><dd>{% if patient.age is not None %}{{ patient.age }} ans{% else %}—{% endif %} / {% if patient.sex and patient.sex != 'I' %}{{ patient.get_sex_display }}{% else %}Non renseigné{% endif %}</dd>
       <dt>Adresse :</dt><dd>{{ patient.address|default:"—" }}</dd>
     </dl>
@@ -23,7 +23,7 @@
       <dt>Nature / Type :</dt><dd>{{ sample.type_display }}</dd>
       <dt>Prélevé / reçu :</dt><dd>{{ sample.collected_at|date:"d/m/Y"|default:"—" }} / {{ sample.received_at|date:"d/m/Y" }}</dd>
       <dt>Provenance :</dt><dd>{{ sample.facility.name|default:"—" }}</dd>
-      <dt>Prescripteur :</dt><dd>{{ sample.requester|default:"—" }}</dd>
+      <dt>Prescripteur :</dt><dd>{{ sample.requester|default:"—" }}{% if sample.requester_contact %} ({{ sample.requester_contact }}){% endif %}</dd>
     </dl>
   </div>
 </div>

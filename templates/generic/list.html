@@ -1,9 +1,9 @@
 {% extends "base.html" %}{% load lims %}
-{% block title %}{{ crud.title }}{% endblock %}
+{% block title %}{{ page_title|default:crud.title }}{% endblock %}
 {% block content %}
 <div class="page-title">
   <div class="icon"><i class="bi {{ crud.icon }}"></i></div>
-  <h1>{{ crud.title }}</h1>
+  <h1>{{ page_title|default:crud.title }}</h1>
   <span class="badge text-bg-light border">{{ paginator.count }}</span>
   <div class="ms-auto d-flex gap-2">
     {% for label, url_name, icon in crud.header_links %}
@@ -13,7 +13,7 @@
       <i class="bi bi-filetype-csv"></i> Export CSV</a>
     {% crud_perm user crud "add" as can_add %}
     {% if can_add %}
-      <a class="btn btn-sm btn-primary" href="{% crud_url crud 'create' %}"><i class="bi bi-plus-lg"></i> Nouveau</a>
+      <a class="btn btn-sm btn-primary" href="{% crud_url crud 'create' %}{% if hidden_query %}?{{ hidden_query }}{% endif %}"><i class="bi bi-plus-lg"></i> Nouveau</a>
     {% endif %}
   </div>
 </div>
@@ -22,6 +22,7 @@
 <div class="card">
   <div class="card-body py-2 border-bottom">
     <form class="row g-2 align-items-end" method="get">
+      {% for name, value in hidden_params %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
       {% if crud.search_fields %}
       <div class="col-md-3">
         <input class="form-control form-control-sm" name="q" value="{{ request.GET.q|default:'' }}" placeholder="Rechercher…">
@@ -35,9 +36,17 @@
         </select>
       </div>
       {% endfor %}
+      {% for f in date_filters %}
+      <div class="col-md-4 col-xl-3">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text">{{ f.label }}</span>
+          <input class="form-control" type="date" name="{{ f.name }}" value="{{ f.value }}" onchange="this.form.submit()">
+        </div>
+      </div>
+      {% endfor %}
       <div class="col-auto">
         <button class="btn btn-sm btn-outline-primary"><i class="bi bi-funnel"></i> Filtrer</button>
-        {% if querystring %}<a class="btn btn-sm btn-link" href="?">Réinitialiser</a>{% endif %}
+        {% if has_filters %}<a class="btn btn-sm btn-link" href="?{{ hidden_query }}">Réinitialiser</a>{% endif %}
       </div>
     </form>
   </div>

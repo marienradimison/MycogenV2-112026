@@ -46,7 +46,7 @@
       <table class="table table-sm table-hover align-middle mb-0 dbl-rows">
         <thead><tr>
           <th style="width:32px"><input class="form-check-input" type="checkbox" id="check-all" title="Tout sélectionner"></th>
-          <th>Analyse</th><th>N° échantillon</th><th>Patient</th><th>Date</th><th>Résultat</th><th>Projet</th><th>Saisi par</th><th style="min-width:220px">Commentaire du validateur</th><th></th>
+          <th>Analyse</th><th>N° échantillon</th><th>Patient</th><th>Date de rendu</th><th>Résultat</th><th>Projet</th><th>Saisi par</th><th style="min-width:220px">Commentaire du validateur</th><th></th>
         </tr></thead>
         <tbody>
         {% for r in rows %}
@@ -55,7 +55,7 @@
             <td>{% if r.code %}<span class="code-badge" title="{{ r.tab.title }} — {{ r.code.meaning }}">{{ r.code.code }}</span>{% else %}<i class="bi {{ r.crud.icon }} text-secondary"></i> {{ r.crud.title }}{% endif %}</td>
             <td class="mono"><a href="{{ r.obj.sample.get_absolute_url }}">{{ r.obj.sample.code }}</a></td>
             <td>{{ r.obj.sample.patient.full_name|default:"—" }}</td>
-            <td class="text-nowrap">{{ r.obj.test_date|date:"d/m/Y" }}</td>
+            <td class="text-nowrap">{{ r.rendered|date:"d/m/Y"|default:"—" }}</td>
             <td>{% if r.codes %}<span class="result-codes" title="{{ r.summary }}">{% for t in r.codes %}<span class="rcode rcode-{{ t.cls|default:'x' }}" title="{{ t.title }}">{{ t.label }}</span>{% endfor %}</span>{% else %}{{ r.summary }}{% endif %}</td>
             <td>{{ r.obj.sample.project.code|default:"—" }}</td>
             <td class="small">{{ r.obj.performed_by|default:"—" }}</td>

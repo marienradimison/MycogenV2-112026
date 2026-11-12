@@ -176,7 +176,7 @@ class Command(BaseCommand):
                                        district="Antananarivo", hiv_status=rnd.choice(["NEG", "NEG", "INC", "POS"]),
                                        tb_history=rnd.choice(["NEW", "NEW", "REL"]), research_consent=rnd.random() < .6)
             s = Sample.objects.create(patient=p, facility=rnd.choice(facs), sample_type="SPUTUM",
-                                      aspect=rnd.choice(["MUC", "MP", "SAL"]),
+                                      aspect=rnd.choice(["Muqueux", "Muco-purulent", "Salivaire"]),
                                       received_at=now - timedelta(days=rnd.randint(0, 28), hours=rnd.randint(0, 8)),
                                       requested_analyses=["GNX-RIF", "FLUO-AUR", "Cult-MGIT"],
                                       status=rnd.choice(["RECEIVED", "IN_PROGRESS", "COMPLETED"]))

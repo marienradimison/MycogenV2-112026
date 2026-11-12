@@ -1,16 +1,18 @@
 {% extends "generic/form.html" %}
 {% block extra_js %}
+{{ form.run_assays|json_script:"run-assays" }}
 <script>
-  // Affiche uniquement les gènes de la signature choisie
+  // Affiche uniquement les gènes de la signature du run choisi
   (function () {
     const genes = {
       RISK6: ['gbp2', 'fcgr1b', 'serping1', 'tubgcp6', 'trmt2a', 'sdr39u1'],
       SWEENEY3: ['gbp5', 'dusp3', 'klf2'],
     };
     const all = [...genes.RISK6, ...genes.SWEENEY3];
-    const sel = document.getElementById('id_assay');
+    const assays = JSON.parse(document.getElementById('run-assays').textContent);
+    const sel = document.getElementById('id_run');
     function refresh() {
-      const show = genes[sel.value] || all;
+      const show = genes[assays[sel.value]] || all;
       all.forEach(g => {
         const el = document.querySelector('.field-ct_' + g);
         if (el) el.style.display = show.includes(g) ? '' : 'none';

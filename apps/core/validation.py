@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Q
 from django.shortcuts import redirect, render
+from django.utils import timezone
 
 from .crud import REGISTRY, log
 
@@ -127,9 +128,19 @@ def collect_rows(cruds, f, limit=500):
         for obj in qs[:limit] if limit else qs:
             rows.append({"crud": crud, "tab": tab, "obj": obj, "token": f"{crud.prefix}:{obj.pk}",
                          "summary": summarize(obj), "codes": result_codes(obj, lib),
-                         "code": AnalysisCode.for_result(obj, catalog)})
-    rows.sort(key=lambda r: (r["obj"].test_date, r["obj"].pk))
+                         "code": AnalysisCode.for_result(obj, catalog), "rendered": rendered_on(obj)})
+    rows.sort(key=lambda r: (r["rendered"] or date.min, r["obj"].pk), reverse=True)  # plus récents en haut
     return rows, lib
+
+
+def rendered_on(obj):
+    """Date de rendu : validation si le résultat est validé, sinon date du résultat.
+    Une culture encore en cours n'a pas de date de rendu."""
+    if obj.validated_at:
+        return timezone.localtime(obj.validated_at).date()
+    if obj._meta.model_name == "culture":
+        return obj.result_date
+    return obj.test_date
 
 
 def export_query(params):
@@ -143,14 +154,13 @@ def export_csv(rows, f):
     import csv
 
     from django.http import HttpResponse
-    from django.utils import timezone
 
     name = f["analyse"] or "global"
     resp = HttpResponse(content_type="text/csv; charset=utf-8")
     resp["Content-Disposition"] = f'attachment; filename="validation_{name}_{timezone.localdate():%Y-%m-%d}.csv"'
     resp.write("﻿")  # BOM UTF-8 : Excel affiche correctement les accents
     w = csv.writer(resp, delimiter=";")
-    w.writerow(["Test", "Code analyse", "N° échantillon", "ID patient", "Patient", "Date du test", "Résultat (codes)",
+    w.writerow(["Test", "Code analyse", "N° échantillon", "Identifiant externe", "Patient", "Date du test", "Date de rendu", "Résultat (codes)",
                 "Résultat", "Projet", "Saisi par", "Statut", "Validé par", "Validé le", "Commentaire du validateur"])
     for r in rows:
         o = r["obj"]
@@ -159,6 +169,7 @@ def export_csv(rows, f):
             r["tab"]["title"], r["code"].code if r["code"] else "", o.sample.code,
             patient.code if patient else "", patient.full_name if patient else "",
             o.test_date.strftime("%d/%m/%Y") if o.test_date else "",
+            r["rendered"].strftime("%d/%m/%Y") if r["rendered"] else "",
             " ".join(t["label"] for t in r["codes"]), r["summary"],
             o.sample.project.code if o.sample.project else "", o.performed_by or "", o.get_result_status_display(),
             o.validated_by or "", timezone.localtime(o.validated_at).strftime("%d/%m/%Y %H:%M") if o.validated_at else "",
@@ -272,7 +283,7 @@ def summarize(obj):
     if name == "quantiferon":
         return f"QFT : {obj.get_interpretation_display()}"
     if name == "pcrassay":
-        return f"{obj.get_assay_display()} · score {obj.score if obj.score is not None else '—'} · {obj.get_outcome_display()}"
+        return f"{obj.run.get_assay_display()} · score {obj.score if obj.score is not None else '—'} · {obj.get_outcome_display()}"
     if name == "lpatest":
         return f"{obj.get_kit_display()} · RIF {obj.get_rif_display()} · INH {obj.get_inh_katg_display()}"
     return str(obj)

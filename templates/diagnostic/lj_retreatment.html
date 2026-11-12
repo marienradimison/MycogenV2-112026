@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Culture LJ — retraitement{% endblock %}
+{% block content %}
+{% include "diagnostic/_lj_header.html" %}
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center"><i class="bi bi-exclamation-triangle me-2 text-secondary"></i> Échantillons à retraiter
+    <span class="badge text-bg-light border ms-2">{{ to_retreat|length }}</span>
+    {% if to_retreat and perms.diagnostic.add_culture %}<a class="btn btn-sm btn-outline-primary ms-auto" href="{% url 'diagnostic:lj_inoculation' %}"><i class="bi bi-arrow-repeat"></i> Réensemencer</a>{% endif %}</div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0 dbl-rows">
+      <thead><tr><th>N° échantillon</th><th>Patient</th><th>Projet</th><th>Étude</th><th>Cas</th><th>Ensemencement</th><th>Contaminée le</th><th>Retraitements déjà faits</th></tr></thead>
+      <tbody>
+      {% for c in to_retreat %}
+        <tr data-href="{{ c.get_absolute_url }}">
+          <td><a class="mono fw-semibold" href="{{ c.get_absolute_url }}">{{ c.sample.code }}</a></td>
+          <td>{{ c.sample.patient.full_name|default:"—" }}</td>
+          <td>{{ c.sample.project.code|default:"—" }}</td><td>{{ c.sample.study.code|default:"—" }}</td>
+          <td>{{ c.sample.case_display|default:"—" }}</td>
+          <td class="text-nowrap">{{ c.inoculated_on|date:"d/m/Y" }}</td><td class="text-nowrap">{{ c.result_date|date:"d/m/Y"|default:"—" }}</td>
+          <td>{{ c.n_retreated }}</td>
+        </tr>
+      {% empty %}<tr><td colspan="8" class="text-center text-muted py-3">Aucun échantillon à retraiter.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><i class="bi bi-arrow-repeat me-2 text-secondary"></i> Tous les retraitements
+    <span class="badge text-bg-light border ms-2">{{ history|length }} échantillon{{ history|length|pluralize }}</span></div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0 dbl-rows">
+      <thead><tr><th>N° échantillon</th><th>Patient</th><th>Projet</th><th>Étude</th><th>Cas</th><th>Nombre de retraitements</th><th>Dates de retraitement</th><th>Culture actuelle</th></tr></thead>
+      <tbody>
+      {% for r in history %}
+        <tr data-href="{{ r.latest.get_absolute_url }}">
+          <td><a class="mono fw-semibold" href="{{ r.sample.get_absolute_url }}">{{ r.sample.code }}</a></td>
+          <td>{{ r.sample.patient.full_name|default:"—" }}</td>
+          <td>{{ r.sample.project.code|default:"—" }}</td><td>{{ r.sample.study.code|default:"—" }}</td>
+          <td>{{ r.sample.case_display|default:"—" }}</td>
+          <td class="fw-semibold">{{ r.count }}</td>
+          <td class="small">{% for d in r.dates %}{{ d|date:"d/m/Y" }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+          <td class="small"><a href="{{ r.latest.get_absolute_url }}">{{ r.latest.stage.1 }}</a></td>
+        </tr>
+      {% empty %}<tr><td colspan="8" class="text-center text-muted py-3">Aucun retraitement enregistré.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

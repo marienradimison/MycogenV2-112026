@@ -213,6 +213,8 @@ Créer trois tâches (Déclencheur : « Au démarrage » ; option « Exécuter m
 5. Redémarrer les tâches. Les navigateurs rechargent automatiquement les nouveaux styles.
 
 ### Changer de serveur
+> Procédure détaillée, case par case : **[MISE_EN_PRODUCTION.md](MISE_EN_PRODUCTION.md)**.
+
 Installer le nouveau serveur (section 4), **restaurer** la dernière sauvegarde (section 8), copier `media\`,
 adapter l'adresse IP dans `.env`, dans la configuration LIS des automates et dans le pare-feu.
 
@@ -360,7 +362,10 @@ reconnue).
   modifiable, résultats en %, clôture par l'auteur) et *Challenge* (jeu de mots, devinette : réponse cachée, indice
   facultatif ; accents et majuscules ignorés ; gagnants dans l'ordre ; l'auteur dévoile la réponse).
 ### Module 2 — CNRM
-- **Échantillons** : liste de tous les échantillons ; la fiche affiche patient, échantillon, analyses demandées et
+- **Échantillons** : liste (N° échantillon, patient, identifiant externe, type, provenance / CDT, date de réception,
+  projet, étude, cas, statut) ; **Export CSV** au format de l'unité : une ligne par échantillon avec patient,
+  prélèvement et résultats de toutes les analyses (GNX-RIF, GNX-XDR, FLUO-AUR, ZN, Cult-LJ, Cult-MGIT, DST-LJ,
+  DST-MGIT, NPOC, QFT, WGS), « NA » pour tout ce qui n'est pas renseigné ou pas applicable ; la région est celle de la provenance / CDT ; la fiche affiche patient, échantillon, analyses demandées et
   résultats (en attente / en cours / validé), avec les boutons **Compte rendu** et **Fiche paillasse**
   (aperçu imprimable ou PDF) et **Modifier** (rouvre le formulaire d'enregistrement).
 - **Statut des échantillons (automatique)** : *Reçu* (saisie faite) → *En cours d'analyse* (au moins une analyse
@@ -368,12 +373,16 @@ reconnue).
   complets, au moins un non validé) → *Terminé* (tout validé) ; *Rejeté* si non conforme. Recalcul à chaque saisie,
   modification ou validation ; commande `refresh_sample_status` pour tout recalculer.
 - **Enregistrer** : formulaire en 2 étapes.
-  1. *Général* : fiche patient complète (l'âge se calcule ; un ID patient connu reprend sa fiche) et informations
-     échantillon (n° proposé automatiquement au format `26-0001`, type, précision, dates, provenance, prescripteur).
+  1. *Général* : fiche patient complète (l'âge se calcule ; l'identifiant externe peut être partagé par plusieurs
+     patients : s'il existe déjà, MYCOGEN liste les patients correspondants et l'on choisit le bon — l'échantillon lui
+     est rattaché, ses informations sont reprises — ou « nouveau patient ») et informations
+     échantillon (n° proposé automatiquement au format `26-0001`, hôte, type, précision, aspect, dates, provenance, prescripteur et
+     contact du prescripteur).
   2. *Examens* : projet / étude / cas, analyses demandées (codes de la bibliothèque), conformité. Une fois
      l'étude choisie, le champ *Cas* suit la configuration de l'étude : liste des cas spécifiques, tous les cas du
      projet, zone de saisie libre, ou aucun cas.
-- **Validation** : un onglet par test — GeneXpert MTB/RIF Ultra, GeneXpert XDR, NPOC (Pluslife), Microscopie,
+- **Validation** : résultats triés par date de rendu, les plus récents en haut (date de validation, sinon date du
+  résultat ; une culture en cours n'en a pas et reste en bas) ; un onglet par test — GeneXpert MTB/RIF Ultra, GeneXpert XDR, NPOC (Pluslife), Microscopie,
   Culture LJ, Culture MGIT, Antibiogramme, QuantiFERON-TB (+ PCR, LPA… s'il y en a) ; filtres statut (à valider /
   validés / tous), dates, projet, recherche ; validation en lot avec commentaire par résultat ; bouton **Exporter (CSV)**
   — table globale ou du test sélectionné, avec les filtres appliqués (UTF-8, séparateur « ; », s'ouvre dans Excel). Les résultats sont présentés en **codes de la bibliothèque** (survol = signification,
@@ -396,24 +405,34 @@ reconnue).
   - *Ensemencement* : ensemencement en lot des échantillons (nombre de tubes : 1 ou 2) et des retraitements.
     La date d'ensemencement est la date de mise en étuve ; pour une culture contaminée ré-ensemencée, c'est aussi
     la date de retraitement (affichée sur la fiche de la culture d'origine) ;
-  - *Lecture étuve* (hebdomadaire) : observation tube par tube, décision automatique —
+  - *Lecture étuve* (hebdomadaire) : boutons d'affichage — toutes les cultures, 90 jours et plus à la date de lecture,
+    ou 90 jours et plus à la fin de la semaine de lecture (dimanche) — et case « Sortie négative » de l'en-tête pour
+    déclarer les cultures négatives en groupe (les cultures avec pousse restent exclues). Seules les cultures affichées
+    font partie de la lecture. Observation tube par tube, décision automatique —
     > 90 j sans pousse → négative ; pousse + test SD positif → CMTB ; pousse + SD négatif → non CMTB / LPA ;
     2 tubes contaminés → à retraiter ; 1 tube contaminé → tube jeté, l'autre reste ;
-  - *Fiches de lecture* : historique ; **une fiche par lecture** (et non par échantillon) regroupant toutes les
-    cultures lues, avec les totaux par décision. Depuis *Lecture étuve*, bouton **Fiche de lecture vierge** : liste
-    des cultures en étuve à cocher devant l'étuve ;
+  - *Fiches de lecture* : historique ; **une fiche par lecture** au format officiel MYC-FIC-008/02 (fiche paillasse
+    sortie cultures sur milieu solide LJ, 24 lignes par page), avec une ligne par culture lue. Elle se remplit dans
+    *Lecture étuve* : bouton fiche de chaque ligne, ouvert automatiquement en cas de pousse — colonies (0, nombre exact,
+    100, 200, 300), morphologie (E, d, R, s), pigment, aspect BAAR, SD MPT64 C et T (+ ou −), conclusion (CMTB ou
+    Atypique), CJ LJ / Pyr. Le temps de croissance est calculé ; une culture négative reçoit 0 colonie ; un contrôle SD
+    négatif invalide le test (à refaire).
+    Depuis *Lecture étuve*, bouton **Fiche de lecture vierge** : N° labo des cultures affichées ;
+  - *Retraitement* : échantillons à retraiter et liste de tous les retraitements (projet, étude, cas, nombre de
+    retraitements, dates, état de la culture actuelle) ;
   - *Températures* : relevés de l'étuve (36–38 °C), action corrective obligatoire hors plage ;
   - *Résultats LJ*.
   - Le délai de positivité est calculé automatiquement (date du résultat − ensemencement).
-- **Culture MGIT** : liste des cultures (circuit dédié à construire).
+- **Culture MGIT** : liste des cultures, filtrable par date d'ensemencement (circuit dédié à construire).
 - **Antibiogramme (DST)** : saisi **par groupe** — première ligne (SIRE + PZA : streptomycine, isoniazide, rifampicine,
   éthambutol, pyrazinamide) ou seconde ligne ; pour chaque antibiotique R, S, I (indéterminé), NF (non fait) ou NA
   (non applicable).
 - **QuantiFERON-TB** (interprétation automatique selon l'algorithme Qiagen).
 
 ### Recherche (dont la bioinformatique)
-Projets (avis éthique, membres), études et cas, runs de séquençage et librairies, PCR RISK6 / Sweeney3
-(score Sweeney3 calculé), LPA Hain ; **bioinformatique** : pipelines versionnés, analyses génomiques (lignée, profil
+Projets (avis éthique, membres), études et cas, **runs de séquençage** et **runs PCR** RISK6 / Sweeney3 (score
+Sweeney3 calculé), LPA Hain ; ces analyses se font par run : la fiche d'un run donne ses informations (signature,
+seuil, plaque ou flowcell…) et la liste des échantillons analysés, avec un bouton **Ajouter** ; **bioinformatique** : pipelines versionnés, analyses génomiques (lignée, profil
 de résistance, mutations, couverture, cluster).
 
 **Configurer les études et cas** (Recherche → Études & cas, ou Administration) : pour chaque étude, choisir
@@ -474,6 +493,30 @@ salles du plan de masse, journal d'activité (audit), support, utilisateurs.
 | `test apps` | Lance les tests automatiques (50 tests) |
 
 ---
+
+### Reprise des données de l'ancien LIMS
+
+L'export JSON de l'ancien LIMS (fiches patients) est importé par :
+
+```
+.venv\Scripts\python manage.py import_legacy ..\documents\GNX_CL_11_11_2026.json --dry-run   (essai, rien n'est enregistré)
+.venv\Scripts\python manage.py import_legacy ..\documents\GNX_CL_11_11_2026.json             (import)
+```
+
+- **Toujours sauvegarder la base avant** (section 8) et faire d'abord l'essai `--dry-run`.
+- Relançable : une fiche déjà importée est ignorée (seules les nouvelles sont ajoutées). Le jour de la bascule,
+  `--replace` remplace les fiches déjà importées par celles du dernier export (résultats rendus entre-temps) ;
+  refusé si l'une d'elles a déjà été complétée dans MYCOGEN.
+- `correspondance_provenances.csv` (à côté du JSON) : une ligne par provenance de l'ancien LIMS, avec une
+  proposition de CDT. Saisir ou valider le code dans la colonne **code_cdt**, puis relancer l'import : la provenance
+  est complétée sur les fiches déjà importées. Tant qu'elle ne l'est pas, elle figure dans les remarques de
+  l'échantillon.
+- `import_rapport.csv` : statut de chaque fiche (importée, doublon, ignorée) et points à vérifier.
+- Règles : n° « 26.3454 » → « 26-3454 » ; deux fiches pour un même n° → la plus récente ; même identifiant
+  externe et même nom → même patient ; même identifiant, autre nom → autre patient (l'identifiant est conservé) ; un résultat rendu dans
+  l'ancien LIMS est importé validé (date de rendu = date de validation), sinon à valider ; culture « En cours » →
+  en étuve ; antibiogramme → MGIT ; QuantiFERON (valeurs absentes de l'export) → noté en remarque ; les signatures
+  ne sont pas reprises.
 
 ## 13. Dépannage
 
@@ -546,6 +589,12 @@ salles du plan de masse, journal d'activité (audit), support, utilisateurs.
 | 20/10/2026 | Codes de résultat (GeneXpert, RIF, BAAR/colonies, antibiotiques, R/S) dans la bibliothèque et le module Validation ; niveau GeneXpert « très élevé » ; exports CSV en UTF-8 corrigés |
 | 20/10/2026 | Validation : onglets séparés (GeneXpert Ultra / XDR, culture LJ / MGIT), NPOC et antibiogramme, filtre de statut, export CSV global ou par test |
 | 24/10/2026 | Statut automatique des échantillons ; antibiogramme par groupe (1re / 2e ligne, R-S-I-NF-NA) ; présentation uniforme des résultats en Validation ; sondages et challenges dans Chaud Chaud Chaud!!! |
+| 03/11/2026 | « ID patient » → « Identifiant externe » ; nouvelles colonnes de la liste des échantillons ; export CSV complet des échantillons ; champs Contact prescripteur et Aspect à l'enregistrement |
+| 04/11/2026 | Région de l'export d'après le CDT ; Validation triée par date de rendu ; pages d'analyse sans « Analyses TB » ; filtre date d'ensemencement sur les cultures ; runs PCR et fiche de run avec la liste des échantillons |
+| 05/11/2026 | Culture LJ : fiche officielle MYC-FIC-008/02, filtres d'âge et sortie négative en groupe, sous-module Retraitement ; champ Hôte (enregistrement et export) ; correction du téléchargement PDF avec la version actuelle d'Edge |
+| 05/11/2026 | Fiche de lecture remplie dans MYCOGEN pour chaque échantillon (colonies, morphologie, pigment, BAAR, SD C/T, conclusion, CJ) |
+| 11/11/2026 | Identifiant externe partageable entre patients (choix du patient à l'enregistrement) ; suppression des données de démonstration ; fichier pgpass pour la sauvegarde automatique |
+| 11/11/2026 | Reprise de l'ancien LIMS : 1 187 fiches (1 186 patients, 2 239 résultats) importées ; commande `import_legacy` relançable |
 
 ---
 

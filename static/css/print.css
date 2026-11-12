@@ -111,3 +111,43 @@ table.reading-sheet tr.dec-retreat td { background: #f1f1f1; }
 table.reading-sheet.blank td { height: 7mm; }
 table.reading-sheet small { font-weight: 400; color: #666; }
 table.drugs th.sub { text-align: left; background: #eef2f4; font-size: 7.6pt; }
+
+/* Fiche paillasse sortie cultures LJ (MYC-FIC-008) */
+@media print { .fiche-page { page-break-after: always; } .fiche-page:last-of-type { page-break-after: auto; } }
+.fiche-lj { font-family: Calibri, "Segoe UI", Arial, sans-serif; color: #000; padding: 0 1mm; }
+.fiche-head { width: 100%; border-collapse: collapse; border: 1.2px solid #1f3a4d; }
+.fiche-head td { border: 1.2px solid #1f3a4d; padding: 3px 8px; font-size: 9.5pt; }
+.fiche-head .logo { width: 28%; text-align: center; }
+.fiche-head .logo img { height: 15mm; display: block; margin: 0 auto 1mm; }
+.fiche-head .u1 { font-size: 7.6pt; }
+.fiche-head .u2 { font-size: 4.8pt; }
+.fiche-head .kind { background: #bdd7ee; text-align: center; font-size: 11pt; height: 9mm; }
+.fiche-head .name { text-align: center; font-family: "Times New Roman", serif; font-weight: 700; font-size: 12pt; vertical-align: top; }
+.fiche-head .ref { width: 23%; line-height: 1.55; }
+.fiche-meta { display: flex; justify-content: space-around; align-items: flex-end; margin: 4mm 0 1mm; font-size: 10pt; }
+.fiche-meta .boxes { display: inline-flex; border-left: 1px solid #000; }
+.fiche-meta .boxes b { display: inline-block; min-width: 8mm; height: 4.6mm; padding: 0 2px; text-align: center; font-weight: 400;
+  border-right: 1px solid #000; border-bottom: 1px solid #000; }
+.fiche-meta .boxes b.y { min-width: 13mm; }
+.fiche-meta .op { display: inline-block; min-width: 45mm; border-bottom: 1px solid #000; padding: 0 3px; }
+.fiche-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.fiche-table th, .fiche-table td { border: .8px solid #000; text-align: center; vertical-align: middle; font-weight: 400; padding: 0 2px; overflow: hidden; }
+.fiche-table th { font-size: 8.8pt; line-height: 1.15; }
+.fiche-table th.s { font-size: 6.8pt; }
+.fiche-table thead tr:first-child th { height: 8mm; }
+.fiche-table thead tr:nth-child(2) th { height: 7mm; }
+.fiche-table td { height: 7.9mm; font-size: 8.4pt; }
+.fiche-table td.lab { font-family: Consolas, "Courier New", monospace; font-weight: 700; }
+.fiche-table td.rem { font-size: 6.6pt; line-height: 1.05; }
+.fiche-table td.txt { font-size: 7.4pt; line-height: 1.05; }
+.fiche-table .c-lab { width: 11%; } .fiche-table .c-col { width: 9.4%; } .fiche-table .c-mor { width: 7.4%; }
+.fiche-table .c-pig { width: 8.7%; } .fiche-table .c-baar { width: 11%; } .fiche-table .c-tps { width: 8%; }
+.fiche-table .c-sd { width: 4.4%; } .fiche-table .c-con { width: 10.6%; } .fiche-table .c-lj { width: 4.4%; }
+.fiche-table .c-pyr { width: 7.6%; } .fiche-table .c-val { width: 13.6%; }
+.fiche-notes { margin: 2mm 0 0 8mm; font-size: 8pt; color: #666; line-height: 1.35; }
+.fiche-notes i:first-child { display: inline-block; width: 7mm; }
+.fiche-sign { display: flex; gap: 2mm; margin: 4mm 8mm 0; font-size: 10pt; }
+.fiche-sign span { display: flex; align-items: flex-end; flex: 1 1 auto; white-space: nowrap; }
+.fiche-sign u { display: inline-block; flex: 1; border-bottom: 1px solid #000; min-width: 50mm; margin-left: 1mm; text-decoration: none; }
+.fiche-sign u.m { min-width: 25mm; }
+.fiche-pageno { text-align: right; font-size: 7.5pt; color: #666; margin-top: 1mm; }

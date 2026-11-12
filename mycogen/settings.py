@@ -74,7 +74,10 @@ TEMPLATES = [
 WSGI_APPLICATION = "mycogen.wsgi.application"
 
 # Base de données : PostgreSQL. DB_ENGINE=sqlite n'est prévu que pour des tests rapides.
-if os.environ.get("DB_ENGINE", "postgresql") == "sqlite":
+# « manage.py test » utilise SQLite par défaut : le compte PostgreSQL de MYCOGEN n'a pas (et ne doit pas avoir)
+# le droit de créer des bases ; DB_ENGINE=postgresql force les tests sur PostgreSQL (droit CREATEDB requis).
+RUNNING_TESTS = sys.argv[1:2] == ["test"]
+if os.environ.get("DB_ENGINE", "sqlite" if RUNNING_TESTS else "postgresql") == "sqlite":
     DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "dev.sqlite3"}}
 else:
     DATABASES = {

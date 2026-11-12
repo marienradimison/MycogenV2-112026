@@ -34,6 +34,7 @@ def lj_tabs(active):
         ("inoculation", "Ensemencement", "bi-plus-circle", "diagnostic:lj_inoculation"),
         ("reading", "Lecture étuve", "bi-clipboard2-check", "diagnostic:lj_reading_new"),
         ("history", "Fiches de lecture", "bi-journal-text", "diagnostic:lj_readings"),
+        ("retreatment", "Retraitement", "bi-arrow-repeat", "diagnostic:lj_retreatment"),
         ("temperature", "Températures", "bi-thermometer-half", "diagnostic:lj_temperatures"),
     ]
     tabs = [(k, label, icon, reverse(url), k == active) for k, label, icon, url in items]
@@ -47,6 +48,36 @@ def incubators():
     return Equipment.objects.filter(category="INCUB").exclude(status="RETIRED").select_related("room")
 
 
+AGE_FILTERS = [("", "Toutes les cultures"), ("90", "90 jours et plus"),
+               ("90s", "90 jours et plus à la fin de la semaine")]
+SHEET_ROWS = 24  # lignes par page de la fiche MYC-FIC-008
+
+
+def age_reference(filtre, date):
+    """Date à laquelle l'âge est apprécié : fin de la semaine de lecture (dimanche) ou date de lecture."""
+    return date + timedelta(days=6 - date.weekday()) if filtre == "90s" else date
+
+
+def filter_by_age(cultures, filtre, date):
+    if filtre not in ("90", "90s"):
+        return cultures
+    ref = age_reference(filtre, date)
+    return [c for c in cultures if (ref - c.inoculated_on).days >= Culture.NEGATIVE_AFTER_DAYS]
+
+
+def reading_date(value):
+    try:
+        return timezone.datetime.strptime(value or "", "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def sheet_pages(rows):
+    """Fiche MYC-FIC-008 : pages de 24 lignes, complétées par des lignes vides."""
+    pages = [rows[i:i + SHEET_ROWS] for i in range(0, len(rows), SHEET_ROWS)] or [[]]
+    return [page + [None] * (SHEET_ROWS - len(page)) for page in pages]
+
+
 def in_incubator():
     return (Culture.objects.filter(medium="LJ", result="PENDING")
             .select_related("sample", "sample__patient", "incubator").prefetch_related("tubes")
@@ -58,8 +89,39 @@ def in_incubator():
 # ---------------------------------------------------------------------------
 
 @transaction.atomic
-def apply_reading(culture, obs, sd, date, confirm_negative, user):
+def set_colonies(culture, colonies):
+    """Reporte le comptage sur la culture : 100 / 200 / 300 valent 1+ / 2+ / 3+, sinon nombre exact de colonies."""
+    if not colonies or colonies == "0":
+        return
+    n = int(colonies)
+    if n in (100, 200, 300):
+        culture.lj_grade, culture.colony_count = f"{n // 100}+", None
+    else:
+        culture.lj_grade = "1-19" if n < 20 else "1+" if n < 100 else "2+" if n < 200 else "3+"
+        culture.colony_count = n
+
+
+def sheet_fields(post, pk):
+    """Champs de la fiche de lecture d'un échantillon, à partir du formulaire."""
+    colonies = post.get(f"colonies_{pk}", "").strip()
+    if not (colonies.isdigit() and int(colonies) <= 32767):
+        colonies = ""
+    picked = post.getlist(f"morph_{pk}")
+    return {
+        "colonies": str(int(colonies)) if colonies else "",
+        "morphology": "".join(v for v, _ in ReadingEntry.MORPHOLOGY if v in picked),
+        "pigment": post.get(f"pigment_{pk}", "").strip()[:60],
+        "baar_aspect": post.get(f"baar_{pk}", "").strip()[:80],
+        "sd_control": post.get(f"sdc_{pk}", "") if post.get(f"sdc_{pk}") in ("+", "-") else "",
+        "conclusion": post.get(f"conclusion_{pk}", "") if post.get(f"conclusion_{pk}") in ("CMTB", "ATYP") else "",
+        "cj_lj": post.get(f"cjlj_{pk}") == "on",
+        "cj_pyr": post.get(f"cjpyr_{pk}") == "on",
+    }
+
+
+def apply_reading(culture, obs, sd, date, confirm_negative, user, negative_ref=None, colonies=""):
     """Applique les observations d'une lecture à une culture. obs = {n° tube: observation}.
+    negative_ref : date à laquelle l'âge de 90 jours est apprécié (par défaut la date de lecture).
     Retourne (action, tubes jetés)."""
     tubes = {t.number: t for t in culture.tubes.all()}
     discarded = []
@@ -87,6 +149,7 @@ def apply_reading(culture, obs, sd, date, confirm_negative, user):
         culture.result, culture.result_date, culture.retreat_status = "CONTAMINATED", date, "TO_RETREAT"
         action = "RETREAT"
     elif growth:
+        set_colonies(culture, colonies)
         if sd in ("POS", "NEG"):
             culture.sd_test, culture.sd_date = sd, date
             culture.result, culture.result_date = "POSITIVE", date
@@ -99,7 +162,7 @@ def apply_reading(culture, obs, sd, date, confirm_negative, user):
             exit_tubes()
         else:
             action = "GROWTH_SD"
-    elif confirm_negative and (date - culture.inoculated_on).days >= Culture.NEGATIVE_AFTER_DAYS:
+    elif confirm_negative and ((negative_ref or date) - culture.inoculated_on).days >= Culture.NEGATIVE_AFTER_DAYS:
         culture.result, culture.result_date = "NEGATIVE", date
         exit_tubes()
         action = "NEGATIVE"
@@ -217,12 +280,10 @@ def lj_inoculation(request):
 @permission_required("diagnostic.view_culture", raise_exception=True)
 def lj_blank_sheet(request):
     """Fiche de lecture vierge : toutes les cultures en étuve, à remplir devant l'étuve."""
-    cultures = list(in_incubator())
-    for c in cultures:
-        tubes = {t.number: t for t in c.tubes.all()}
-        c.sheet_tubes = [tubes.get(1), tubes.get(2)]
+    date = reading_date(request.GET.get("date")) or timezone.localdate()
+    cultures = filter_by_age(list(in_incubator()), request.GET.get("filtre", ""), date)
     return render_document(request, "documents/lj_reading.html", {
-        "reading": None, "entries": cultures, "project_label": "Culture LJ", "now": timezone.now(),
+        "reading": None, "pages": sheet_pages([{"code": c.sample.code} for c in cultures]),
         "back_url": reverse("diagnostic:lj_reading_new")}, f"fiche_lecture_vierge_{timezone.localdate():%Y-%m-%d}.pdf")
 
 
@@ -230,13 +291,16 @@ def lj_blank_sheet(request):
 @permission_required("diagnostic.change_culture", raise_exception=True)
 def lj_reading_new(request):
     cultures = list(in_incubator())
-    date = timezone.localdate()
     if request.method == "POST":
-        try:
-            date = timezone.datetime.strptime(request.POST.get("date", ""), "%Y-%m-%d").date()
-        except ValueError:
+        date = reading_date(request.POST.get("date"))
+        if not date:
             messages.error(request, "Date de lecture invalide.")
             return redirect("diagnostic:lj_reading_new")
+        # Seules les cultures affichées (filtre d'âge) font partie de cette lecture
+        shown = set(request.POST.getlist("cultures"))
+        if shown:
+            cultures = [c for c in cultures if str(c.pk) in shown]
+        negative_ref = age_reference(request.POST.get("filtre", ""), date)
         with transaction.atomic():
             reading = IncubatorReading.objects.create(
                 date=date, operator=request.user, notes=request.POST.get("notes", "")[:2000],
@@ -246,20 +310,58 @@ def lj_reading_new(request):
                 sd = request.POST.get(f"sd_{c.pk}", "")
                 confirm = request.POST.get(f"neg_{c.pk}") == "on"
                 age = (date - c.inoculated_on).days
-                action, discarded = apply_reading(c, obs, sd, date, confirm, request.user)
+                sheet = sheet_fields(request.POST, c.pk)
+                # contrôle du test SD négatif : test invalide, à refaire
+                action, discarded = apply_reading(c, obs, "" if sheet["sd_control"] == "-" else sd, date, confirm,
+                                                  request.user, negative_ref, sheet["colonies"])
+                if action == "NEGATIVE":
+                    sheet["colonies"] = "0"
                 ReadingEntry.objects.create(reading=reading, culture=c, age_days=max(age, 0), tube1=obs[1],
                                             tube2=obs[2], sd_test=sd, action=action,
-                                            discarded_tubes=", ".join(str(n) for n in discarded))
+                                            discarded_tubes=", ".join(str(n) for n in discarded), **sheet)
         messages.success(request, f"Lecture du {date:%d/%m/%Y} enregistrée ({len(cultures)} cultures).")
         return redirect(reading)
+    date = reading_date(request.GET.get("date")) or timezone.localdate()
+    filtre = request.GET.get("filtre", "")
+    filters = [{"key": k, "label": label, "count": len(filter_by_age(cultures, k, date)), "active": k == filtre}
+               for k, label in AGE_FILTERS]
+    total = len(cultures)
+    cultures = filter_by_age(cultures, filtre, date)
+    ref = age_reference(filtre, date)
+    previous = {}   # fiche déjà saisie pour une pousse en attente de test SD
+    for e in ReadingEntry.objects.filter(culture__in=[c for c in cultures if c.growth_on]).order_by("reading__date", "pk"):
+        previous[e.culture_id] = e
     for c in cultures:
         c.active_tubes = {str(t.number): t for t in c.tubes.all()}
-        c.suggest_negative = (c.age_days or 0) >= Culture.NEGATIVE_AFTER_DAYS and not c.growth_on
+        c.prev = previous.get(c.pk)
+        c.read_age = (date - c.inoculated_on).days
+        c.growth_days = ((c.growth_on if c.growth_on and c.growth_on <= date else date) - c.inoculated_on).days
+        c.can_negative = (ref - c.inoculated_on).days >= Culture.NEGATIVE_AFTER_DAYS
+        c.suggest_negative = c.can_negative and not c.growth_on
+        c.reaches_on = c.inoculated_on + timedelta(days=Culture.NEGATIVE_AFTER_DAYS)
     return render(request, "diagnostic/lj_reading_form.html", {
         "tabs": lj_tabs("reading"), "cultures": cultures, "date": date, "incubators": incubators(),
+        "filters": filters, "filtre": filtre, "total": total, "week_end": age_reference("90s", date),
+        "morph_choices": ReadingEntry.MORPHOLOGY, "sd_control_choices": ReadingEntry.SD_SIGNS,
+        "conclusion_choices": ReadingEntry.CONCLUSIONS, "pigments": ReadingEntry.PIGMENTS,
+        "baar_aspects": ReadingEntry.BAAR_ASPECTS,
         "obs_choices": ReadingEntry.OBS[1:], "sd_choices": Culture.SD_RESULTS[1:],
         "growth_min": Culture.GROWTH_MIN_DAYS, "neg_days": Culture.NEGATIVE_AFTER_DAYS,
     })
+
+
+def sheet_row(entry):
+    """Ligne de la fiche MYC-FIC-008."""
+    remark = entry.get_action_display()
+    if entry.discarded_tubes:
+        remark += f" (tube {entry.discarded_tubes} jeté)"
+    return {
+        "code": entry.culture.sample.code, "colonies": entry.colonies, "morphology": entry.morphology,
+        "pigment": entry.pigment, "baar": entry.baar_aspect, "growth_time": f"{entry.growth_days} j",
+        "sd_c": entry.control_sign, "sd_t": entry.sd_sign, "conclusion": entry.get_conclusion_display(),
+        "lj": "X" if entry.cj_lj else "", "pyr": "X" if entry.cj_pyr else "", "remark": remark,
+        "url": entry.culture.get_absolute_url(),
+    }
 
 
 def reading_sections(reading):
@@ -284,10 +386,32 @@ def lj_reading(request, pk):
     entries, sections, discarded, remaining = reading_sections(reading)
     ctx = {"reading": reading, "entries": entries, "sections": sections, "discarded": discarded,
            "remaining": remaining, "tabs": lj_tabs("history"), "project_label": "Culture LJ",
-           "back_url": reverse("diagnostic:lj_readings"), "now": timezone.now()}
+           "back_url": reverse("diagnostic:lj_readings"), "now": timezone.now(),
+           "sheet_rows": [sheet_row(e) for e in entries]}
     if request.GET.get("print") or request.GET.get("format") == "pdf":
+        ctx["pages"] = sheet_pages([sheet_row(e) for e in entries])
         return render_document(request, "documents/lj_reading.html", ctx, f"lecture_etuve_{reading.date:%Y-%m-%d}.pdf")
     return render(request, "diagnostic/lj_reading.html", ctx)
+
+
+@login_required
+@permission_required("diagnostic.view_culture", raise_exception=True)
+def lj_retreatment(request):
+    related = ("sample", "sample__patient", "sample__project", "sample__study", "sample__case")
+    retreats = Culture.objects.filter(medium="LJ", retreat_of__isnull=False).select_related(*related)
+    by_sample = {}
+    for c in retreats.order_by("inoculated_on", "pk"):
+        by_sample.setdefault(c.sample_id, []).append(c)
+    history = [{"sample": rows[-1].sample, "count": len(rows), "dates": [c.inoculated_on for c in rows],
+                "latest": rows[-1]} for rows in by_sample.values()]
+    history.sort(key=lambda r: (r["dates"][-1], r["sample"].pk), reverse=True)
+    to_retreat = list(Culture.objects.filter(medium="LJ", retreat_status="TO_RETREAT").select_related(*related)
+                      .order_by("result_date", "pk"))
+    for c in to_retreat:
+        c.n_retreated = len(by_sample.get(c.sample_id, []))
+    return render(request, "diagnostic/lj_retreatment.html", {
+        "tabs": lj_tabs("retreatment"), "to_retreat": to_retreat, "history": history,
+    })
 
 
 @login_required

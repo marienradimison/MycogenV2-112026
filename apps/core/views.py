@@ -70,10 +70,13 @@ class SampleForm(LimsModelForm):
 
     class Meta:
         model = Sample
-        fields = ["patient", "facility", "requester", "sample_type", "type_detail", "aspect", "volume_ml",
+        fields = ["patient", "facility", "requester", "requester_contact", "host", "sample_type", "type_detail", "aspect", "volume_ml",
                   "collected_at", "received_at", "reason", "followup_month", "project", "study", "case",
                   "case_text", "external_id", "requested_analyses", "conform", "non_conformity", "notes"]
         formfield_callback = lims_formfield
+
+
+from .sample_export import export_samples  # noqa: E402
 
 
 def sample_context(obj, request):
@@ -93,9 +96,10 @@ sample_crud = Crud(
     Sample, "sample",
     fields=SampleForm.Meta.fields,
     form_class=SampleForm,
-    list_display=[("code", "N° échantillon"), ("patient__full_name", "Patient"), ("patient__code", "ID patient"),
-                  ("type_display", "Type de prélèvement"), ("facility__name", "Provenance / CDT"),
-                  "received_at", ("analyses_display", "Analyses demandées"), "status"],
+    list_display=[("code", "N° échantillon"), ("patient__full_name", "Patient"),
+                  ("patient__code", "Identifiant externe"), ("type_display", "Type de prélèvement"),
+                  ("facility__name", "Provenance / CDT"), ("received_at", "Date de réception"),
+                  ("project__code", "Projet"), ("study__code", "Étude"), ("case_display", "Cas"), "status"],
     search_fields=["code", "external_id", "patient__code", "patient__last_name", "patient__first_name",
                    "facility__name", "facility__code"],
     list_filter=["sample_type", "status", "project"],
@@ -105,6 +109,8 @@ sample_crud = Crud(
     exclude_urls=("create", "update"),
     create_url="core:register",
     update_url="core:register_edit",
+    exporter=export_samples,
+    hidden_filters=["patient"],   # « tous les échantillons de ce patient » depuis une fiche
 )
 
 

@@ -13,6 +13,7 @@ urlpatterns = [
     path("lj/lecture/fiche-vierge/", lj.lj_blank_sheet, name="lj_blank_sheet"),
     path("lj/lectures/", lj.lj_readings, name="lj_readings"),
     path("lj/lectures/<int:pk>/", lj.lj_reading, name="lj_reading"),
+    path("lj/retraitement/", lj.lj_retreatment, name="lj_retreatment"),
     path("lj/temperatures/", lj.lj_temperatures, name="lj_temperatures"),
     *[url for crud in views.CRUDS for url in crud.urls()],
 ]

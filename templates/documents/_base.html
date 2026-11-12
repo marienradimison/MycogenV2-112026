@@ -14,7 +14,7 @@
   {% if back_url %}<a class="light back-btn" href="{{ back_url }}" data-fallback="{{ back_url }}">{% else %}<a class="light back-btn" href="{{ sample.get_absolute_url }}" data-fallback="{{ sample.get_absolute_url }}">{% endif %}‹ Préc.</a>
 </div>
 {% endif %}
-<div class="sheet">
+{% block sheet %}<div class="sheet">
   <header class="doc-head">
     <div>
       <div class="inst">INSTITUT PASTEUR DE MADAGASCAR</div>
@@ -24,7 +24,7 @@
     {% block head_right %}<div class="tag"><small>PROJET / ÉTUDE</small><b>{{ project_label }}</b></div>{% endblock %}
   </header>
   {% block body %}{% endblock %}
-</div>
+</div>{% endblock %}
 {% if not PDF %}<script src="{{ ASSET }}js/nav.js?v={{ V }}"></script>{% endif %}
 </body>
 </html>

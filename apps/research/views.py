@@ -1,9 +1,9 @@
 from django import forms
 
-from apps.core.crud import Crud
+from apps.core.crud import Crud, field_label, related_tables
 from apps.core.forms import LimsModelForm, lims_formfield
 
-from .models import LPATest, PCRAssay, Project, ProjectCase, SequencingLibrary, SequencingRun, Study
+from .models import LPATest, PCRAssay, PCRRun, Project, ProjectCase, SequencingLibrary, SequencingRun, Study
 
 RESULT_FIELDS = ["test_date", "performed_by", "comment"]
 SEARCH = ["sample__code", "sample__patient__last_name", "sample__patient__code"]
@@ -36,6 +36,37 @@ def case_config(study, request=None):
     if study.case_mode == "TEXT":
         return {"extra_details": [("Libellé du champ", study.case_label or "Cas")]}
     return {}
+
+
+PCR_GENES = {
+    "RISK6": ["ct_gbp2", "ct_fcgr1b", "ct_serping1", "ct_tubgcp6", "ct_trmt2a", "ct_sdr39u1"],
+    "SWEENEY3": ["ct_gbp5", "ct_dusp3", "ct_klf2"],
+}
+PCR_FIELDS = ["run", "sample", "ref_ct", *PCR_GENES["RISK6"], *PCR_GENES["SWEENEY3"], "score", "comment"]
+
+
+class PCRAssayForm(LimsModelForm):
+    class Meta:
+        model = PCRAssay
+        fields = PCR_FIELDS
+        formfield_callback = lims_formfield
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.run_assays = {str(pk): a for pk, a in PCRRun.objects.values_list("pk", "assay")}
+
+
+def run_context(run, request):
+    """Fiche d'un run : informations + tous les échantillons analysés, en pleine largeur."""
+    related = related_tables(run, request.user, limit=None)
+    for t in related:
+        t["title"] = "Échantillons analysés"
+        t["rows"] = t["rows"].select_related("sample", "sample__patient")
+        if t["crud"].model is PCRAssay:
+            genes = PCR_GENES.get(run.assay, PCR_GENES["RISK6"] + PCR_GENES["SWEENEY3"])
+            names = ["sample", "sample__patient", "ref_ct", *genes, "score", "outcome", "result_status"]
+            t["columns"] = [(n, "Patient" if n == "sample__patient" else field_label(PCRAssay, n)) for n in names]
+    return {"related": related}
 
 
 CRUDS = [
@@ -74,24 +105,37 @@ CRUDS = [
         search_fields=["run_id", "flowcell", "library_kit"],
         list_filter=["technology", "platform", "status", "project"],
         icon="bi-diagram-3",
+        detail_template="research/run_detail.html",
+        extra_context=run_context,
     ),
     Crud(
         SequencingLibrary, "library",
         fields=["run", "sample", "dna", "library_id", "barcode", "input_conc", "library_conc", "reads",
                 "mean_depth", "coverage_pct", "qc_pass", "notes"],
-        list_display=["library_id", "run", "sample", "barcode", "reads", "mean_depth", "coverage_pct", "qc_pass"],
+        list_display=["sample", "sample__patient", "run", "library_id", "barcode", "reads", "mean_depth",
+                      "coverage_pct", "qc_pass"],
         search_fields=["library_id", "barcode", "run__run_id", "sample__code"],
         list_filter=["qc_pass", "run"],
         icon="bi-upc",
     ),
     Crud(
+        PCRRun, "pcrrun",
+        fields=["run_id", "assay", "project", "instrument", "kit_lot", "reference_gene", "threshold", "run_date",
+                "operator", "status", "notes"],
+        list_display=["run_id", "assay", "project", "instrument", "run_date", ("n_results", "Échantillons"), "status"],
+        search_fields=["run_id", "instrument", "kit_lot"],
+        list_filter=["assay", "status", "project"],
+        icon="bi-thermometer-half",
+        detail_template="research/run_detail.html",
+        extra_context=run_context,
+    ),
+    Crud(
         PCRAssay, "pcr",
-        fields=["sample", "project", "assay", "instrument", "plate_id", "reference_gene", "ref_ct",
-                "ct_gbp2", "ct_fcgr1b", "ct_serping1", "ct_tubgcp6", "ct_trmt2a", "ct_sdr39u1",
-                "ct_gbp5", "ct_dusp3", "ct_klf2", "score", "threshold", *RESULT_FIELDS],
-        list_display=["sample", "assay", "test_date", "plate_id", "score", "threshold", "outcome", "result_status"],
-        search_fields=SEARCH + ["plate_id"],
-        list_filter=["assay", "outcome", "project", "result_status"],
+        fields=[*PCR_FIELDS, "outcome", "test_date", "performed_by"],
+        form_class=PCRAssayForm,
+        list_display=["sample", "sample__patient", "run", "test_date", "score", "outcome", "result_status"],
+        search_fields=SEARCH + ["run__run_id"],
+        list_filter=["run", "outcome", "result_status"],
         icon="bi-thermometer-half",
         form_template="research/pcr_form.html",
     ),

@@ -9,7 +9,7 @@ from django.urls import reverse
 from apps.core.crud import REGISTRY
 from apps.core.models import Sample
 from apps.diagnostic.models import GeneXpertTest, Quantiferon
-from apps.research.models import PCRAssay
+from apps.research.models import PCRAssay, PCRRun
 
 
 class AlgorithmTests(TestCase):
@@ -24,8 +24,8 @@ class AlgorithmTests(TestCase):
 
     def test_sweeney3_score(self):
         s = Sample.objects.create()
-        p = PCRAssay.objects.create(sample=s, assay="SWEENEY3", ct_gbp5=D("25"), ct_dusp3=D("27"),
-                                    ct_klf2=D("24"), threshold=D("-3"))
+        run = PCRRun.objects.create(run_id="PCR-1", assay="SWEENEY3", threshold=D("-3"))
+        p = PCRAssay.objects.create(sample=s, run=run, ct_gbp5=D("25"), ct_dusp3=D("27"), ct_klf2=D("24"))
         self.assertEqual(p.score, D("-2.000"))
         self.assertEqual(p.outcome, "POS")
 
@@ -147,13 +147,26 @@ class SmokeTests(TestCase):
         self.assertEqual(s.requested_analyses, ["GNX-RIF", "FLUO-AUR"])
         self.assertEqual(s.analyses_display, "GNX-RIF, FLUO-AUR")
         self.assertEqual(s.type_display, "Crachat (2 mL)")
-        # même ID patient → le patient existant est réutilisé
-        self.client.post(reverse("core:register"), self.wizard_data(patient_id="1-260801-0001", code=Sample.next_code()))
-        self.assertEqual(Patient.objects.filter(code="1-260801-0001").count(), 1)
-        self.assertEqual(Patient.objects.get(code="1-260801-0001").samples.count(), 2)
-        # lookup JSON
+        first = s.patient
+        # même identifiant, patient choisi → nouvel échantillon rattaché au même patient
+        self.client.post(reverse("core:register"), self.wizard_data(patient_id="1-260801-0001", code=Sample.next_code(),
+                                                                    patient_pk=first.pk))
+        self.assertEqual(first.samples.count(), 2)
+        # même identifiant, « nouveau patient » → deux patients distincts avec le même identifiant
+        self.client.post(reverse("core:register"), self.wizard_data(
+            patient_id="1-260801-0001", code=Sample.next_code(), patient_pk="new", full_name="RABE Hery"))
+        self.assertEqual(Patient.objects.filter(code="1-260801-0001").count(), 2)
+        self.assertEqual(first.samples.count(), 2)
+        # recherche : tous les patients ayant cet identifiant, puis fiche complète du patient choisi
         j = self.client.get(reverse("core:patient_lookup"), {"id": "1-260801-0001"}).json()
-        self.assertEqual((j["found"], j["samples"]), (True, 2))
+        self.assertEqual((j["found"], len(j["matches"])), (True, 2))
+        self.assertEqual(next(m for m in j["matches"] if m["pk"] == first.pk)["samples"], 2)
+        j = self.client.get(reverse("core:patient_lookup"), {"pk": first.pk}).json()
+        self.assertEqual((j["full_name"], j["patient_pk"]), ("RAZAFY Lalao", str(first.pk)))
+        # historique depuis la fiche : les échantillons de ce patient seulement
+        page = self.client.get(s.get_absolute_url()).content.decode()
+        self.assertIn(f"?patient={first.pk}", page)
+        self.assertEqual(len(self.client.get(reverse("core:sample_list") + f"?patient={first.pk}").context["object_list"]), 2)
         # fiche : analyses demandées sans résultat = « En attente » + bouton Saisir
         page = self.client.get(s.get_absolute_url()).content.decode()
         self.assertIn("En attente", page)
@@ -455,6 +468,114 @@ class SmokeTests(TestCase):
         self.assertIn('rcode-alert" title="Indéterminé">Indéterminé<', html)   # QFT (Nil > 8)
         self.assertIn('rcode-neg" title="MTB non détecté">Négatif<', html)
         self.assertNotIn("TTP", html)
+
+    def test_sample_table_and_export(self):
+        from apps.diagnostic.models import DST
+        self.client.post(reverse("core:register"), self.wizard_data(
+            code="26-9401", analyses=["GNX-RIF"], aspect="Muco-purulent", requester_contact="034 11 222 33",
+            host="Bovin"))
+        s = Sample.objects.get(code="26-9401")
+        self.assertEqual((s.aspect, s.requester_contact), ("Muco-purulent", "034 11 222 33"))
+        GeneXpertTest.objects.create(sample=s, assay="ULTRA", mtb_result="HIGH", rif_result="DETECTED").validate(self.admin)
+        DST.objects.create(sample=s, method="MGIT", panel="FIRST",
+                           results={"STR": "S", "INH": "R", "RIF": "R", "EMB": "NF", "PZA": "NA"})
+        lst = self.client.get(reverse("core:sample_list")).content.decode()
+        for col in ("Identifiant externe", "Date de réception", "Projet", "Étude", "Cas", "Statut"):
+            self.assertIn(col, lst)
+        self.assertNotIn("Analyses demandées", lst)
+        self.assertIn('aspect-options', self.client.get(reverse("core:register")).content.decode())
+        raw = self.client.get(reverse("core:sample_list") + "?q=26-9401&export=csv").content
+        self.assertTrue(raw.startswith(bytes.fromhex("efbbbf")))   # BOM UTF-8
+        head, line = raw.decode("utf-8-sig").splitlines()[:2]
+        row = dict(zip(head.split(";"), line.split(";")))
+        self.assertTrue(head.startswith("N° échantillon;Identifiant externe;Nom et Prénom;Date de naissance;Age;Sexe"))
+        self.assertEqual((row["N° échantillon"], row["Contact Prescripteur"], row["Aspect"], row["Forme"], row["Hôte"]),
+                         ("26-9401", "034 11 222 33", "Muco-purulent", "Pulmonaire", "Bovin"))
+        self.assertEqual((row["GNX-RIF"], row["Resistance RIF"]), ("ELEVE", "DETECTEE"))
+        self.assertNotEqual(row["Date rendu GNX-RIF"], "NA")
+        self.assertEqual((row["DST-MGIT-INH"], row["DST-MGIT-STR"], row["DST-MGIT-EMB"]), ("RESISTANT", "SENSIBLE", "NON FAIT"))
+        self.assertEqual((row["Cult-LJ"], row["QFT"], row["GNX-XDR"], row["Volume (mL)"]), ("NA", "NA", "NA", "NA"))
+        self.assertNotIn("", row.values())   # non renseigné → NA
+
+    def test_export_region_from_facility(self):
+        from apps.core.models import Facility, Patient
+        cdt = Facility.objects.create(code="T999", name="CDT test", region="ANOSY")
+        patient = Patient.objects.create(last_name="TEST", sex="M", region="ANALAMANGA")
+        Sample.objects.create(code="26-9501", patient=patient, facility=cdt)
+        head, line = self.client.get(reverse("core:sample_list") + "?q=26-9501&export=csv").content.decode("utf-8-sig").splitlines()[:2]
+        self.assertEqual(dict(zip(head.split(";"), line.split(";")))["Région"], "ANOSY")
+
+    def test_validation_sorted_by_rendered_date(self):
+        from apps.diagnostic.models import Culture, Microscopy
+        s = Sample.objects.create(code="26-9502")
+        old = Microscopy.objects.create(sample=s, method="ZN", grade="1+", test_date="2026-01-10")
+        recent = Culture.objects.create(sample=s, medium="MGIT", inoculated_on="2025-12-01", result="NEGATIVE",
+                                        result_date="2026-03-01")
+        middle = GeneXpertTest.objects.create(sample=s, assay="ULTRA", mtb_result="LOW", test_date="2026-02-01")
+        pending = Culture.objects.create(sample=s, medium="MGIT", inoculated_on="2026-04-01")
+        rows = self.client.get(reverse("core:validation") + "?q=26-9502").context["rows"]
+        self.assertEqual([r["obj"] for r in rows], [recent, middle, old, pending])   # sans date de rendu : en bas
+        self.assertEqual(str(rows[0]["rendered"]), "2026-03-01")
+
+    def test_culture_lists_by_medium(self):
+        from apps.diagnostic.models import Culture
+        s = Sample.objects.create(code="26-9503")
+        Culture.objects.create(sample=s, medium="MGIT", inoculated_on="2026-05-01")
+        Culture.objects.create(sample=s, medium="MGIT", inoculated_on="2026-05-02")
+        Culture.objects.create(sample=s, medium="LJ", inoculated_on="2026-05-01")
+        url = reverse("diagnostic:culture_list") + "?medium=MGIT"
+        r = self.client.get(url + "&q=26-9503")
+        html = r.content.decode()
+        self.assertEqual(len(r.context["object_list"]), 2)
+        self.assertNotIn("Milieu", html)                                   # ni colonne ni filtre
+        self.assertIn("<h1>Culture MGIT</h1>", html)
+        self.assertIn('name="inoculated_on"', html)
+        self.assertIn('<input type="hidden" name="medium" value="MGIT">', html)
+        self.assertEqual(len(self.client.get(url + "&q=26-9503&inoculated_on=2026-05-02").context["object_list"]), 1)
+        csv_text = self.client.get(url + "&q=26-9503&export=csv").content.decode("utf-8-sig")
+        self.assertIn("Milieu", csv_text.splitlines()[0])                  # toujours présent dans l'export
+        self.assertEqual(len(csv_text.strip().splitlines()), 3)
+
+    def test_analysis_pages_without_module_name(self):
+        for url in (reverse("diagnostic:lj_home"), reverse("diagnostic:genexpert_live"),
+                    reverse("diagnostic:microscopy_list")):
+            self.assertNotIn('class="subnav-module"', self.client.get(url).content.decode())
+            self.assertNotIn('text-muted">Analyses TB<', self.client.get(url).content.decode())
+
+    def test_runs_list_their_samples(self):
+        from apps.research.models import PCRAssay, PCRRun, SequencingLibrary, SequencingRun
+        s1, s2 = Sample.objects.create(code="26-9601"), Sample.objects.create(code="26-9602")
+        run = SequencingRun.objects.create(run_id="ONT-T1", platform="ONT_MINION")
+        for i, s in enumerate((s1, s2)):
+            SequencingLibrary.objects.create(run=run, sample=s, library_id=f"L{i}")
+        html = self.client.get(run.get_absolute_url()).content.decode()
+        self.assertIn("Échantillons analysés", html)
+        for code in (s1.code, s2.code):
+            self.assertIn(code, html)
+        # PCR : le run porte la signature et le seuil ; le formulaire ne demande que l'échantillon et les Ct
+        r = self.client.post(reverse("research:pcrrun_create"), {
+            "run_id": "PCR-T1", "assay": "SWEENEY3", "threshold": "-3", "run_date": "2026-06-01", "status": "DONE"})
+        pcr_run = PCRRun.objects.get(run_id="PCR-T1")
+        self.assertEqual(r.status_code, 302)
+        add = reverse("research:pcr_create") + f"?run={pcr_run.pk}"
+        self.assertEqual(self.client.get(add).context["form"].initial["run"], str(pcr_run.pk))
+        self.client.post(add, {"run": pcr_run.pk, "sample": s1.pk, "ct_gbp5": "25", "ct_dusp3": "27", "ct_klf2": "24"})
+        p = PCRAssay.objects.get(run=pcr_run)
+        self.assertEqual((p.score, p.outcome, str(p.test_date)), (D("-2.000"), "POS", "2026-06-01"))
+        html = self.client.get(pcr_run.get_absolute_url()).content.decode()
+        self.assertIn(s1.code, html)
+        self.assertIn("Ct GBP5", html)
+        self.assertNotIn("Ct GBP2", html)                                  # gènes RISK6 masqués
+        # seuil corrigé sur le run → conclusion recalculée
+        pcr_run.threshold = D("0")
+        pcr_run.save()
+        p.refresh_from_db()
+        self.assertEqual(p.outcome, "NEG")
+        self.assertContains(self.client.get(reverse("core:validation") + "?q=26-9601"), "Sweeney3")
+        # menu : Runs de séquençage et Runs PCR ; plus de liste par librairie
+        page = self.client.get(reverse("research:run_list")).content.decode()
+        self.assertIn("Runs PCR", page)
+        self.assertNotIn(">Librairies<", page)
 
     def test_validation_module_bulk(self):
         drafts = list(GeneXpertTest.objects.filter(result_status="DRAFT")[:3])
