@@ -1,0 +1,4 @@
+# Scripts et fichiers de configuration Linux / WSL : toujours en fins de ligne Unix
+*.sh text eol=lf
+deploy/wsl/* text eol=lf
+*.bat text eol=crlf

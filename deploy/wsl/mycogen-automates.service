@@ -1,0 +1,16 @@
+[Unit]
+Description=MYCOGEN - connexion aux automates (ASTM)
+After=network-online.target mycogen-web.service
+Wants=network-online.target
+
+[Service]
+User=mycogen
+WorkingDirectory=/srv/mycogen
+ExecStart=/srv/mycogen/scripts/start_automates.sh
+Restart=always
+RestartSec=10
+StandardOutput=append:/srv/mycogen/logs/automates.log
+StandardError=append:/srv/mycogen/logs/automates.log
+
+[Install]
+WantedBy=multi-user.target

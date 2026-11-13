@@ -48,6 +48,8 @@ def refresh_status(sample):
 
 def result_changed(sender, instance, **kwargs):
     """Signal post_save / post_delete des résultats : recalcul du statut de l'échantillon."""
+    if kwargs.get("raw"):   # chargement de données (loaddata) : statuts recalculés ensuite par refresh_sample_status
+        return
     from .analyses import families
     from .models import Sample
 

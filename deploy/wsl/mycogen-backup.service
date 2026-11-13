@@ -1,0 +1,8 @@
+[Unit]
+Description=MYCOGEN - sauvegarde de la base PostgreSQL
+
+[Service]
+Type=oneshot
+User=mycogen
+WorkingDirectory=/srv/mycogen
+ExecStart=/srv/mycogen/scripts/backup_postgres.sh

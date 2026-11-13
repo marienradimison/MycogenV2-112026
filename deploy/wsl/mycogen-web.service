@@ -1,0 +1,17 @@
+[Unit]
+Description=MYCOGEN - serveur web (intranet)
+After=network-online.target postgresql.service
+Requires=postgresql.service
+Wants=network-online.target
+
+[Service]
+User=mycogen
+WorkingDirectory=/srv/mycogen
+ExecStart=/srv/mycogen/scripts/start_mycogen.sh
+Restart=always
+RestartSec=5
+StandardOutput=append:/srv/mycogen/logs/serveur.log
+StandardError=append:/srv/mycogen/logs/serveur.log
+
+[Install]
+WantedBy=multi-user.target

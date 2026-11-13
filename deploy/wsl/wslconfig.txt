@@ -1,0 +1,11 @@
+# À copier dans C:\Users\<compte Windows propriétaire de la distribution>\.wslconfig
+# (fichier nommé exactement « .wslconfig »), puis « wsl --shutdown ».
+# networkingMode=mirrored : Ubuntu partage l'adresse IP du serveur Windows -> les PC du réseau joignent
+# MYCOGEN sur http://<IP_SERVEUR>:8000 et « localhost » désigne la même machine des deux côtés
+# (PostgreSQL installé sous Windows ou dans Ubuntu). Nécessite Windows 11 22H2 ou plus récent.
+[wsl2]
+networkingMode=mirrored
+vmIdleTimeout=-1
+
+[experimental]
+hostAddressLoopback=true
