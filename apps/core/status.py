@@ -16,7 +16,7 @@ def has_result(obj):
 
 
 def compute_status(sample):
-    from .analyses import families, sample_analyses
+    from .analyses import families, is_cancelled, sample_analyses
 
     if not sample.conform:
         return "REJECTED"
@@ -24,11 +24,11 @@ def compute_status(sample):
     for model, _, _, _ in families().values():
         for r in model.objects.filter(sample=sample):
             results[(model, r.pk)] = r
-    results = list(results.values())
+    results = [r for r in results.values() if not is_cancelled(r)]   # résultats annulés ignorés
     if not results:
         return "RECEIVED"
     analyses = sample_analyses(sample)
-    if any(not a["results"] for a in analyses) or not all(has_result(r) for r in results):
+    if any(a["state"] == "PENDING" for a in analyses) or not all(has_result(r) for r in results):
         return "IN_PROGRESS"
     if all(getattr(r, "is_validated", True) for r in results):
         return "COMPLETED"

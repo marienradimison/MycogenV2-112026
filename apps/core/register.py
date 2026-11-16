@@ -9,7 +9,7 @@ from datetime import datetime, time
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -200,16 +200,18 @@ def register(request):
     if request.method == "POST":
         form = RegistrationForm(request.POST)
         if form.is_valid():
-            sample = save_registration(form.cleaned_data, request.user)
-            messages.success(request, f"Échantillon {sample.code} enregistré pour {sample.patient.full_name}.")
-            return redirect("core:register" if "another" in request.POST else sample.get_absolute_url())
+            sample = save_or_flag_duplicate(form, request.user)
+            if sample:
+                messages.success(request, f"Échantillon {sample.code} enregistré pour {sample.patient.full_name}.")
+                return redirect("core:register" if "another" in request.POST else sample.get_absolute_url())
     else:
         initial = {"code": Sample.next_code(), "received_at": timezone.localtime().replace(second=0, microsecond=0),
                    "conform": True, "hiv_status": "INC", "tb_history": "NEW", "host": "Humain"}
         for key in ("facility", "project"):  # liens « Ajouter » depuis une fiche CDT / projet
             if request.GET.get(key, "").isdigit():
                 initial[key] = int(request.GET[key])
-        patient = Patient.objects.filter(pk=request.GET.get("patient") or 0).first()
+        pk = request.GET.get("patient", "")
+        patient = Patient.objects.filter(pk=pk).first() if pk.isdigit() else None
         if patient:
             initial.update(patient_initial(patient))
         form = RegistrationForm(initial=initial)
@@ -222,13 +224,28 @@ def register_edit(request, pk):
     sample = get_object_or_404(Sample.objects.select_related("patient"), pk=pk)
     if request.method == "POST":
         form = RegistrationForm(request.POST, instance=sample)
-        if form.is_valid():
-            save_registration(form.cleaned_data, request.user, sample=sample)
+        if form.is_valid() and save_or_flag_duplicate(form, request.user, sample=sample):
             messages.success(request, f"Échantillon {sample.code} modifié.")
             return redirect(sample)
     else:
         form = RegistrationForm(initial=initial_from(sample), instance=sample)
     return render_wizard(request, form, sample)
+
+
+def save_or_flag_duplicate(form, user, sample=None):
+    """Enregistre ; si le n° vient d'être pris par un autre poste (saisies simultanées), le signale sur le
+    formulaire au lieu d'une erreur 500."""
+    code = form.cleaned_data["code"]
+    try:
+        return save_registration(form.cleaned_data, user, sample=sample)
+    except IntegrityError:
+        if not Sample.objects.filter(code=code).exclude(pk=getattr(sample, "pk", None)).exists():
+            raise
+        if sample is not None:
+            sample.refresh_from_db()
+        form.add_error("code", f"Le n° {code} vient d'être attribué sur un autre poste. "
+                               f"Prochain n° libre : {Sample.next_code(2000 + int(code[:2]))}.")
+        return None
 
 
 def apply_patient(patient, d, user):
@@ -292,6 +309,8 @@ def save_registration(d, user, sample=None):
 def patient_lookup(request):
     """Patients ayant l'identifiant externe saisi (?id=) ; ou fiche complète d'un patient choisi (?pk=)."""
     if request.GET.get("pk"):
+        if not request.GET["pk"].isdigit():
+            return JsonResponse({"found": False, "matches": []}, status=400)
         p = get_object_or_404(Patient, pk=request.GET["pk"])
     else:
         pid = request.GET.get("id", "").strip()

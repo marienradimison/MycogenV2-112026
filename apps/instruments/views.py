@@ -68,7 +68,7 @@ def message_list(request):
         qs = qs.filter(status__in=["UNMATCHED", "ERROR", "NEW"])
     elif status:
         qs = qs.filter(status=status)
-    if request.GET.get("instrument"):
+    if request.GET.get("instrument", "").isdigit():
         qs = qs.filter(instrument_id=request.GET["instrument"])
     if request.GET.get("q"):
         qs = qs.filter(sample_ref__icontains=request.GET["q"].strip())

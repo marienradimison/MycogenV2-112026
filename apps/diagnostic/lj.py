@@ -12,6 +12,7 @@ from datetime import timedelta
 from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
@@ -244,7 +245,7 @@ def lj_inoculation(request):
         created = 0
         with transaction.atomic():
             for sid in request.POST.getlist("samples"):
-                sample = Sample.objects.filter(pk=sid).first()
+                sample = Sample.objects.filter(pk=sid).first() if sid.isdigit() else None
                 if sample and not sample.culture_set.filter(medium="LJ").exists():
                     c = Culture.objects.create(sample=sample, medium="LJ", inoculated_on=d["inoculated_on"],
                                                incubator=d["incubator"], decontamination=d["decontamination"], tube_count=d["tube_count"],
@@ -253,7 +254,8 @@ def lj_inoculation(request):
                     log(request.user, "CREATE", c)
                     created += 1
             for cid in request.POST.getlist("retreat"):
-                old = Culture.objects.filter(pk=cid, retreat_status="TO_RETREAT").first()
+                old = (Culture.objects.select_for_update().filter(pk=cid, retreat_status="TO_RETREAT").first()
+                       if cid.isdigit() else None)
                 if old:
                     c = Culture.objects.create(sample=old.sample, medium="LJ", inoculated_on=d["inoculated_on"],
                                                incubator=d["incubator"], decontamination=d["decontamination"], tube_count=d["tube_count"],
@@ -301,10 +303,11 @@ def lj_reading_new(request):
         if shown:
             cultures = [c for c in cultures if str(c.pk) in shown]
         negative_ref = age_reference(request.POST.get("filtre", ""), date)
+        incubator = incubators().filter(pk=request.POST.get("incubator")).first()             if (request.POST.get("incubator") or "").isdigit() else None
         with transaction.atomic():
             reading = IncubatorReading.objects.create(
                 date=date, operator=request.user, notes=request.POST.get("notes", "")[:2000],
-                incubator_id=request.POST.get("incubator") or None)
+                incubator=incubator)
             for c in cultures:
                 obs = {n: request.POST.get(f"t{n}_{c.pk}", "") for n in (1, 2)}
                 sd = request.POST.get(f"sd_{c.pk}", "")
@@ -454,8 +457,10 @@ def lj_temperatures(request):
     first = incubators().first()
     if first:
         initial["incubator"] = first.pk
+    if request.method == "POST" and not can_add:
+        raise PermissionDenied
     form = TemperatureForm(request.POST or None, initial=initial)
-    if request.method == "POST" and can_add and form.is_valid():
+    if request.method == "POST" and form.is_valid():
         t = form.save(commit=False)
         t.operator = request.user
         t.save()

@@ -152,14 +152,14 @@ class Movement(LimsModel):
             return
         if self.kind != "ADJUST" and self.quantity <= 0:
             raise ValidationError({"quantity": "La quantité doit être positive."})
-        if self.kind in ("OUT", "LOSS"):
+        if self.kind in ("OUT", "LOSS") or (self.kind == "ADJUST" and self.quantity < 0):
             available = self.lot.remaining - (self.signed_before() if self.pk else 0)
             if abs(self.quantity) > available:
                 raise ValidationError({"quantity": f"Stock insuffisant sur ce lot ({available} disponible)."})
 
     def signed_before(self):
         old = Movement.objects.filter(pk=self.pk).first()
-        return old.signed if old else 0
+        return old.signed if old and old.lot_id == self.lot_id else 0   # lot changé : l'ancien mouvement ne compte pas
 
 
 def stock_alerts():

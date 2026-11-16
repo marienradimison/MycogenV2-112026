@@ -626,3 +626,47 @@ class NavigationTests(TestCase):
         self.assertIn('class="nav-item active" href="/m/research/"', page)
         self.assertIn("module-subnav", page)
         self.assertEqual(self.client.get(reverse("core:module", args=["inconnu"])).status_code, 404)
+
+
+class RobustnessTests(TestCase):
+    """Corrections de la revue de code : paramètres invalides, redirections, résultats annulés."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("init_mycogen", verbosity=0)
+        cls.admin = User.objects.create_superuser("admin-rob", "r@example.org", "x")
+
+    def setUp(self):
+        self.client.force_login(self.admin)
+
+    def test_invalid_url_params_do_not_crash(self):
+        for url in (reverse("core:sample_list") + "?project=abc", reverse("core:sample_list") + "?patient=abc",
+                    reverse("core:register") + "?patient=abc", reverse("core:patient_lookup") + "?pk=abc",
+                    reverse("core:validation") + "?projet=abc", reverse("instruments:message_list") + "?instrument=x"):
+            self.assertLess(self.client.get(url).status_code, 500, url)
+
+    def test_external_next_is_refused(self):
+        r = self.client.post(reverse("core:toggle_theme"), {"next": "//evil.example.com/"})
+        self.assertEqual(r["Location"], "/")
+        r = self.client.post(reverse("core:toggle_theme"), {"next": "/journal/"})
+        self.assertEqual(r["Location"], "/journal/")
+
+    def test_cancelled_result_neither_blocks_status_nor_validates(self):
+        s = Sample.objects.create(requested_analyses=[])
+        g = GeneXpertTest.objects.create(sample=s, mtb_result="NOT_DETECTED", result_status="CANCELLED")
+        s.refresh_from_db()
+        self.assertEqual(s.status, "RECEIVED")  # le seul résultat est annulé
+        self.client.post(reverse("diagnostic:genexpert_validate", args=[g.pk]))
+        g.refresh_from_db()
+        self.assertEqual(g.result_status, "CANCELLED")
+
+    def test_uploaded_html_is_downloaded(self):
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as root, override_settings(MEDIA_ROOT=root):
+            Path(root, "x.html").write_text("<script>alert(1)</script>", encoding="utf-8")
+            Path(root, "x.png").write_bytes(b"\x89PNG")
+            r, img = self.client.get("/media/x.html"), self.client.get("/media/x.png")
+            r.close(), img.close()  # libère les fichiers (Windows)
+            self.assertIn("attachment", r["Content-Disposition"])
+            self.assertEqual(r["X-Content-Type-Options"], "nosniff")
+            self.assertNotIn("attachment", img["Content-Disposition"])
