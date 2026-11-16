@@ -1,0 +1,87 @@
+{% extends "base.html" %}{% load sgq %}
+{% block title %}SGQ — Système de Gestion de la Qualité{% endblock %}
+{% block content %}
+<div class="page-title">
+  {% include "generic/_back.html" with fallback="/" %}
+  <div class="icon"><i class="bi bi-clipboard-data"></i></div>
+  <div>
+    <div class="small text-muted">Qualité</div>
+    <h1>SGQ — Système de Gestion de la Qualité</h1>
+  </div>
+  <div class="ms-auto d-flex gap-2 d-print-none">
+    <a class="btn btn-sm btn-outline-primary" href="{{ export_url }}"><i class="bi bi-filetype-csv"></i> Exporter CSV</a>
+    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer"></i> Imprimer</button>
+  </div>
+</div>
+
+<form method="get" class="card card-body py-2 mb-3 d-flex flex-row flex-wrap gap-3 align-items-center d-print-none" id="sgq-filters">
+  <input type="hidden" name="onglet" value="{{ tab }}">
+  <label class="d-flex align-items-center gap-2 small">Année
+    <select name="annee" class="form-select form-select-sm" style="width:auto">
+      {% for y in years %}<option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+    </select></label>
+  <label class="d-flex align-items-center gap-2 small">Projet
+    <select name="projet" class="form-select form-select-sm" style="width:auto">
+      <option value="">Tous les échantillons</option>
+      {% for p in projects %}<option value="{{ p.pk }}" {% if project and p.pk == project.pk %}selected{% endif %}>{{ p.code }}</option>{% endfor %}
+    </select></label>
+  <div class="form-check form-switch small mb-0">
+    <input class="form-check-input" type="checkbox" role="switch" name="valides" value="1" id="valides" {% if validated_only %}checked{% endif %}>
+    <label class="form-check-label" for="valides">Résultats validés uniquement</label>
+  </div>
+  <span class="small text-muted ms-auto">Chaque résultat est compté dans le mois de réception de son échantillon.</span>
+</form>
+<div class="d-none d-print-block mb-2 small">Année {{ year }}{% if project %} · projet {{ project.code }}{% endif %}{% if validated_only %} · résultats validés uniquement{% endif %}</div>
+
+<div class="row g-3 mb-3">
+  {% for label, value, icon, cls in data.kpis %}
+  <div class="col-6 col-xl-3"><div class="card stat {{ cls }}"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ value }}</div><div class="label">{{ label }} · {{ year }}</div></div>
+    <i class="bi {{ icon }} ico"></i></div></div></div>
+  {% endfor %}
+</div>
+
+<div class="d-print-none">{% include "generic/_tabs.html" %}</div>
+
+{% if tab == "methodes" %}
+  {% for table in method_tables %}{% include "quality/_sgq_table.html" %}{% endfor %}
+{% elif tab == "concordances" %}
+  <p class="small text-muted">Comparaison, échantillon par échantillon, du GNX-RIF valide avec la microscopie et les cultures rendues
+    (cultures en cours ou contaminées exclues). Le % des lignes GNX+ est calculé sur les GNX+ comparables, celui des lignes GNX- sur les GNX- comparables.</p>
+  {% for table in concordance_tables %}{% include "quality/_sgq_table.html" %}{% endfor %}
+{% elif tab == "globale" %}
+  <p class="small text-muted">Patients distincts par mois de réception (hors échantillons de suivi de traitement et de contrôle qualité EEQ).
+    Les définitions sont dans l'onglet « Définitions ».</p>
+  {% include "quality/_sgq_table.html" with table=data.global %}
+{% elif tab == "delais" %}
+  <p class="small text-muted">Délai entre la réception de l'échantillon et la validation du résultat (indicateur DT-31 du guide TB DIAH) :
+    nombre de résultats validés et médiane en jours. Les cultures négatives ne sont rendues qu'en fin d'incubation.</p>
+  {% if data.tat.rows %}{% include "quality/_sgq_table.html" with table=data.tat %}
+  {% else %}<div class="alert alert-light border">Aucun résultat validé pour cette période.</div>{% endif %}
+{% else %}
+  <div class="card mb-3">
+    <div class="card-header fw-semibold">Indicateurs de détection de la TB (DT)</div>
+    <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Réf.</th><th>Indicateur</th><th>Calcul dans MYCOGEN</th><th>Formule</th></tr></thead>
+      <tbody>{% for ref, name, definition, formula in data.definitions %}
+        <tr><td class="fw-semibold text-nowrap">{{ ref }}</td><td>{{ name }}</td><td class="small">{{ definition }}</td><td class="small text-muted">{{ formula }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    <div class="card-footer small text-muted">Source : Guide de navigation des indicateurs pour les programmes de lutte contre la tuberculose, TB DIAH, University of North Carolina, mai 2021.</div>
+  </div>
+  <div class="card">
+    <div class="card-header fw-semibold d-flex">Abréviations et codes <a class="ms-auto small fw-normal" href="{% url 'core:code_list' %}">Bibliothèque de codes</a></div>
+    <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Code</th><th>Signification</th><th>Catégorie</th></tr></thead>
+      <tbody>{% for c in library_codes %}
+        <tr><td class="fw-semibold text-nowrap">{{ c.code }}</td><td>{{ c.meaning }}</td><td class="small text-muted">{{ c.get_category_display }}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+{% endif %}
+
+<script>
+document.querySelectorAll('#sgq-filters select, #sgq-filters input[type=checkbox]').forEach(el =>
+  el.addEventListener('change', () => el.form.submit()));
+</script>
+{% endblock %}

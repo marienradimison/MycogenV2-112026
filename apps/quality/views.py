@@ -87,3 +87,69 @@ def monitoring(request):
         "rooms_without_access": rooms.exclude(accesses__revoked=False).count(),
     }
     return render(request, "quality/monitoring.html", {"sections": sections, "stats": stats, "today": today})
+
+
+SGQ_TABS = [
+    ("methodes", "Performance par méthode", "bi-table"),
+    ("concordances", "Concordances", "bi-intersect"),
+    ("globale", "Performance globale (DT)", "bi-bullseye"),
+    ("delais", "Délais de rendu", "bi-stopwatch"),
+    ("definitions", "Définitions", "bi-book"),
+]
+
+
+@login_required
+@permission_required("quality.view_sgq", raise_exception=True)
+def sgq(request):
+    """SGQ — statistiques d'activité et indicateurs de performance du laboratoire, par mois."""
+    import csv
+
+    from django.http import HttpResponse
+    from django.urls import reverse
+
+    from apps.core.models import AnalysisCode, Sample
+    from apps.research.models import Project
+
+    from . import sgq as engine
+
+    today = timezone.localdate()
+    first = Sample.objects.order_by("received_at").values_list("received_at", flat=True).first()
+    years = list(range(today.year, min(timezone.localtime(first).year if first else today.year, today.year) - 1, -1))
+    try:
+        year = int(request.GET.get("annee") or today.year)
+    except ValueError:
+        year = today.year
+    if year not in years:
+        year = today.year
+    projects = Project.objects.order_by("code")
+    project = projects.filter(pk=request.GET.get("projet")).first() if (request.GET.get("projet") or "").isdigit() else None
+    validated_only = request.GET.get("valides") == "1"
+    data = engine.compute(year, project, validated_only)
+
+    if request.GET.get("export") == "csv":
+        name = f"SGQ_{year}{'_' + project.code if project else ''}{'_valides' if validated_only else ''}.csv"
+        resp = HttpResponse(content_type="text/csv; charset=utf-8")
+        resp["Content-Disposition"] = f'attachment; filename="{name}"'
+        resp.write("﻿")  # BOM UTF-8 : Excel affiche correctement les accents
+        w = csv.writer(resp, delimiter=";", lineterminator="\r\n")
+        for row in engine.csv_rows(data, year):
+            w.writerow(row)
+        return resp
+
+    tab = request.GET.get("onglet") if request.GET.get("onglet") in dict((k, 1) for k, *_ in SGQ_TABS) else "methodes"
+    params = request.GET.copy()
+    params.pop("export", None)
+    tabs = []
+    for key, label, icon in SGQ_TABS:
+        params["onglet"] = key
+        tabs.append((key, label, icon, f"?{params.urlencode()}", key == tab))
+    params["onglet"] = tab
+    params["export"] = "csv"
+    return render(request, "quality/sgq.html", {
+        "data": data, "year": year, "years": years, "projects": projects, "project": project,
+        "validated_only": validated_only, "tab": tab, "tabs": tabs, "months": engine.MONTHS,
+        "method_tables": [t for t in data["tables"] if not t["dual"]],
+        "concordance_tables": [t for t in data["tables"] if t["dual"]],
+        "export_url": f"{reverse('quality:sgq')}?{params.urlencode()}",
+        "library_codes": AnalysisCode.objects.filter(active=True, code__in=engine.GLOSSARY).order_by("order"),
+    })

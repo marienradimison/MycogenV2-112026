@@ -39,7 +39,7 @@ ROLES = {
         "instruments": {"*": RW},
         "quality": {"*": L},
         "stock": {"*": ALL},
-        "extra": ["core.view_activitylog"],
+        "extra": ["core.view_activitylog", "quality.view_sgq"],
     }),
     "MB": ("Médecin Biologiste", {
         "core": {"*": ALL},
@@ -50,7 +50,7 @@ ROLES = {
         "instruments": {"*": ALL},
         "quality": {"*": L},
         "stock": {"*": L},
-        "extra": ["core.validate_results", "core.view_activitylog"],
+        "extra": ["core.validate_results", "core.view_activitylog", "quality.view_sgq"],
     }),
     "AS": ("Agent de Saisie", {
         "core": {"patient": RW, "sample": RW, "facility": L, "room": L},
@@ -71,7 +71,7 @@ ROLES = {
         "biobank": {"storageunit": L},
         "diagnostic": {"temperaturelog": L},
         "stock": {"article": L, "lot": L, "movement": L},
-        "extra": ["core.view_activitylog"],
+        "extra": ["core.view_activitylog", "quality.view_sgq"],
     }),
     "AL": ("Agent de Laboratoire", {
         "core": {"sample": L, "room": L},

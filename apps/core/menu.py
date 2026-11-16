@@ -59,6 +59,7 @@ MODULES = [
     {"key": "stock", "label": "Stock", "icon": "bi-boxes", "url": "stock:home", "match": "/stock/", "perm": "stock.view_article",
      "items": []},
     {"key": "quality", "label": "Qualité", "icon": "bi-shield-check", "items": [
+        ("quality:sgq", "bi-clipboard-data", "SGQ", "quality.view_sgq", "Système de Gestion de la Qualité : statistiques et indicateurs", None),
         ("quality:monitoring", "bi-shield-check", "Surveillance", "quality.view_equipment", "Alertes matériels, accès, températures", "/qualite/$"),
         ("quality:equipment_list", "bi-tools", "Matériels", "quality.view_equipment", "Maintenance et étalonnage", None),
         ("quality:access_list", "bi-person-badge", "Accès aux salles", "quality.view_roomaccess", "Personnes autorisées", None),

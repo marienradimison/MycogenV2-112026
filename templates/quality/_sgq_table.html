@@ -1,0 +1,39 @@
+{% load sgq %}<div class="card mb-3 sgq-card">
+  <div class="card-header fw-semibold d-flex align-items-center">{{ table.title }}
+    {% if table.code %}<span class="badge text-bg-light border ms-2 fw-normal">{{ table.code }}</span>{% endif %}</div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0 sgq-table">
+      <thead>
+        {% if table.dual %}
+        <tr><th rowspan="2" class="sgq-label">{% if table.tat %}Analyse{% else %}Indicateur{% endif %}</th>
+          {% for m in months %}<th colspan="2" class="text-center">{{ m }}</th>{% endfor %}
+          <th colspan="2" class="text-center sgq-total">Total {{ year }}</th></tr>
+        <tr>{% for m in months %}<th class="text-end">n</th><th class="text-end">{% if table.tat %}méd.{% else %}%{% endif %}</th>{% endfor %}
+          <th class="text-end sgq-total">n</th><th class="text-end sgq-total">{% if table.tat %}méd.{% else %}%{% endif %}</th></tr>
+        {% else %}
+        <tr><th class="sgq-label"></th>{% for m in months %}<th class="text-end">{{ m }}</th>{% endfor %}
+          <th class="text-end sgq-total">Total {{ year }}</th></tr>
+        {% endif %}
+      </thead>
+      <tbody>
+      {% for row in table.rows %}
+        {% if row.kind == "head" %}
+        <tr class="sgq-head"><td class="sgq-label" colspan="14">{{ row.label }}</td></tr>
+        {% elif row.kind == "dual" %}
+        <tr{% if row.strong %} class="fw-semibold"{% endif %}><td class="sgq-label fw-semibold" {% if row.title %}title="{{ row.title }}"{% endif %}>{{ row.label }}</td>
+          {% for cell in row.values %}
+            {% if cell %}<td class="text-end">{{ cell.0|num }}</td><td class="text-end text-muted">{% if table.tat %}{{ cell.1|num }}{% else %}{{ cell.1|pct }}{% endif %}</td>
+            {% else %}<td></td><td></td>{% endif %}
+          {% endfor %}
+          <td class="text-end sgq-total">{{ row.total.0|num }}</td>
+          <td class="text-end sgq-total">{% if table.tat %}{{ row.total.1|num }}{% else %}{{ row.total.1|pct }}{% endif %}</td></tr>
+        {% else %}
+        <tr class="sgq-{{ row.kind }}"><td class="sgq-label{% if row.indent %} ps-4{% endif %}" {% if row.title %}title="{{ row.title }}"{% endif %}>{{ row.label }}</td>
+          {% for v in row.values %}<td class="text-end{% if v == 0 %} text-muted{% endif %}">{% if v == "" %}{% elif row.kind == "pct" %}{{ v|pct }}{% else %}{{ v|num }}{% endif %}</td>{% endfor %}
+          <td class="text-end sgq-total">{% if row.kind == "pct" %}{{ row.total|pct }}{% else %}{{ row.total|num }}{% endif %}</td></tr>
+        {% endif %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

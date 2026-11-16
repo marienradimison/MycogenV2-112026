@@ -67,6 +67,7 @@ class Equipment(LimsModel):
         verbose_name = "matériel"
         verbose_name_plural = "matériels"
         ordering = ["room__number", "name"]
+        permissions = [("view_sgq", "Consulter le SGQ (statistiques et indicateurs de performance)")]
 
     def __str__(self):
         return f"{self.name}" + (f" ({self.inventory_number})" if self.inventory_number else "")

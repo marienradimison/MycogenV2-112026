@@ -438,7 +438,7 @@ class SmokeTests(TestCase):
         r = self.client.post(url, {**base, "res_STR": "S", "res_INH": "R"})
         self.assertContains(r, "Indiquez R, S, I, NF ou NA")       # RIF, EMB, PZA manquants
         r = self.client.post(url, {**base, "res_STR": "S", "res_INH": "R", "res_RIF": "R", "res_EMB": "NF",
-                                   "res_PZA": "NA", "res_LFX": "S"})
+                                   "res_PZA": "NA", "res_LEV": "S"})
         d = DST.objects.get(sample=s, panel="FIRST")
         self.assertEqual(d.results, {"STR": "S", "INH": "R", "RIF": "R", "EMB": "NF", "PZA": "NA"})
         self.assertEqual(d.resistant, ["INH", "RIF"])

@@ -396,18 +396,21 @@ class DST(TestResult):
     DRUGS = [
         ("STR", "Streptomycine"), ("INH", "Isoniazide"), ("RIF", "Rifampicine"), ("EMB", "Éthambutol"),
         ("PZA", "Pyrazinamide"),
-        ("LFX", "Lévofloxacine"), ("MFX", "Moxifloxacine"), ("AMK", "Amikacine"), ("BDQ", "Bédaquiline"),
+        ("OFX", "Ofloxacine"), ("LEV", "Lévofloxacine"), ("MOX", "Moxifloxacine"), ("AMK", "Amikacine"),
+        ("KAN", "Kanamycine"), ("CAP", "Capréomycine"), ("BDQ", "Bédaquiline"),
         ("LZD", "Linézolide"), ("CFZ", "Clofazimine"), ("DLM", "Délamanide"), ("PMD", "Prétomanide"),
         ("ETO", "Éthionamide"), ("INH_H", "Isoniazide (haute conc.)"),
     ]
     PANELS = [("FIRST", "Première ligne (SIRE + PZA)"), ("SECOND", "Seconde ligne")]
     PANEL_DRUGS = {
         "FIRST": ["STR", "INH", "RIF", "EMB", "PZA"],
-        "SECOND": ["LFX", "MFX", "AMK", "BDQ", "LZD", "CFZ", "DLM", "PMD", "ETO", "INH_H"],
+        "SECOND": ["OFX", "LEV", "MOX", "AMK", "KAN", "CAP", "BDQ", "LZD", "CFZ", "DLM", "PMD", "ETO", "INH_H"],
     }
     RESULTS = [("R", "Résistant"), ("S", "Sensible"), ("I", "Indéterminé"), ("NF", "Non fait"),
                ("NA", "Non applicable")]
     METHODS = [("MGIT", "MGIT 960"), ("LJ", "LJ — méthode des proportions"), ("MIC", "CMI (microdilution)")]
+    FLQ = ("OFX", "LEV", "MOX")            # fluoroquinolones
+    INJECTABLES = ("CAP", "KAN", "AMK")    # injectables de 2e ligne
 
     culture = models.ForeignKey(Culture, verbose_name="culture", on_delete=models.SET_NULL,
                                 null=True, blank=True, related_name="dsts")

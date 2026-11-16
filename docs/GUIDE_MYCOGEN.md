@@ -325,11 +325,11 @@ Les comptes se gèrent dans **Administration → Utilisateurs & paramètres → 
 | Code | Rôle | Permissions principales |
 |---|---|---|
 | **TL** | Technicien(ne) de Laboratoire | Enregistrer patients/échantillons ; saisir tous les résultats (diagnostic, recherche) ; biobanque ; messages d'automates ; consulter matériels et accès ; consulter le stock et **enregistrer des sorties** |
-| **SL** | Surveillant(e) de Laboratoire | Diagnostic et biobanque complets (y compris suppression) ; automates ; **gestion complète du stock** ; consultation recherche, qualité, journal d'audit |
-| **MB** | Médecin Biologiste | Tout le CNRM, le diagnostic, la recherche, la biobanque, les automates ; **validation des résultats** ; journal d'audit ; consultation qualité et stock |
+| **SL** | Surveillant(e) de Laboratoire | Diagnostic et biobanque complets (y compris suppression) ; automates ; **gestion complète du stock** ; consultation recherche, qualité, SGQ, journal d'audit |
+| **MB** | Médecin Biologiste | Tout le CNRM, le diagnostic, la recherche, la biobanque, les automates ; **validation des résultats** ; journal d'audit ; consultation qualité, SGQ et stock |
 | **AS** | Agent de Saisie | Enregistrer et modifier patients et échantillons ; consulter structures, salles, projets / études / cas |
 | **RSR** | Researcher | Recherche et bioinformatique complètes ; biobanque ; échantillons ; consultation du diagnostic et du stock |
-| **RQ/CQ** | Responsable Qualité / Correspondant Qualité | Matériels, accès aux salles, surveillance ; modification des salles ; consultation des automates, congélateurs, températures, stock, journal d'audit |
+| **RQ/CQ** | Responsable Qualité / Correspondant Qualité | **SGQ** (statistiques et indicateurs), matériels, accès aux salles, surveillance ; modification des salles ; consultation des automates, congélateurs, températures, stock, journal d'audit |
 | **AL** | Agent de Laboratoire | Consulter échantillons, cultures, salles, matériels ; **saisir les températures d'étuve** ; consulter le stock et **enregistrer des sorties** |
 
 Un **administrateur** (superutilisateur) a tous les droits. Les demandes de réinitialisation de mot de passe et les
@@ -452,6 +452,23 @@ Congélateurs, boîtes (plan visuel des positions), aliquots (souche, ADN, plasm
 Suivi en temps réel de tous les appareils, messages reçus (et messages à traiter), configuration des appareils.
 
 ### Qualité
+- **SGQ — Système de Gestion de la Qualité** : statistiques d'activité et indicateurs de performance, mois par mois,
+  sur le modèle du fichier « Suivi_performance_labo ». Filtres : année, projet, résultats validés uniquement ;
+  export CSV (UTF-8) et impression. Chaque résultat est compté dans le **mois de réception** de son échantillon ;
+  les résultats annulés ne sont jamais comptés. Onglets :
+  - *Performance par méthode* : prélèvements reçus (pulmonaires / extra-pulmonaires, rejetés), GNX-RIF
+    (% MTB POSITIF, % RIF-R, % test invalid), microscopie, Cult-LJ et Cult-MGIT (CMTB + / CMTB -, contamination,
+    en cours), DST-MGIT (et DST-LJ s'il y en a) 1ère et 2ème ligne (monorésistances, TB-MR, TB-XDR), GNX-XDR, NPOC ;
+  - *Concordances* : GNX-RIF face à la microscopie, à la Cult-MGIT et à la Cult-LJ (n et %, concordance globale) ;
+  - *Performance globale (DT)* : indicateurs DT-1 à DT-10, en patients distincts, hors échantillons de suivi de
+    traitement et d'EEQ ;
+  - *Délais de rendu* : médiane en jours entre réception et validation, par analyse ;
+  - *Définitions* : calcul de chaque indicateur et abréviations (codes de la bibliothèque, catégorie
+    « Indicateur (SGQ) »).
+
+  Règles : **TB-MR** = RIF-R + INH-R ; **TB-XDR** (antibiogramme 2ème ligne et GNX-XDR) = une fluoroquinolone
+  résistante (OFX, LEV ou MOX ; FLQ pour le GNX-XDR) + CAP, KAN ou AMK résistant ; **CMTB -** = Non CMTB, MNT ou
+  non mycobactérie. Accès : rôles RQ/CQ, MB et SL.
 - **Surveillance** : matériels en panne, maintenances et étalonnages en retard ou à venir (30 jours), accès expirés,
   températures d'étuve hors plage.
 - **Matériels** : registre par salle (prochaine maintenance / étalonnage calculés depuis la périodicité).
@@ -544,6 +561,7 @@ L'export JSON de l'ancien LIMS (fiches patients) est importé par :
 | 2 — CNRM (échantillons, enregistrement, validation, structures) | ✅ Terminé | Compte rendu et fiche paillasse PDF |
 | Plan de masse (étage + RDC P3) | ✅ Terminé | 37 salles ; usages et noms à compléter |
 | Qualité (matériels, accès, surveillance) | ✅ Terminé | Registres à alimenter |
+| Qualité — SGQ (statistiques et indicateurs de performance) | ✅ Terminé | Cibles des délais de rendu à définir |
 | Navigation par modules (« Analyses TB », bioinformatique dans Recherche) | ✅ Terminé | Sous-navigation en haut de page |
 | 3a — GeneXpert | ✅ Terminé | Suivi temps réel opérationnel dès connexion des appareils |
 | 3b — NPOC (Pluslife) | ✅ Terminé (interface) | Format d'export Pluslife à recevoir |
@@ -595,6 +613,7 @@ L'export JSON de l'ancien LIMS (fiches patients) est importé par :
 | 05/11/2026 | Fiche de lecture remplie dans MYCOGEN pour chaque échantillon (colonies, morphologie, pigment, BAAR, SD C/T, conclusion, CJ) |
 | 11/11/2026 | Identifiant externe partageable entre patients (choix du patient à l'enregistrement) ; suppression des données de démonstration ; fichier pgpass pour la sauvegarde automatique |
 | 11/11/2026 | Reprise de l'ancien LIMS : 1 187 fiches (1 186 patients, 2 239 résultats) importées ; commande `import_legacy` relançable |
+| 13/11/2026 | Module SGQ (Qualité) : statistiques mensuelles par méthode, concordances, indicateurs DT-1 à DT-10, délais de rendu, export CSV ; bibliothèque enrichie (indicateurs, CMTB +/-, RTT, TB-MR, TB-XDR, antibiotiques de 2ème ligne) ; antibiogramme 2ème ligne : OFX, KAN et CAP ajoutés, LFX/MFX renommés LEV/MOX |
 
 ---
 

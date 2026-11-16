@@ -44,8 +44,8 @@ GX_RES = {"non applicable (mtb non detecte)": "NA", "non detectee (sensible)": "
 CULTURE = {"en cours": "PENDING", "negative": "NEGATIVE", "positive": "POSITIVE", "contaminee": "CONTAMINATED"}
 DST_RES = {"sensible": "S", "resistant": "R", "indetermine": "I", "non fait": "NF", "non applicable": "NA"}
 DST_FIELDS = {"antibiogrammeStrep": "STR", "antibiogrammeInh": "INH", "antibiogrammeRif": "RIF",
-              "antibiogrammeEmb": "EMB", "antibiogrammeAmk": "AMK", "antibiogrammeLevo": "LFX",
-              "antibiogrammeMoxi": "MFX", "antibiogrammeLine": "LZD", "antibiogrammeClo": "CFZ",
+              "antibiogrammeEmb": "EMB", "antibiogrammeAmk": "AMK", "antibiogrammeLevo": "LEV",
+              "antibiogrammeMoxi": "MOX", "antibiogrammeLine": "LZD", "antibiogrammeClo": "CFZ",
               "antibiogrammeDela": "DLM", "antibiogrammeEthio": "ETO", "antibiogrammeBeda": "BDQ"}
 XDR_FIELDS = {"gexpertXdrInh": "inh_result", "gexpertXdrFlq": "fq_result", "gexpertXdrAmk": "amk_result",
               "gexpertXdrKan": "kan_result", "gexpertXdrCap": "cap_result", "gexpertXdrEth": "eto_result"}

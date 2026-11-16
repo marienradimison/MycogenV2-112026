@@ -458,3 +458,12 @@ dl.details dd { margin-bottom: .55rem; }
 .poll-option .pct { margin-left: auto; font-weight: 600; }
 .challenge-answer { font-size: .9rem; }
 .hot-challenge .winners { color: var(--bs-secondary-color); }
+/* SGQ : tableaux mensuels de statistiques et d'indicateurs */
+.sgq-table { font-size: .8rem; white-space: nowrap; }
+.sgq-table th { font-weight: 600; color: var(--myc-muted); }
+.sgq-table .sgq-label { position: sticky; left: 0; background: var(--bs-body-bg); z-index: 1; min-width: 15rem; white-space: normal; }
+.sgq-table .sgq-total { background: rgba(127,127,127,.08); font-weight: 700; }
+.sgq-table tr.sgq-head td { background: rgba(127,127,127,.10); font-weight: 700; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; }
+.sgq-table tr.sgq-pct td { color: var(--myc-blue-dark); font-weight: 600; }
+.sgq-table td[title] { cursor: help; text-decoration: underline dotted rgba(127,127,127,.6); text-underline-offset: 3px; }
+@media print { .sgq-card { break-inside: avoid; } .sgq-table { font-size: .62rem; } .sgq-table .sgq-label { min-width: 9rem; } }

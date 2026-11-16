@@ -151,7 +151,8 @@ class AnalysisCode(LimsModel):
     METHODS = [("", "—"), ("FM", "Fluorescence"), ("ZN", "Ziehl-Neelsen"), ("LJ", "LJ"), ("MGIT", "MGIT")]
 
     CATEGORIES = [("ANALYSIS", "Analyse"), ("RESULT", "Résultat"), ("DRUG", "Antibiotique"),
-                  ("SUSCEPT", "Résistance aux antibiotiques"), ("ROLE", "Rôle (permissions)")]
+                  ("SUSCEPT", "Résistance aux antibiotiques"), ("INDIC", "Indicateur (SGQ)"),
+                  ("ROLE", "Rôle (permissions)")]
     RESULT_CATEGORIES = ("RESULT", "DRUG", "SUSCEPT")
 
     category = models.CharField("catégorie", max_length=8, choices=CATEGORIES, default="ANALYSIS")
