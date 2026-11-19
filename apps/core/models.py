@@ -36,6 +36,13 @@ def next_code(model, field, prefix, width=5, lock=True):
     """Prochain code séquentiel `<prefix><n>` (ex. 26-0042), calculé numériquement (26-9999 → 26-10000)."""
     qs = model.objects.filter(**{f"{field}__startswith": prefix})
     if lock:
+        # select_for_update ne verrouille que les lignes existantes : deux saisies simultanées (premier code de
+        # l'année, ou code non unique comme celui du patient) obtiendraient le même numéro. Sous PostgreSQL, un
+        # verrou consultatif propre à (table, préfixe), libéré au commit, sérialise l'attribution.
+        from django.db import connection
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cur:
+                cur.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", [f"{model._meta.db_table}:{prefix}"])
         qs = qs.select_for_update()
     numbers = [int(c[len(prefix):]) for c in qs.values_list(field, flat=True) if c[len(prefix):].isdigit()]
     return f"{prefix}{(max(numbers) + 1) if numbers else 1:0{width}d}"

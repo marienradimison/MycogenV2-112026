@@ -19,6 +19,10 @@ def families():
     }
 
 
+def is_cancelled(result):
+    return getattr(result, "result_status", None) == "CANCELLED"
+
+
 def sample_analyses(sample, user=None):
     """Analyses (codes demandés ou ayant un résultat) avec leurs résultats, dans l'ordre de la bibliothèque."""
     from apps.core.models import AnalysisCode
@@ -46,13 +50,14 @@ def sample_analyses(sample, user=None):
     for code in codes:
         entry = catalog.get(code)
         results = by_code.get(code, [])
+        active = [r for r in results if not is_cancelled(r)]   # un résultat annulé ne compte pas
         validatable = bool(results) and hasattr(results[0], "is_validated")
-        if not results:
+        if not active:
             state = "PENDING"
         elif not validatable:
             state = "DONE"
         else:
-            state = "VALIDATED" if all(r.is_validated for r in results) else "DRAFT"
+            state = "VALIDATED" if all(r.is_validated for r in active) else "DRAFT"
         add_url = None
         if entry and entry.kind in fams:
             model, method_field, url, fixed = fams[entry.kind]

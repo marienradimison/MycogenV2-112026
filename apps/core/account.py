@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from .crud import safe_next
 from .forms import BootstrapFormMixin
 from .models import BugReport, PasswordResetRequest, UserProfile
 
@@ -125,8 +126,7 @@ def toggle_theme(request):
     profile = get_profile(request.user)
     profile.theme = "light" if request.POST.get("current") == "dark" else "dark"
     profile.save(update_fields=["theme"])
-    nxt = request.POST.get("next", "/")
-    return redirect(nxt if nxt.startswith("/") else "/")
+    return redirect(safe_next(request, request.POST.get("next"), "/"))
 
 
 class ResetRequestForm(BootstrapFormMixin, forms.Form):
@@ -167,12 +167,14 @@ def support(request):
 def support_action(request, kind, pk):
     if kind == "reset":
         obj = get_object_or_404(PasswordResetRequest, pk=pk)
-        obj.status = request.POST.get("status", "DONE")
+        status = request.POST.get("status", "DONE")
+        obj.status = status if status in dict(PasswordResetRequest.STATUS) else "DONE"
         obj.handled_by, obj.handled_at = request.user, timezone.now()
         obj.save()
     else:
         obj = get_object_or_404(BugReport, pk=pk)
-        obj.status = request.POST.get("status", obj.status)
+        status = request.POST.get("status", obj.status)
+        obj.status = status if status in dict(BugReport.STATUS) else obj.status
         obj.response = request.POST.get("response", obj.response)
         obj.save()
     messages.success(request, "Mis à jour.")

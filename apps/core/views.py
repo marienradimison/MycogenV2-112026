@@ -202,7 +202,15 @@ def protected_media(request, path):
     target = (root / path).resolve()
     if root not in target.parents or not target.is_file():
         raise Http404
-    return FileResponse(open(target, "rb"))
+    # Seuls images et PDF s'affichent dans le navigateur ; tout autre fichier (HTML, SVG, scripts…) est
+    # téléchargé, pour qu'un fichier téléversé ne puisse pas exécuter de code dans la session de l'utilisateur.
+    inline = target.suffix.lower() in INLINE_MEDIA
+    resp = FileResponse(open(target, "rb"), as_attachment=not inline, filename=target.name)
+    resp["X-Content-Type-Options"] = "nosniff"
+    return resp
+
+
+INLINE_MEDIA = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".pdf"}
 
 
 @login_required

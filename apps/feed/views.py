@@ -176,7 +176,9 @@ def archive(request):
 @require_POST
 def vote(request, pk):
     post = get_object_or_404(Post, pk=pk, kind="POLL")
-    option = get_object_or_404(PollOption, pk=request.POST.get("option"), post=post)
+    if not (request.POST.get("option") or "").isdigit():
+        return JsonResponse({"ok": False}, status=400)
+    option = get_object_or_404(PollOption, pk=request.POST["option"], post=post)
     if post.closed:
         return JsonResponse({"ok": False, "error": "Sondage clôturé."}, status=400)
     Vote.objects.update_or_create(post=post, user=request.user, defaults={"option": option})

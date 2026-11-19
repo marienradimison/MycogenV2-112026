@@ -12,13 +12,14 @@ import operator
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.core.exceptions import FieldDoesNotExist, PermissionDenied
+from django.core.exceptions import FieldDoesNotExist, PermissionDenied, ValidationError
 from django.db.models import ProtectedError, Q
 from django.forms import modelform_factory
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.urls import path, reverse
 from django.utils.dateparse import parse_date
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import capfirst
 from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
@@ -27,6 +28,22 @@ from .forms import LimsModelForm, lims_formfield
 from .models import ActivityLog
 
 REGISTRY = {}
+
+
+def safe_next(request, url, fallback):
+    """URL de retour (`next`) limitée au site lui-même (pas de redirection vers un site externe)."""
+    if url and url_has_allowed_host_and_scheme(url, allowed_hosts={request.get_host()},
+                                               require_https=request.is_secure()):
+        return url
+    return fallback
+
+
+def filter_or_ignore(qs, **lookup):
+    """Filtre issu de l'URL : une valeur invalide (ex. ?project=abc) est ignorée au lieu de provoquer une erreur 500."""
+    try:
+        return qs.filter(**lookup)  # la conversion des valeurs (int, date…) a lieu ici
+    except (ValueError, TypeError, ValidationError):
+        return qs
 
 
 def resolve(obj, name):
@@ -174,10 +191,10 @@ class Crud:
                         f = crud.opts.get_field(name)
                         if f.get_internal_type() == "BooleanField":
                             v = v == "1"
-                        qs = qs.filter(**{name: v})
+                        qs = filter_or_ignore(qs, **{name: v})
                 for name in crud.hidden_filters:
                     if self.request.GET.get(name):
-                        qs = qs.filter(**{name: self.request.GET[name]})
+                        qs = filter_or_ignore(qs, **{name: self.request.GET[name]})
                 for name in crud.date_filters:
                     d = parse_date(self.request.GET.get(name) or "")
                     if d:
@@ -277,8 +294,8 @@ class Crud:
                 resp = super().form_valid(form)
                 log(self.request.user, "CREATE", self.object)
                 messages.success(self.request, f"« {self.object} » enregistré.")
-                nxt = self.request.GET.get("next")
-                return HttpResponseRedirect(nxt) if nxt and nxt.startswith("/") else resp
+                nxt = safe_next(self.request, self.request.GET.get("next"), None)
+                return HttpResponseRedirect(nxt) if nxt else resp
 
         class Update(FormMixin, UpdateView):
             permission_required = crud.perm("change")
@@ -323,11 +340,16 @@ class Crud:
 
             def post(self, request, pk):
                 obj = get_object_or_404(crud.model, pk=pk)
+                back = safe_next(request, request.POST.get("next"), obj.get_absolute_url())
+                if obj.result_status != "DRAFT":  # déjà validé, ou annulé : rien à valider
+                    messages.warning(request, f"« {obj} » est {obj.get_result_status_display().lower()} : "
+                                              "validation impossible.")
+                    return HttpResponseRedirect(back)
                 comment = request.POST.get("validation_comment", "")[:2000]
                 obj.validate(request.user, comment)
                 log(request.user, "VALIDATE", obj, {"commentaire": comment} if comment else None)
                 messages.success(request, f"« {obj} » validé.")
-                return HttpResponseRedirect(request.POST.get("next") or obj.get_absolute_url())
+                return HttpResponseRedirect(back)
 
         p = self.prefix
         urls = [

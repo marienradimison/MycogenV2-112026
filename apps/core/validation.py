@@ -120,7 +120,7 @@ def collect_rows(cruds, f, limit=500):
             qs = qs.filter(test_date__gte=d_from)
         if d_to:
             qs = qs.filter(test_date__lte=d_to)
-        if f["projet"]:
+        if f["projet"].isdigit():
             qs = qs.filter(sample__project_id=f["projet"])
         if f["q"]:
             qs = qs.filter(Q(sample__code__icontains=f["q"]) | Q(sample__patient__last_name__icontains=f["q"])
