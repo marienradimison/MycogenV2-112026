@@ -66,6 +66,12 @@ réservé aux administrateurs ; effacer les copies intermédiaires après usage.
   ```powershell
   wsl --shutdown
   ```
+> **Sans droits administrateur** (pas de règle de pare-feu possible) : ne pas faire les deux étapes
+> « pare-feu » ci-dessous. Utiliser à la place la **passerelle Node.js** (dossier `MycogenV2-NodeJS`, voir son
+> `LISEZMOI.md`). Elle tourne avec `node.exe`, déjà autorisé par le pare-feu, comme MYCOGEN V1, et relaie le
+> port 8000 vers MYCOGEN, qui n'écoute alors qu'en local dans Ubuntu (`MYCOGEN_HOST=127.0.0.1`,
+> `MYCOGEN_PORT=8001` dans `.env`). Le démarrage automatique se fait alors à l'ouverture de session.
+
 - [ ] **Pare-feu Windows** (port web 8000 et port GeneXpert 12000, réseaux domaine/privé uniquement) :
   ```powershell
   New-NetFirewallRule -DisplayName "MYCOGEN web" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow -Profile Domain,Private
