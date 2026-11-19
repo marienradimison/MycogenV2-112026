@@ -28,7 +28,7 @@ ROLES = {
         "research": {"project": L, "*": RW},
         "biobank": {"*": RW},
         "instruments": {"instrument": L, "instrumentmessage": LM},
-        "quality": {"equipment": L, "roomaccess": L},
+        "quality": {"equipment": L, "roomaccess": L, "qualitydocument": L},
         "stock": {"article": L, "lot": L, "movement": LA},
     }),
     "SL": ("Surveillant(e) de Laboratoire", {
@@ -48,13 +48,14 @@ ROLES = {
         "biobank": {"*": ALL},
         "bioinfo": {"*": L},
         "instruments": {"*": ALL},
-        "quality": {"*": L},
+        "quality": {"*": L, "qualitydocument": RW},
         "stock": {"*": L},
-        "extra": ["core.validate_results", "core.view_activitylog", "quality.view_sgq"],
+        "extra": ["core.validate_results", "core.view_activitylog", "quality.view_sgq", "quality.approve_qualitydocument"],
     }),
     "AS": ("Agent de Saisie", {
         "core": {"patient": RW, "sample": RW, "facility": L, "room": L},
-        "research": {"project": L, "study": L, "projectcase": L},
+        "research": {"project": L, "study": L, "projectcase": L, "learningresource": L, "learningdomain": L},
+        "quality": {"qualitydocument": L},
     }),
     "RSR": ("Researcher", {
         "core": {"patient": L, "sample": RW, "facility": L, "room": L},
@@ -63,6 +64,7 @@ ROLES = {
         "biobank": {"*": RW},
         "bioinfo": {"*": ALL},
         "stock": {"article": L, "lot": L},
+        "quality": {"qualitydocument": L},
     }),
     "RQ/CQ": ("Responsable Qualité / Correspondant Qualité", {
         "core": {"room": LM, "facility": L, "sample": L},
@@ -71,12 +73,14 @@ ROLES = {
         "biobank": {"storageunit": L},
         "diagnostic": {"temperaturelog": L},
         "stock": {"article": L, "lot": L, "movement": L},
-        "extra": ["core.view_activitylog", "quality.view_sgq"],
+        "research": {"labnotebook": L, "notebookentry": L, "learningresource": L, "learningdomain": L},
+        "extra": ["core.view_activitylog", "quality.view_sgq", "quality.approve_qualitydocument"],
     }),
     "AL": ("Agent de Laboratoire", {
         "core": {"sample": L, "room": L},
         "diagnostic": {"culture": L, "culturetube": L, "temperaturelog": LA},
-        "quality": {"equipment": L},
+        "quality": {"equipment": L, "qualitydocument": L},
+        "research": {"learningresource": L, "learningdomain": L},
         "stock": {"article": L, "lot": L, "movement": LA},
     }),
 }

@@ -1,4 +1,4 @@
-{# Bloc de validation propre à une analyse — variable attendue : r (résultat, peut être vide) #}
+{% load lims %}{# Bloc de validation propre à une analyse — variable attendue : r (résultat, peut être vide) ; signature du validateur apposée une fois le résultat validé #}
 <div class="val-strip">
   <div class="val-cell">
     <div class="cap">Technicien manipulateur</div>
@@ -8,6 +8,7 @@
   <div class="val-cell">
     <div class="cap">Biologiste / validateur</div>
     <div class="who-name">{% if r.validated_by %}{{ r.validated_by.get_full_name|default:r.validated_by.username }}{% endif %}</div>
+    {% if r.validated_at %}{% signature r.validated_by "val-signature" %}{% endif %}
     <div class="visa">{% if r.validated_at %}VALIDÉ LE {{ r.validated_at|date:"d/m/Y" }}{% else %}VISA &amp; DATE{% endif %}</div>
   </div>
   <div class="val-comment">

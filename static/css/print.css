@@ -86,6 +86,7 @@ table.results td { padding: 5px 4px; border-bottom: 1px solid #e2e2e2; vertical-
 .val-strip .cap { font-size: 6.8pt; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #333; }
 .val-cell { text-align: center; }
 .val-cell .who-name { font-weight: 700; font-size: 8.4pt; min-height: 1.3em; margin: 3px 0 1px; }
+.val-cell .val-signature { display: block; max-height: 32px; max-width: 120px; object-fit: contain; margin: 1px 0; }
 .val-cell .visa { font-family: Consolas, monospace; font-size: 6.4pt; letter-spacing: .08em; color: #555;
   border-top: 1px solid #999; padding-top: 2px; margin: 0 6px; }
 .val-comment .txt { border: 1px solid #ccc; border-radius: 5px; min-height: 9mm; margin-top: 3px; padding: 3px 6px;

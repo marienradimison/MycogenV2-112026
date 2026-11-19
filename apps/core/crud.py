@@ -278,7 +278,7 @@ class Crud:
                 initial = super().get_initial()
                 for k, v in self.request.GET.items():
                     initial[k] = v
-                for name in ("performed_by", "granted_by"):  # utilisateur courant par défaut
+                for name in ("performed_by", "granted_by", "author", "owner"):  # utilisateur courant par défaut
                     try:
                         crud.opts.get_field(name)
                         initial.setdefault(name, self.request.user.pk)

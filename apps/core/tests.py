@@ -615,14 +615,15 @@ class NavigationTests(TestCase):
         html = self.client.get(reverse("core:dashboard")).content.decode()
         sidebar = html[html.index('id="sidebar"'):html.index("</aside>")]
         for label in ("Échantillons", "Enregistrer", "Validation", "Structures / CDT",      # CNRM déplié
-                      "Analyses TB", "Recherche", "Biobanque", "Automates", "Stock", "Qualité", "Administration"):
+                      "Analyses TB", "Recherche", "Biobanque", "Automates", "Stock", "SGQ", "Administration"):
             self.assertIn(label, sidebar)
         for hidden in ("GeneXpert", "Microscopie", "Bioinformatique", "Diagnostic TB", "Pipelines"):
             self.assertNotIn(hidden, sidebar)
         hub = self.client.get(reverse("core:module", args=["research"])).content.decode()
-        self.assertIn("Analyses génomiques", hub)     # bioinformatique intégrée à la recherche
-        self.assertIn("Pipelines", hub)
-        page = self.client.get(reverse("bioinfo:pipeline_list")).content.decode()
+        self.assertIn("Cahiers de laboratoire", hub)
+        self.assertIn("MycoLearn", hub)
+        self.assertNotIn("Pipelines", hub)            # sous-modules bioinformatiques retirés du menu
+        page = self.client.get(reverse("research:notebook_list")).content.decode()
         self.assertIn('class="nav-item active" href="/m/research/"', page)
         self.assertIn("module-subnav", page)
         self.assertEqual(self.client.get(reverse("core:module", args=["inconnu"])).status_code, 404)

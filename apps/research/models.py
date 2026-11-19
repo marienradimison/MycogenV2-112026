@@ -282,3 +282,142 @@ class LPATest(TestResult):
 
     def __str__(self):
         return f"{self.get_kit_display()} — {self.sample.code}"
+
+
+# ---------------------------------------------------------------------------
+# Cahiers de laboratoire
+# ---------------------------------------------------------------------------
+
+class LabNotebook(LimsModel):
+    """Registre des cahiers de laboratoire (papier ou électroniques) ; les pages électroniques sont des entrées."""
+
+    url_base = "research:notebook"
+
+    KINDS = [("PAPER", "Papier (scanné ou non)"), ("ELEC", "Électronique (entrées MYCOGEN)")]
+    STATUS = [("OPEN", "En cours"), ("CLOSED", "Clôturé"), ("ARCHIVED", "Archivé")]
+
+    code = models.CharField("n° du cahier", max_length=30, unique=True, help_text="Ex. CL-2026-014")
+    title = models.CharField("titre / objet", max_length=200)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="titulaire", on_delete=models.SET_NULL,
+                              null=True, blank=True, related_name="lab_notebooks")
+    project = models.ForeignKey(Project, verbose_name="projet", on_delete=models.SET_NULL, null=True, blank=True,
+                                related_name="notebooks")
+    domain = models.CharField("domaine / activité", max_length=100, blank=True,
+                              help_text="Ex. Biologie moléculaire, Culture, Bioinformatique")
+    kind = models.CharField("support", max_length=5, choices=KINDS, default="PAPER")
+    status = models.CharField("statut", max_length=8, choices=STATUS, default="OPEN")
+    started_on = models.DateField("ouvert le", default=timezone.localdate)
+    closed_on = models.DateField("clôturé le", null=True, blank=True)
+    location = models.CharField("emplacement physique", max_length=150, blank=True,
+                                help_text="Salle, armoire, étagère (cahiers papier)")
+    scan = models.FileField("cahier scanné (PDF)", upload_to="research/notebooks/%Y/", blank=True)
+    notes = models.TextField("remarques", blank=True)
+
+    class Meta:
+        verbose_name = "cahier de laboratoire"
+        verbose_name_plural = "cahiers de laboratoire"
+        ordering = ["-started_on", "code"]
+
+    def __str__(self):
+        return f"{self.code} — {self.title}"
+
+
+class NotebookEntry(LimsModel):
+    """Page / entrée datée d'un cahier de laboratoire."""
+
+    url_base = "research:entry"
+
+    notebook = models.ForeignKey(LabNotebook, verbose_name="cahier", on_delete=models.CASCADE, related_name="entries")
+    date = models.DateField("date", default=timezone.localdate)
+    title = models.CharField("titre", max_length=200)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="auteur", on_delete=models.SET_NULL,
+                               null=True, blank=True, related_name="notebook_entries")
+    content = models.TextField("contenu", blank=True, help_text="Objectif, protocole, observations, résultats")
+    attachment = models.FileField("pièce jointe", upload_to="research/notebooks/entries/%Y/", blank=True)
+
+    class Meta:
+        verbose_name = "entrée de cahier"
+        verbose_name_plural = "entrées de cahier"
+        ordering = ["-date", "-id"]
+
+    def __str__(self):
+        return f"{self.date:%d/%m/%Y} — {self.title}"
+
+
+# ---------------------------------------------------------------------------
+# MycoLearn : supports visuels d'apprentissage
+# ---------------------------------------------------------------------------
+
+class LearningDomain(LimsModel):
+    """Sous-domaine de MycoLearn (Bioinformatique, Biologie moléculaire, Immunologie…)."""
+
+    url_base = "research:domain"
+
+    name = models.CharField("domaine", max_length=80, unique=True)
+    icon = models.CharField("icône", max_length=40, default="bi-mortarboard",
+                            help_text="Nom d'icône Bootstrap Icons, ex. bi-dna")
+    description = models.CharField("description", max_length=255, blank=True)
+    order = models.PositiveSmallIntegerField("ordre d'affichage", default=100)
+
+    class Meta:
+        verbose_name = "domaine MycoLearn"
+        verbose_name_plural = "domaines MycoLearn"
+        ordering = ["order", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class LearningResource(LimsModel):
+    """Support d'apprentissage : vidéo, présentation, PDF, infographie ou lien."""
+
+    url_base = "research:learning"
+
+    KINDS = [("VIDEO", "Vidéo"), ("SLIDES", "Présentation"), ("PDF", "Document PDF"), ("IMAGE", "Image / infographie"),
+             ("LINK", "Lien web"), ("TUTO", "Tutoriel / exercice")]
+    LEVELS = [("BEG", "Débutant"), ("INT", "Intermédiaire"), ("ADV", "Avancé")]
+    VIDEO_EXT = (".mp4", ".webm", ".ogg", ".mov")
+    IMAGE_EXT = (".png", ".jpg", ".jpeg", ".gif", ".webp")
+
+    title = models.CharField("titre", max_length=200)
+    domain = models.ForeignKey(LearningDomain, verbose_name="domaine", on_delete=models.PROTECT,
+                               related_name="resources")
+    kind = models.CharField("type de support", max_length=6, choices=KINDS, default="PDF")
+    level = models.CharField("niveau", max_length=3, choices=LEVELS, default="BEG")
+    file = models.FileField("fichier", upload_to="mycolearn/%Y/", blank=True,
+                            help_text="Vidéo (MP4), présentation, PDF ou image")
+    url = models.URLField("lien", blank=True, help_text="Vidéo en ligne, cours, article…")
+    thumbnail = models.ImageField("vignette", upload_to="mycolearn/vignettes/", blank=True)
+    description = models.TextField("description", blank=True)
+    author = models.CharField("auteur / source", max_length=150, blank=True)
+    duration_min = models.PositiveSmallIntegerField("durée (min)", null=True, blank=True)
+    published = models.BooleanField("publié", default=True, help_text="Décocher pour masquer le support")
+
+    class Meta:
+        verbose_name = "support MycoLearn"
+        verbose_name_plural = "supports MycoLearn"
+        ordering = ["domain__order", "title"]
+
+    def __str__(self):
+        return self.title
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if not self.file and not self.url:
+            raise ValidationError("Joignez un fichier ou indiquez un lien.")
+
+    @property
+    def file_ext(self):
+        return ("." + self.file.name.rsplit(".", 1)[-1].lower()) if self.file and "." in self.file.name else ""
+
+    @property
+    def is_video(self):
+        return self.file_ext in self.VIDEO_EXT
+
+    @property
+    def is_image(self):
+        return self.file_ext in self.IMAGE_EXT
+
+    @property
+    def is_pdf(self):
+        return self.file_ext == ".pdf"

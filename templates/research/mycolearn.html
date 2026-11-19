@@ -1,0 +1,75 @@
+{% extends "base.html" %}{% load lims %}
+{% block title %}MycoLearn{% endblock %}
+{% block content %}
+<div class="page-title">
+  {% include "generic/_back.html" with fallback="/" %}
+  <div class="icon"><i class="bi bi-mortarboard"></i></div>
+  <div>
+    <div class="small text-muted">Recherche</div>
+    <h1>MycoLearn</h1>
+  </div>
+  <div class="ms-auto d-flex gap-2">
+    {% if can_domains %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'research:domain_list' %}"><i class="bi bi-collection"></i> Domaines</a>{% endif %}
+    {% if manage %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'research:learning_list' %}"><i class="bi bi-list-ul"></i> Liste des supports</a>{% endif %}
+    {% if can_add %}<a class="btn btn-sm btn-primary" href="{% url 'research:learning_create' %}{% if domain %}?domain={{ domain.pk }}{% endif %}"><i class="bi bi-plus-lg"></i> Ajouter un support</a>{% endif %}
+  </div>
+</div>
+<p class="text-muted small">Supports visuels pour apprendre et se former : vidéos, présentations, documents, infographies et liens, classés par domaine.</p>
+
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-4 col-xl-3">
+    <a class="card stat stat-link h-100 {% if not domain %}border-primary{% endif %}" href="?{% if kind %}type={{ kind }}{% endif %}">
+      <div class="d-flex justify-content-between"><div><div class="value">{{ total }}</div><div class="label">Tous les domaines</div></div>
+      <i class="bi bi-grid ico"></i></div></a>
+  </div>
+  {% for d in domains %}
+  <div class="col-6 col-md-4 col-xl-3">
+    <a class="card stat stat-link h-100 {% if domain and d.pk == domain.pk %}border-primary{% endif %}" href="?domaine={{ d.pk }}{% if kind %}&type={{ kind }}{% endif %}" title="{{ d.description }}">
+      <div class="d-flex justify-content-between"><div><div class="value">{{ d.n }}</div><div class="label">{{ d.name }}</div></div>
+      <i class="bi {{ d.icon }} ico"></i></div></a>
+  </div>
+  {% endfor %}
+</div>
+
+<form method="get" class="d-flex flex-wrap gap-2 mb-3">
+  {% if domain %}<input type="hidden" name="domaine" value="{{ domain.pk }}">{% endif %}
+  <div class="input-group input-group-sm" style="max-width:320px">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input class="form-control" name="q" value="{{ q }}" placeholder="Rechercher un support…">
+  </div>
+  <select name="type" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
+    <option value="">Tous les types</option>
+    {% for k, label in kinds %}<option value="{{ k }}" {% if k == kind %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+</form>
+
+{% if resources %}
+<div class="row g-3">
+  {% for r in resources %}
+  <div class="col-sm-6 col-lg-4 col-xxl-3">
+    <a class="card h-100 stat-link learn-card" href="{{ r.get_absolute_url }}">
+      <div class="learn-thumb">
+        {% if r.thumbnail %}<img src="{{ r.thumbnail.url }}" alt="">
+        {% elif r.is_image %}<img src="{{ r.file.url }}" alt="">
+        {% else %}<i class="bi {% if r.kind == 'VIDEO' %}bi-play-circle{% elif r.kind == 'SLIDES' %}bi-easel{% elif r.kind == 'PDF' %}bi-file-earmark-pdf{% elif r.kind == 'LINK' %}bi-link-45deg{% elif r.kind == 'TUTO' %}bi-pencil-square{% else %}bi-image{% endif %}"></i>{% endif %}
+      </div>
+      <div class="card-body">
+        <div class="small text-muted mb-1"><i class="bi {{ r.domain.icon }}"></i> {{ r.domain.name }}</div>
+        <div class="fw-semibold">{{ r.title }}</div>
+        {% if r.description %}<div class="small text-muted mt-1 learn-desc">{{ r.description|truncatechars:120 }}</div>{% endif %}
+      </div>
+      <div class="card-footer small d-flex gap-2 bg-transparent">
+        <span class="badge text-bg-light border">{{ r.get_kind_display }}</span>
+        <span class="badge text-bg-light border">{{ r.get_level_display }}</span>
+        {% if r.duration_min %}<span class="text-muted">{{ r.duration_min }} min</span>{% endif %}
+        {% if not r.published %}<span class="badge text-bg-warning ms-auto">Non publié</span>{% endif %}
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-light border">Aucun support {% if domain %}dans « {{ domain.name }} »{% endif %}{% if q or kind %} pour cette recherche{% endif %}.
+  {% if can_add %}<a href="{% url 'research:learning_create' %}{% if domain %}?domain={{ domain.pk }}{% endif %}">Ajouter le premier support</a>.{% endif %}</div>
+{% endif %}
+{% endblock %}

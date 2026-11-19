@@ -174,3 +174,16 @@ def get_item(mapping, key):
 @register.filter
 def is_long(value):
     return isinstance(value, str) and len(value) > 80
+
+
+@register.simple_tag
+def signature(user, css_class="signature-img"):
+    """Image de la signature d'un utilisateur (vide s'il n'en a pas) : {% signature r.validated_by %}."""
+    from apps.core.signature import signature_html
+    return signature_html(user, css_class)
+
+
+@register.filter
+def signature_caption(user):
+    from apps.core.signature import caption
+    return caption(user)

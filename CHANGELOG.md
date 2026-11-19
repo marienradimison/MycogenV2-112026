@@ -5,6 +5,38 @@ Catégories : **Corrigé** (bugs), **Sécurité**, **Ajouté**, **Modifié**.
 
 ---
 
+## 2026-11-19 — Signatures, SGQ réorganisé, cahiers de laboratoire et MycoLearn
+
+Migrations : `core.0026_user_signature`, `quality.0003_quality_documents`, `research.0006_notebooks_mycolearn`.
+Après mise à jour : `migrate` puis `init_mycogen` (nouvelles permissions des rôles).
+
+### Ajouté
+
+- **Signature des utilisateurs** : image et mention dans la fiche utilisateur (Administration), avec aperçu.
+  Apposée dans le bloc du validateur du compte rendu et de la fiche paillasse dès la validation, et sur les
+  documents qualité approuvés ; la page Validation montre la signature de l'utilisateur connecté.
+  *Fichiers : `apps/core/models.py`, `apps/core/admin.py`, `apps/core/signature.py`, `templates/documents/_validation.html`*
+- **SGQ → DQ — Documents qualité** : manuels qualité, procédures, SOP, manuels clients, formulaires, communiqués…
+  Versions par référence, approbation signée (permission `quality.approve_qualitydocument`, rôles MB et RQ/CQ)
+  qui met le document en vigueur et archive la version précédente.
+  *Fichiers : `apps/quality/models.py`, `apps/quality/views.py`, `templates/quality/document_detail.html`*
+- **Recherche → Cahiers de laboratoire** : registre des cahiers et entrées datées (contenu, pièces jointes).
+- **Recherche → MycoLearn** : galerie de supports d'apprentissage par domaine (7 domaines créés par défaut),
+  lecture des vidéos, images et PDF dans la page.
+  *Fichiers : `apps/research/models.py`, `apps/research/views.py`, `templates/research/mycolearn.html`*
+
+### Modifié
+
+- Module **Qualité** renommé **SGQ**, en quatre sous-modules : Suivi performance, Matériels (dont la
+  surveillance), Accès aux salles (dont les salles et le plan de masse, retirés du menu Administration),
+  DQ — Documents qualité.
+- Recherche : sous-modules **Analyses génomiques** et **Pipelines** retirés du menu (données et URL conservées).
+- Fichiers téléversés : vidéos (MP4, WebM, Ogg, MOV) lues dans le navigateur ; PDF affichables dans les pages
+  MYCOGEN (`X-Frame-Options: SAMEORIGIN` pour les fichiers seulement).
+- Formulaires : le rédacteur ou le titulaire est pré-rempli avec l'utilisateur connecté.
+
+---
+
 ## 2026-11-16 — Revue de code et correction de bugs
 
 Revue complète du code serveur : moteur CRUD, enregistrement, validation, statut des échantillons, culture LJ,

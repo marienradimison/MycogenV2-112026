@@ -1,9 +1,13 @@
 from django import forms
+from django.contrib.auth.decorators import login_required, permission_required
+from django.db.models import Count, Q
+from django.shortcuts import render
 
 from apps.core.crud import Crud, field_label, related_tables
 from apps.core.forms import LimsModelForm, lims_formfield
 
-from .models import LPATest, PCRAssay, PCRRun, Project, ProjectCase, SequencingLibrary, SequencingRun, Study
+from .models import (LabNotebook, LearningDomain, LearningResource, LPATest, NotebookEntry, PCRAssay, PCRRun, Project,
+                     ProjectCase, SequencingLibrary, SequencingRun, Study)
 
 RESULT_FIELDS = ["test_date", "performed_by", "comment"]
 SEARCH = ["sample__code", "sample__patient__last_name", "sample__patient__code"]
@@ -149,4 +153,71 @@ CRUDS = [
         list_filter=["kit", "rif", "inh_katg", "fq", "result_status"],
         icon="bi-bar-chart-steps",
     ),
+    Crud(
+        LabNotebook, "notebook",
+        fields=["code", "title", "owner", "project", "domain", "kind", "status", "started_on", "closed_on",
+                "location", "scan", "notes"],
+        list_display=["code", "title", "owner", "project", "domain", "kind", "status", "started_on", "location"],
+        search_fields=["code", "title", "domain", "location", "owner__last_name", "owner__first_name",
+                       "project__code", "entries__title", "entries__content"],
+        list_filter=["status", "kind", "project", "owner"],
+        icon="bi-journal-text",
+    ),
+    Crud(
+        NotebookEntry, "entry",
+        fields=["notebook", "date", "title", "author", "content", "attachment"],
+        list_display=["date", "title", "notebook", "author"],
+        search_fields=["title", "content", "notebook__code", "notebook__title"],
+        list_filter=["notebook", "author"],
+        icon="bi-journal-plus",
+        header_links=[("Cahiers de laboratoire", "research:notebook_list", "bi-journal-text")],
+    ),
+    Crud(
+        LearningDomain, "domain",
+        fields=["name", "icon", "description", "order"],
+        list_display=["name", "description", "icon", "order"],
+        search_fields=["name", "description"],
+        icon="bi-collection",
+        header_links=[("MycoLearn", "research:mycolearn", "bi-mortarboard")],
+    ),
+    Crud(
+        LearningResource, "learning",
+        fields=["title", "domain", "kind", "level", "file", "url", "thumbnail", "description", "author",
+                "duration_min", "published"],
+        list_display=["title", "domain", "kind", "level", "author", "published"],
+        search_fields=["title", "description", "author", "domain__name"],
+        list_filter=["domain", "kind", "level", "published"],
+        icon="bi-mortarboard",
+        detail_template="research/learning_detail.html",
+        header_links=[("MycoLearn", "research:mycolearn", "bi-mortarboard")],
+    ),
 ]
+
+
+
+@login_required
+@permission_required("research.view_learningresource", raise_exception=True)
+def mycolearn(request):
+    """MycoLearn : galerie des supports d'apprentissage, par domaine (supports non publiés visibles des gestionnaires)."""
+    manage = request.user.has_perm("research.change_learningresource")
+    resources = LearningResource.objects.select_related("domain")
+    if not manage:
+        resources = resources.filter(published=True)
+    visible = Q(resources__isnull=False) if manage else Q(resources__published=True)
+    domains = LearningDomain.objects.annotate(n=Count("resources", filter=visible))
+    domain_id = request.GET.get("domaine") or ""
+    domain = domains.filter(pk=domain_id).first() if domain_id.isdigit() else None
+    if domain:
+        resources = resources.filter(domain=domain)
+    kind = request.GET.get("type") if request.GET.get("type") in dict(LearningResource.KINDS) else ""
+    if kind:
+        resources = resources.filter(kind=kind)
+    q = (request.GET.get("q") or "").strip()
+    if q:
+        resources = resources.filter(Q(title__icontains=q) | Q(description__icontains=q) | Q(author__icontains=q))
+    return render(request, "research/mycolearn.html", {
+        "domains": domains, "domain": domain, "resources": resources, "kinds": LearningResource.KINDS,
+        "kind": kind, "q": q, "manage": manage, "total": sum(d.n for d in domains),
+        "can_add": request.user.has_perm("research.add_learningresource"),
+        "can_domains": request.user.has_perm("research.change_learningdomain"),
+    })

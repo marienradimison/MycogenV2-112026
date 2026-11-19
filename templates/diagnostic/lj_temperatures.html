@@ -3,7 +3,7 @@
 {% block content %}
 {% include "diagnostic/_lj_header.html" %}
 {% if no_incubator %}
-  <div class="alert alert-warning py-2">Aucune étuve déclarée. Ajoutez-la dans <a href="{% url 'quality:equipment_create' %}?category=INCUB">Qualité → Matériels</a> (catégorie « Incubateur / étuve »).</div>
+  <div class="alert alert-warning py-2">Aucune étuve déclarée. Ajoutez-la dans <a href="{% url 'quality:equipment_create' %}?category=INCUB">SGQ → Matériels</a> (catégorie « Incubateur / étuve »).</div>
 {% endif %}
 <div class="row g-3">
   {% if can_add and not no_incubator %}

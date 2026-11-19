@@ -1,0 +1,22 @@
+{% extends "generic/detail.html" %}{% load lims %}
+{% block main_card %}
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center"><i class="bi {{ object.domain.icon }} me-2"></i>{{ object.domain.name }}
+    <a class="ms-auto small" href="{% url 'research:mycolearn' %}?domaine={{ object.domain.pk }}">Autres supports du domaine</a></div>
+  <div class="card-body">
+    {% if object.file %}
+      {% if object.is_video %}
+        <video class="w-100 rounded" controls preload="metadata" src="{{ object.file.url }}"></video>
+      {% elif object.is_image %}
+        <img class="img-fluid rounded" src="{{ object.file.url }}" alt="{{ object.title }}">
+      {% elif object.is_pdf %}
+        <iframe class="w-100 rounded border" style="height:70vh" src="{{ object.file.url }}" title="{{ object.title }}"></iframe>
+      {% endif %}
+      <a class="btn btn-sm btn-primary mt-2" href="{{ object.file.url }}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Ouvrir le fichier</a>
+    {% endif %}
+    {% if object.url %}<a class="btn btn-sm btn-outline-primary mt-2" href="{{ object.url }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-link-45deg"></i> Ouvrir le lien</a>{% endif %}
+    {% if object.description %}<p class="mt-3 mb-0">{{ object.description|linebreaksbr }}</p>{% endif %}
+  </div>
+</div>
+{{ block.super }}
+{% endblock %}

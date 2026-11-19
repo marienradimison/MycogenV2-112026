@@ -326,10 +326,10 @@ Les comptes se gèrent dans **Administration → Utilisateurs & paramètres → 
 |---|---|---|
 | **TL** | Technicien(ne) de Laboratoire | Enregistrer patients/échantillons ; saisir tous les résultats (diagnostic, recherche) ; biobanque ; messages d'automates ; consulter matériels et accès ; consulter le stock et **enregistrer des sorties** |
 | **SL** | Surveillant(e) de Laboratoire | Diagnostic et biobanque complets (y compris suppression) ; automates ; **gestion complète du stock** ; consultation recherche, qualité, SGQ, journal d'audit |
-| **MB** | Médecin Biologiste | Tout le CNRM, le diagnostic, la recherche, la biobanque, les automates ; **validation des résultats** ; journal d'audit ; consultation qualité, SGQ et stock |
+| **MB** | Médecin Biologiste | Tout le CNRM, le diagnostic, la recherche, la biobanque, les automates ; **validation des résultats** ; journal d'audit ; SGQ (consultation, documents qualité : rédaction et **approbation signée**) et stock |
 | **AS** | Agent de Saisie | Enregistrer et modifier patients et échantillons ; consulter structures, salles, projets / études / cas |
 | **RSR** | Researcher | Recherche et bioinformatique complètes ; biobanque ; échantillons ; consultation du diagnostic et du stock |
-| **RQ/CQ** | Responsable Qualité / Correspondant Qualité | **SGQ** (statistiques et indicateurs), matériels, accès aux salles, surveillance ; modification des salles ; consultation des automates, congélateurs, températures, stock, journal d'audit |
+| **RQ/CQ** | Responsable Qualité / Correspondant Qualité | **SGQ** (suivi performance, documents qualité avec **approbation signée**), matériels, accès aux salles, surveillance ; modification des salles ; consultation des automates, congélateurs, températures, stock, journal d'audit |
 | **AL** | Agent de Laboratoire | Consulter échantillons, cultures, salles, matériels ; **saisir les températures d'étuve** ; consulter le stock et **enregistrer des sorties** |
 
 Un **administrateur** (superutilisateur) a tous les droits. Les demandes de réinitialisation de mot de passe et les
@@ -429,11 +429,21 @@ reconnue).
   (non applicable).
 - **QuantiFERON-TB** (interprétation automatique selon l'algorithme Qiagen).
 
-### Recherche (dont la bioinformatique)
+### Recherche
 Projets (avis éthique, membres), études et cas, **runs de séquençage** et **runs PCR** RISK6 / Sweeney3 (score
 Sweeney3 calculé), LPA Hain ; ces analyses se font par run : la fiche d'un run donne ses informations (signature,
-seuil, plaque ou flowcell…) et la liste des échantillons analysés, avec un bouton **Ajouter** ; **bioinformatique** : pipelines versionnés, analyses génomiques (lignée, profil
-de résistance, mutations, couverture, cluster).
+seuil, plaque ou flowcell…) et la liste des échantillons analysés, avec un bouton **Ajouter**.
+
+- **Cahiers de laboratoire** : registre de tous les cahiers (n°, titulaire, projet, domaine, support papier ou
+  électronique, statut, emplacement physique, scan PDF). La fiche d'un cahier liste ses **entrées datées** (titre,
+  auteur, contenu, pièce jointe) ; la recherche porte aussi sur le contenu des entrées.
+- **MycoLearn** : supports visuels pour apprendre (vidéos, présentations, PDF, infographies, liens, tutoriels), classés
+  par domaine — Bioinformatique, Biologie moléculaire, Immunologie, Mycobactériologie, Biosécurité, Qualité,
+  Épidémiologie et statistiques (bouton « Domaines » pour en ajouter). Vidéos, images et PDF s'affichent directement
+  dans la fiche ; un support non publié n'est visible que des gestionnaires. Tous les rôles consultent MycoLearn.
+
+Les sous-modules bioinformatiques (analyses génomiques, pipelines) ne sont plus dans le menu ; leurs données sont
+conservées.
 
 **Configurer les études et cas** (Recherche → Études & cas, ou Administration) : pour chaque étude, choisir
 *Saisie du cas* — « Cas du projet (tous) », « Cas spécifiques à l'étude » (cocher les cas autorisés, du même
@@ -451,8 +461,10 @@ Congélateurs, boîtes (plan visuel des positions), aliquots (souche, ADN, plasm
 ### Automates
 Suivi en temps réel de tous les appareils, messages reçus (et messages à traiter), configuration des appareils.
 
-### Qualité
-- **SGQ — Système de Gestion de la Qualité** : statistiques d'activité et indicateurs de performance, mois par mois,
+### SGQ — Système de Gestion de la Qualité
+Module « SGQ » de la barre latérale (anciennement « Qualité »), en quatre sous-modules.
+
+- **Suivi performance** : statistiques d'activité et indicateurs de performance, mois par mois,
   sur le modèle du fichier « Suivi_performance_labo ». Filtres : année, projet, résultats validés uniquement ;
   export CSV (UTF-8) et impression. Chaque résultat est compté dans le **mois de réception** de son échantillon ;
   les résultats annulés ne sont jamais comptés. Onglets :
@@ -469,14 +481,30 @@ Suivi en temps réel de tous les appareils, messages reçus (et messages à trai
   Règles : **TB-MR** = RIF-R + INH-R ; **TB-XDR** (antibiogramme 2ème ligne et GNX-XDR) = une fluoroquinolone
   résistante (OFX, LEV ou MOX ; FLQ pour le GNX-XDR) + CAP, KAN ou AMK résistant ; **CMTB -** = Non CMTB, MNT ou
   non mycobactérie. Accès : rôles RQ/CQ, MB et SL.
-- **Surveillance** : matériels en panne, maintenances et étalonnages en retard ou à venir (30 jours), accès expirés,
-  températures d'étuve hors plage.
-- **Matériels** : registre par salle (prochaine maintenance / étalonnage calculés depuis la périodicité).
-- **Accès aux salles** : personnes autorisées (validité, formation biosécurité).
+- **Matériels** : registre par salle (prochaine maintenance / étalonnage calculés depuis la périodicité) et
+  **surveillance** (bouton « Surveillance des matériels ») : matériels en panne, maintenances et étalonnages en retard
+  ou à venir (30 jours), accès expirés, températures d'étuve hors plage.
+- **Accès aux salles** : personnes autorisées (validité, formation biosécurité), **salles** (numéros, usages) et
+  **plan de masse** (boutons en tête de liste). Les salles ont quitté le menu Administration.
+- **DQ — Documents qualité** : manuels qualité, procédures, SOP, manuels clients / de prélèvement, formulaires,
+  instructions, **communiqués / notes de service**, rapports, documents externes. Chaque version est une fiche
+  (référence + n° de version, fichier joint, rédacteur, vérificateur, diffusion, date d'application, prochaine revue).
+  Cycle : *Brouillon* → *En vérification* → **Approuver et signer** (rôles MB et RQ/CQ) → *En vigueur* ; la signature
+  de l'approbateur est apposée sur la fiche et la version précédente en vigueur de la même référence est archivée.
+  Modifier le fichier ou le n° de version d'un document en vigueur le renvoie en brouillon. Tous les rôles consultent
+  les documents ; RQ/CQ et MB les créent et les modifient.
 
 ### Administration
-Bibliothèque de codes (catégories : Analyse, Résultat, Antibiotique, Résistance aux antibiotiques, Rôle),
-salles du plan de masse, journal d'activité (audit), support, utilisateurs.
+Bibliothèque de codes (catégories : Analyse, Résultat, Antibiotique, Résistance aux antibiotiques, Indicateur (SGQ),
+Rôle), journal d'activité (audit), support, utilisateurs.
+
+**Signature des utilisateurs** (Administration → Utilisateurs & rôles → fiche de l'utilisateur, bloc « poste, profil
+et signature ») : téléverser l'image de la signature manuscrite (PNG à fond transparent de préférence, 2 Mo maximum)
+et, si besoin, la mention imprimée dessous (par défaut : nom et poste). La signature est apposée :
+- sur le compte rendu et la fiche paillasse, dans le bloc du validateur, dès qu'un résultat est validé ;
+- sur les documents qualité et communiqués approuvés (module SGQ → DQ).
+
+La page Validation affiche la signature de l'utilisateur connecté, ou signale qu'il n'en a pas.
 
 ---
 
@@ -562,11 +590,14 @@ L'export JSON de l'ancien LIMS (fiches patients) est importé par :
 | Plan de masse (étage + RDC P3) | ✅ Terminé | 37 salles ; usages et noms à compléter |
 | Qualité (matériels, accès, surveillance) | ✅ Terminé | Registres à alimenter |
 | Qualité — SGQ (statistiques et indicateurs de performance) | ✅ Terminé | Cibles des délais de rendu à définir |
+| SGQ — DQ Documents qualité (versions, approbation signée) | ✅ Terminé | Documents existants à téléverser |
+| Signatures des utilisateurs | ✅ Terminé | Signatures à téléverser par l'administrateur |
+| Recherche — Cahiers de laboratoire, MycoLearn | ✅ Terminé | Cahiers et supports à enregistrer |
 | Navigation par modules (« Analyses TB », bioinformatique dans Recherche) | ✅ Terminé | Sous-navigation en haut de page |
 | 3a — GeneXpert | ✅ Terminé | Suivi temps réel opérationnel dès connexion des appareils |
 | 3b — NPOC (Pluslife) | ✅ Terminé (interface) | Format d'export Pluslife à recevoir |
 | 3c — Microscopie | ✅ Validé sans modification | |
-| 3d — Culture LJ | ✅ Terminé | Étuves à déclarer dans Qualité → Matériels |
+| 3d — Culture LJ | ✅ Terminé | Étuves à déclarer dans SGQ → Matériels |
 | 3d — Culture MGIT | ⏳ À faire | Circuit MGIT à décrire |
 | 3e — Antibiogramme (DST) | ⏳ À revoir | |
 | 3f — QuantiFERON-TB | ⏳ À revoir | |
@@ -614,6 +645,7 @@ L'export JSON de l'ancien LIMS (fiches patients) est importé par :
 | 11/11/2026 | Identifiant externe partageable entre patients (choix du patient à l'enregistrement) ; suppression des données de démonstration ; fichier pgpass pour la sauvegarde automatique |
 | 11/11/2026 | Reprise de l'ancien LIMS : 1 187 fiches (1 186 patients, 2 239 résultats) importées ; commande `import_legacy` relançable |
 | 13/11/2026 | Module SGQ (Qualité) : statistiques mensuelles par méthode, concordances, indicateurs DT-1 à DT-10, délais de rendu, export CSV ; bibliothèque enrichie (indicateurs, CMTB +/-, RTT, TB-MR, TB-XDR, antibiotiques de 2ème ligne) ; antibiogramme 2ème ligne : OFX, KAN et CAP ajoutés, LFX/MFX renommés LEV/MOX |
+| 19/11/2026 | Signature des utilisateurs (fiche admin) apposée sur les résultats validés et les documents approuvés ; module Qualité renommé SGQ (Suivi performance, Matériels, Accès aux salles, DQ — Documents qualité avec approbation signée) ; Recherche : Cahiers de laboratoire et MycoLearn, sous-modules bioinformatiques retirés du menu |
 
 ---
 

@@ -157,3 +157,78 @@ class RoomAccess(LimsModel):
             return "revoked"
         st = due_state(self.expires_on)
         return {"overdue": "expired", "soon": "soon"}.get(st, "valid")
+
+
+class QualityDocument(LimsModel):
+    """DQ — documents qualité : manuels qualité, procédures, SOP, manuels clients, formulaires, communiqués…
+    Chaque version est une fiche ; l'approbation est signée (signature de l'approbateur) et archive
+    automatiquement la version précédente en vigueur de la même référence."""
+
+    url_base = "quality:document"
+
+    CATEGORIES = [
+        ("MQ", "Manuel qualité"), ("PROC", "Procédure"), ("SOP", "Mode opératoire (SOP)"),
+        ("MC", "Manuel client / de prélèvement"), ("FORM", "Formulaire / fiche d'enregistrement"),
+        ("INSTR", "Instruction / affiche"), ("COMM", "Communiqué / note de service"),
+        ("REC", "Rapport / enregistrement qualité"), ("EXT", "Document externe (norme, guide)"), ("OTHER", "Autre"),
+    ]
+    STATUS = [("DRAFT", "Brouillon"), ("REVIEW", "En vérification"), ("APPROVED", "En vigueur (approuvé)"),
+              ("ARCHIVED", "Archivé / obsolète")]
+
+    reference = models.CharField("référence", max_length=40, help_text="Ex. MYC-SOP-012, MYC-MQ-001")
+    title = models.CharField("titre", max_length=200)
+    category = models.CharField("type de document", max_length=5, choices=CATEGORIES, default="SOP")
+    version = models.CharField("version", max_length=10, default="01")
+    status = models.CharField("statut", max_length=8, choices=STATUS, default="DRAFT")
+    file = models.FileField("fichier", upload_to="quality/documents/%Y/", blank=True,
+                            help_text="PDF de préférence (Word, Excel, images acceptés)")
+    summary = models.TextField("objet / résumé", blank=True)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="rédacteur", on_delete=models.SET_NULL,
+                               null=True, blank=True, related_name="authored_quality_documents")
+    reviewer = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="vérificateur", on_delete=models.SET_NULL,
+                                 null=True, blank=True, related_name="reviewed_quality_documents")
+    distribution = models.CharField("diffusion", max_length=255, blank=True,
+                                    help_text="Postes, salles ou destinataires concernés")
+    effective_on = models.DateField("date d'application", null=True, blank=True,
+                                    help_text="Par défaut : date d'approbation")
+    next_review = models.DateField("prochaine revue", null=True, blank=True)
+    approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="approuvé par", on_delete=models.SET_NULL,
+                                    null=True, blank=True, related_name="approved_quality_documents", editable=False)
+    approved_at = models.DateTimeField("approuvé le", null=True, blank=True, editable=False)
+    approval_comment = models.TextField("commentaire d'approbation", blank=True, editable=False)
+    notes = models.TextField("remarques", blank=True)
+
+    class Meta:
+        verbose_name = "document qualité"
+        verbose_name_plural = "documents qualité"
+        ordering = ["category", "reference", "-version"]
+        constraints = [models.UniqueConstraint(fields=["reference", "version"], name="quality_document_version")]
+        permissions = [("approve_qualitydocument", "Approuver et signer les documents qualité")]
+
+    def __str__(self):
+        return f"{self.reference} v{self.version} — {self.title}"
+
+    def save(self, *args, **kwargs):
+        """Une nouvelle version (fichier ou n° de version modifié) d'un document approuvé repart en brouillon."""
+        if self.pk and self.approved_at:
+            old = QualityDocument.objects.filter(pk=self.pk).values("version", "file").first()
+            if old and (old["version"] != self.version or old["file"] != (self.file.name or "")):
+                self.status, self.approved_by, self.approved_at, self.approval_comment = "DRAFT", None, None, ""
+        if self.status == "APPROVED" and not self.approved_at:   # « en vigueur » seulement par approbation signée
+            self.status = "REVIEW"
+        super().save(*args, **kwargs)
+
+    def approve(self, user, comment=""):
+        self.status = "APPROVED"
+        self.approved_by = user
+        self.approved_at = timezone.now()
+        self.approval_comment = (comment or "").strip()
+        self.effective_on = self.effective_on or timezone.localdate()
+        self.updated_by = user
+        super().save()
+        QualityDocument.objects.filter(reference=self.reference, status="APPROVED").exclude(pk=self.pk) \
+            .update(status="ARCHIVED", updated_at=timezone.now())
+
+    @property
+    def review_state(self):
+        return due_state(self.next_review) if self.status == "APPROVED" else None

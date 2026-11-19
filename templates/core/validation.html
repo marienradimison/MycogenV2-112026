@@ -11,6 +11,16 @@
   </div>
 </div>
 
+{% signature request.user as my_signature %}
+<div class="d-flex align-items-center gap-3 mb-3 small">
+  {% if my_signature %}
+    <span class="signature-box d-flex align-items-center gap-3">{{ my_signature }}<span class="caption">Signature apposée sur les résultats que vous validez<br>{{ request.user|signature_caption }}</span></span>
+  {% else %}
+    <span class="text-warning-emphasis"><i class="bi bi-pen"></i> Aucune signature enregistrée pour votre compte : les comptes rendus porteront votre nom sans signature.
+      Demandez à l'administrateur de l'ajouter (Administration → Utilisateurs &amp; rôles).</span>
+  {% endif %}
+</div>
+
 <div class="d-flex flex-wrap gap-2 mb-3 validation-tabs">
   <a class="btn btn-sm {% if not f.analyse %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="?{% if f.projet %}projet={{ f.projet }}&{% endif %}{% if f.statut %}statut={{ f.statut }}{% endif %}">Tous les tests <span class="badge text-bg-light">{{ total }}</span></a>
   {% for t in tabs %}

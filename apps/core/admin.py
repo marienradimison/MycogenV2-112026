@@ -25,9 +25,18 @@ class ActivityLogAdmin(admin.ModelAdmin):
 class ProfileInline(admin.StackedInline):
     model = UserProfile
     can_delete = False
-    fields = ["job_title", "phone", "photo", "theme"]
-    verbose_name = "poste et profil"
-    verbose_name_plural = "poste et profil"
+    fields = ["job_title", "phone", "photo", "theme", "signature", "signature_preview", "signature_label"]
+    readonly_fields = ["signature_preview"]
+    verbose_name = "poste, profil et signature"
+    verbose_name_plural = "poste, profil et signature"
+
+    @admin.display(description="aperçu de la signature")
+    def signature_preview(self, obj):
+        from django.utils.html import format_html
+        if obj and obj.signature:
+            return format_html('<img src="{}" alt="signature" style="max-height:80px;max-width:260px;'
+                               'background:#fff;border:1px solid #ddd;padding:4px">', obj.signature.url)
+        return "Aucune signature enregistrée"
 
 
 class MycogenUserAdmin(UserAdmin):

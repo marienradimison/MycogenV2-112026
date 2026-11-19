@@ -7,7 +7,7 @@
     <div class="card-body row g-3 align-items-end">
       <div class="col-md-3"><label class="form-label">{{ form.inoculated_on.label }}</label>{{ form.inoculated_on }}</div>
       <div class="col-md-3"><label class="form-label">{{ form.incubator.label }}</label>{{ form.incubator }}
-        {% if no_incubator %}<div class="form-text">Aucune étuve déclarée : ajoutez-la dans <a href="{% url 'quality:equipment_create' %}?category=INCUB">Qualité → Matériels</a> (catégorie « Incubateur / étuve »).</div>{% endif %}</div>
+        {% if no_incubator %}<div class="form-text">Aucune étuve déclarée : ajoutez-la dans <a href="{% url 'quality:equipment_create' %}?category=INCUB">SGQ → Matériels</a> (catégorie « Incubateur / étuve »).</div>{% endif %}</div>
       <div class="col-md-2"><label class="form-label">{{ form.decontamination.label }}</label>{{ form.decontamination }}</div>
       <div class="col-md-1"><label class="form-label">Tubes</label>{{ form.tube_count }}</div>
       <div class="col-md-2 text-end"><button class="btn btn-primary w-100" id="go" disabled><i class="bi bi-check-lg"></i> Ensemencer <span id="n">0</span></button></div>

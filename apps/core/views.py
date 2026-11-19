@@ -1,6 +1,7 @@
 from datetime import timedelta
 from pathlib import Path
 
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.conf import settings
 from django.http import FileResponse, Http404
 from django.contrib.auth.decorators import login_required, permission_required
@@ -196,6 +197,7 @@ def search(request):
 
 
 @login_required
+@xframe_options_sameorigin   # PDF affichés dans les pages MYCOGEN (MycoLearn, documents qualité)
 def protected_media(request, path):
     """Fichiers téléversés (rapports…) : accessibles uniquement aux utilisateurs connectés."""
     root = Path(settings.MEDIA_ROOT).resolve()
@@ -210,7 +212,7 @@ def protected_media(request, path):
     return resp
 
 
-INLINE_MEDIA = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".pdf"}
+INLINE_MEDIA = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".pdf", ".mp4", ".webm", ".ogg", ".mov"}
 
 
 @login_required

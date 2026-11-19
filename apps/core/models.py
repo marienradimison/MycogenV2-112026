@@ -463,6 +463,11 @@ class UserProfile(models.Model):
                                  help_text="Titre affiché (ex. Technicienne de laboratoire). N'accorde aucun droit : "
                                            "les permissions viennent des rôles.")
     phone = models.CharField("téléphone", max_length=30, blank=True)
+    signature = models.ImageField("signature", upload_to="signatures/", blank=True,
+                                  help_text="Image de la signature manuscrite (PNG à fond transparent de préférence). "
+                                            "Apposée sur les résultats validés, les documents qualité et les communiqués.")
+    signature_label = models.CharField("mention sous la signature", max_length=150, blank=True,
+                                       help_text="Ex. « Dr Rakoto, Médecin biologiste ». Par défaut : nom et poste.")
 
     class Meta:
         verbose_name = "profil utilisateur"
@@ -470,6 +475,13 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"Profil de {self.user}"
+
+    @property
+    def signature_caption(self):
+        if self.signature_label:
+            return self.signature_label
+        name = self.user.get_full_name() or self.user.username
+        return f"{name}, {self.job_title}" if self.job_title else name
 
     @property
     def initials(self):

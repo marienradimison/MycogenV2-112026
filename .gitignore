@@ -5,4 +5,10 @@ __pycache__/
 dev.sqlite3
 staticfiles/
 media/bioinfo/
+# Fichiers téléversés dans MYCOGEN : jamais dans le dépôt (signatures, documents internes)
+media/signatures/
+media/quality/
+media/research/
+media/mycolearn/
+media/bugs/
 logs/

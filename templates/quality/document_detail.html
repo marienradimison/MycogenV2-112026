@@ -1,0 +1,52 @@
+{% extends "generic/detail.html" %}{% load lims %}
+{% block main_card %}
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center"><i class="bi bi-file-earmark-text me-2"></i>Document
+    <span class="ms-auto">{% cell object "status" %}</span></div>
+  <div class="card-body">
+    {% if object.file %}
+      <a class="btn btn-primary btn-sm" href="{{ object.file.url }}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Ouvrir le document</a>
+      <span class="small text-muted ms-2">{{ object.file.name|cut:"quality/documents/" }}</span>
+    {% else %}
+      <span class="text-warning-emphasis small"><i class="bi bi-exclamation-triangle"></i> Aucun fichier joint.</span>
+    {% endif %}
+    {% if object.summary %}<p class="mt-3 mb-0">{{ object.summary|linebreaksbr }}</p>{% endif %}
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header"><i class="bi bi-pen me-2"></i>Approbation</div>
+  <div class="card-body">
+    {% if object.approved_at %}
+      <div class="signature-box">
+        {% if approver_signature %}{{ approver_signature }}{% else %}<div class="small text-muted fst-italic">(pas de signature enregistrée)</div>{% endif %}
+        <div class="fw-semibold mt-1">{{ approver_caption }}</div>
+        <div class="caption">Approuvé le {{ object.approved_at|date:"d/m/Y à H:i" }}</div>
+      </div>
+      {% if object.approval_comment %}<p class="small mt-2 mb-0">{{ object.approval_comment|linebreaksbr }}</p>{% endif %}
+    {% elif can_approve %}
+      <form method="post" action="{% url 'quality:document_approve' object.pk %}">{% csrf_token %}
+        <p class="small text-muted mb-2">L'approbation met le document en vigueur, y appose votre signature et archive la version précédente en vigueur de la même référence.</p>
+        <textarea name="comment" class="form-control form-control-sm mb-2" rows="2" placeholder="Commentaire (facultatif)"></textarea>
+        <div class="d-flex align-items-center gap-3">
+          <button class="btn btn-success btn-sm" {% if not object.file %}disabled title="Joignez d'abord le fichier"{% endif %}><i class="bi bi-patch-check"></i> Approuver et signer</button>
+          {% if my_signature %}<span class="signature-box py-1">{{ my_signature }}</span>
+          {% else %}<span class="small text-warning-emphasis">Aucune signature enregistrée pour votre compte (à ajouter par l'administrateur).</span>{% endif %}
+        </div>
+      </form>
+    {% else %}
+      <span class="small text-muted">En attente d'approbation.</span>
+    {% endif %}
+  </div>
+</div>
+{{ block.super }}
+{% if versions %}
+<div class="card mt-3">
+  <div class="card-header"><i class="bi bi-clock-history me-2"></i>Autres versions</div>
+  <ul class="list-group list-group-flush">
+    {% for v in versions %}<li class="list-group-item d-flex"><a href="{{ v.get_absolute_url }}">v{{ v.version }} — {{ v.title }}</a>
+      <span class="ms-auto">{% cell v "status" %}</span></li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endblock %}

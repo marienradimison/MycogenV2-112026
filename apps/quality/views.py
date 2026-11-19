@@ -8,7 +8,7 @@ from django.utils import timezone
 from apps.core.crud import Crud
 from apps.core.forms import LimsModelForm, lims_formfield
 
-from .models import SOON_DAYS, Equipment, RoomAccess
+from .models import SOON_DAYS, Equipment, QualityDocument, RoomAccess
 
 
 class AccessForm(LimsModelForm):
@@ -19,7 +19,48 @@ class AccessForm(LimsModelForm):
         formfield_callback = lims_formfield
 
 
+class DocumentForm(LimsModelForm):
+    """« En vigueur » n'est pas proposé : un document le devient par l'approbation signée."""
+
+    class Meta:
+        model = QualityDocument
+        fields = ["reference", "title", "category", "version", "status", "file", "summary", "author", "reviewer",
+                  "distribution", "effective_on", "next_review", "notes"]
+        formfield_callback = lims_formfield
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        keep = {"DRAFT", "REVIEW", "ARCHIVED"} | ({"APPROVED"} if self.instance.status == "APPROVED" else set())
+        self.fields["status"].choices = [c for c in QualityDocument.STATUS if c[0] in keep]
+
+
+def document_context(obj, request):
+    from apps.core.signature import caption, signature_html
+    return {
+        "approver_signature": signature_html(obj.approved_by) if obj.approved_at else "",
+        "approver_caption": caption(obj.approved_by) if obj.approved_by else "",
+        "can_approve": request.user.has_perm("quality.approve_qualitydocument") and obj.status in ("DRAFT", "REVIEW"),
+        "my_signature": signature_html(request.user),
+        "versions": QualityDocument.objects.filter(reference=obj.reference).exclude(pk=obj.pk).order_by("-version"),
+    }
+
+
+ROOM_LINKS = [("Accès aux salles", "quality:access_list", "bi-person-badge"), ("Salles", "core:room_list", "bi-door-open"),
+              ("Plan de masse", "core:floorplan", "bi-map")]
+
 CRUDS = [
+    Crud(
+        QualityDocument, "document",
+        fields=DocumentForm.Meta.fields,
+        form_class=DocumentForm,
+        list_display=["reference", "title", "category", "version", "status", "effective_on", "next_review",
+                      "approved_by"],
+        search_fields=["reference", "title", "summary", "distribution"],
+        list_filter=["category", "status"],
+        icon="bi-file-earmark-text",
+        detail_template="quality/document_detail.html",
+        extra_context=document_context,
+    ),
     Crud(
         Equipment, "equipment",
         fields=["room", "name", "category", "inventory_number", "brand", "model_name", "serial_number", "status",
@@ -31,7 +72,7 @@ CRUDS = [
         search_fields=["name", "inventory_number", "serial_number", "brand", "model_name", "room__number"],
         list_filter=["status", "category", "room", "critical"],
         icon="bi-tools",
-        header_links=[("Surveillance", "quality:monitoring", "bi-shield-check")],
+        header_links=[("Surveillance des matériels", "quality:monitoring", "bi-shield-check")],
     ),
     Crud(
         RoomAccess, "access",
@@ -43,7 +84,7 @@ CRUDS = [
                        "room__number", "room__name"],
         list_filter=["room", "level", "revoked"],
         icon="bi-person-badge",
-        header_links=[("Surveillance", "quality:monitoring", "bi-shield-check")],
+        header_links=ROOM_LINKS[1:] + [("Surveillance", "quality:monitoring", "bi-shield-check")],
     ),
 ]
 
@@ -153,3 +194,26 @@ def sgq(request):
         "export_url": f"{reverse('quality:sgq')}?{params.urlencode()}",
         "library_codes": AnalysisCode.objects.filter(active=True, code__in=engine.GLOSSARY).order_by("order"),
     })
+
+
+@login_required
+@permission_required("quality.approve_qualitydocument", raise_exception=True)
+def document_approve(request, pk):
+    """Approbation signée d'un document qualité (POST) : il passe « en vigueur », l'ancienne version est archivée."""
+    from django.contrib import messages
+    from django.shortcuts import get_object_or_404, redirect
+
+    from apps.core.crud import log
+
+    doc = get_object_or_404(QualityDocument, pk=pk)
+    if request.method != "POST":
+        return redirect(doc.get_absolute_url())
+    if doc.status not in ("DRAFT", "REVIEW"):
+        messages.warning(request, "Ce document n'est pas en attente d'approbation.")
+    elif not doc.file:
+        messages.error(request, "Ajoutez le fichier du document avant de l'approuver.")
+    else:
+        doc.approve(request.user, request.POST.get("comment", ""))
+        log(request.user, "VALIDATE", doc, {"statut": "En vigueur", "commentaire": doc.approval_comment})
+        messages.success(request, f"« {doc} » approuvé et signé : il est en vigueur.")
+    return redirect(doc.get_absolute_url())
