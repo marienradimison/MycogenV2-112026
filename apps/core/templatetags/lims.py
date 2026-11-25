@@ -112,7 +112,9 @@ def has_perm(user, perm):
 
 @register.simple_tag
 def crud_perm(user, crud, action):
-    return user.has_perm(crud.perm(action))
+    """Droit de l'utilisateur, et vue disponible (ex. pas de bouton « Modifier » si la vue est exclue)."""
+    view = {"add": "create", "change": "update"}.get(action, action)
+    return user.has_perm(crud.perm(action)) and crud.has_url(view)
 
 
 MTB_LABELS = {"NOT_DETECTED": "Non détecté", "TRACE": "Détecté (Trace)", "VERY_LOW": "Détecté (Très faible)",

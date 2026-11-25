@@ -479,3 +479,23 @@ dl.details dd { margin-bottom: .55rem; }
   color: var(--myc-blue-dark); font-size: 3rem; }
 .learn-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .learn-desc { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Biobanque : chemin de localisation d'une boîte, inventaires, traçabilité */
+.box-path { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .7rem 1rem; border-radius: 10px;
+  background: rgba(110,175,196,.12); font-size: 1.05rem; }
+.box-path .bi-snow2 { color: var(--myc-blue); font-size: 1.2rem; }
+.box-path .bi-chevron-right { color: var(--myc-muted); font-size: .8rem; }
+.box-path a { text-decoration: none; }
+.qr-box svg { display: block; }
+.inv-row.scanned { animation: inv-flash 1.4s ease-out; }
+@keyframes inv-flash { from { background: rgba(126,170,47,.45); } to { background: transparent; } }
+.inv-status-OK { color: #2e7d32; }
+.inv-status-MISSING, .inv-status-UNREGISTERED, .inv-status-MISPLACED, .inv-status-LABEL { color: #c0392b; font-weight: 600; }
+.trace-tree .depth-1 { padding-left: 1.4rem; } .trace-tree .depth-2 { padding-left: 2.8rem; }
+.trace-tree .depth-3 { padding-left: 4.2rem; } .trace-tree .depth-4 { padding-left: 5.6rem; }
+.timeline { list-style: none; padding-left: 0; margin: 0; }
+.timeline li { position: relative; padding: 0 0 .9rem 1.4rem; border-left: 2px solid rgba(110,175,196,.45); margin-left: .4rem; }
+.timeline li::before { content: ""; position: absolute; left: -.42rem; top: .25rem; width: .75rem; height: .75rem;
+  border-radius: 50%; background: var(--myc-blue); }
+.timeline li.exit::before { background: #d0574a; } .timeline li.audit::before { background: #8c9aa1; }
+.timeline li:last-child { border-left-color: transparent; }

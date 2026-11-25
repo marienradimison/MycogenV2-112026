@@ -450,7 +450,39 @@ conservées.
 projet), « Cas à saisir (texte libre) » (avec un libellé, ex. « N° d'inclusion ») ou « Pas de cas ».
 
 ### Biobanque
-Congélateurs, boîtes (plan visuel des positions), aliquots (souche, ADN, plasma, DBS…), filiation, mouvements.
+Sept sous-modules : Aliquots & Souches, Boîtes, Congélateurs, Mouvements, Inventaires, Traçabilité, Rapports.
+
+- **Localisation** d'un aliquot, sous forme de chemin : `MYCO-2209/E03/R01/SCH-2026-01/B07`
+  (congélateur / étagère / rack / boîte / position). Étagère et rack se saisissent « 3 » ou « E03 », « 1 » ou « R01 ».
+- **Aliquots & Souches** : le code de l'aliquot est le **n° de l'échantillon source** (26-4244) ; les aliquots
+  suivants du même échantillon reçoivent 26-4244-2, 26-4244-3… En choisissant l'échantillon source (ou l'aliquot
+  parent), le **projet** et l'**étiquette / ID externe** (identifiant externe saisi à l'enregistrement de l'échantillon) se remplissent
+  automatiquement. Champ **solution de conservation** (glycérol 15 %, tampon TE, RNAlater… ou saisie libre).
+- **Boîtes** : nom automatique `<abréviation du type>-<année>-<n°>` (ADN-2026-01, SCH-2027-12, PLA-2026-04…).
+  La numérotation est propre à chaque type d'aliquot et repart à 01 chaque année ; le n° (ou le nom) peut être saisi
+  manuellement. Abréviations : PRL prélèvement, CUL culot, SCH souche, ADN, ARN, PLA plasma, SER sérum, SNG sang total,
+  PAX PAXgene, PBM PBMC, DBS, QFT surnageant QuantiFERON, AUT autre. La fiche d'une boîte affiche son chemin,
+  sa capacité, les positions occupées et libres, et propose : **imprimer l'étiquette** (80 × 45 mm, avec QR code du
+  nom de la boîte), **afficher le QR code**, **déplacer la boîte** (les aliquots suivent ; déplacement tracé) et
+  **historique**.
+- **Mouvements** — *que fait-on actuellement ?* : sorties, retours, décongélations (le compteur de cycles augmente),
+  transferts, épuisements, destructions et changements d'emplacement (boîte et position de destination). Les entrées
+  en biobanque et les changements de position faits depuis la fiche de l'aliquot sont tracés automatiquement, avec la
+  localisation avant / après.
+- **Inventaires** — *ce qui est enregistré correspond-il à la réalité ?* : une session par congélateur, étagère,
+  rack ou boîte crée la liste des boîtes et aliquots attendus. On scanne le QR code de chaque boîte (étiquette
+  conforme) puis le code de chaque aliquot : conforme, mal positionné, manquant, non enregistré, étiquette / QR non
+  conforme. L'inventaire est soumis puis **validé par un responsable** (permission « Peut valider les inventaires »,
+  rôles SL et MB), qui peut faire corriger dans Mycogen la position des aliquots mal positionnés. Historique des
+  inventaires et liste des anomalies constatées.
+- **Traçabilité** — *qu'est-il arrivé à cet échantillon ?* : dossier d'un aliquot, d'un échantillon ou d'une boîte
+  (localisations successives, entrées / sorties / déplacements, quantités, cycles de congélation, filiation
+  échantillon → souche → ADN, inventaires, journal d'audit), journal filtrable des opérations (dates, type, opérateur)
+  et journal d'audit de la biobanque.
+- **Rapports** — *quel est l'état global de la biobanque ?* : effectifs par type, année, projet, espèce et statut ;
+  taux d'occupation des congélateurs et des boîtes ; capacités disponibles (positions libres par type, boîtes
+  pleines) ; bilan des entrées et sorties sur une période ; inventaires et non-conformités. Filtres multicritères,
+  exports Excel, CSV (UTF-8) et PDF.
 
 ### Stock (géré par le rôle SL)
 - **Tableau de bord** : articles sous le seuil d'alerte, lots périmés ou proches de la péremption (60 jours), sortie rapide.
@@ -601,7 +633,8 @@ L'export JSON de l'ancien LIMS (fiches patients) est importé par :
 | 3d — Culture MGIT | ⏳ À faire | Circuit MGIT à décrire |
 | 3e — Antibiogramme (DST) | ⏳ À revoir | |
 | 3f — QuantiFERON-TB | ⏳ À revoir | |
-| Recherche (dont bioinformatique), Biobanque | ⏳ À revoir | Version initiale en place |
+| Biobanque | ✅ Revu (2026-11-25) | Boîtes normalisées + QR, inventaires, traçabilité, rapports |
+| Recherche (dont bioinformatique) | ⏳ À revoir | Version initiale en place |
 | Stock (articles, lots, mouvements) | ✅ Terminé | Géré par le rôle SL ; articles à saisir |
 | Rôles TL / SL / MB / AS / RSR / RQ-CQ / AL | ✅ Terminé | Poste = titre seulement ; rôles cumulables |
 | Stock (articles, lots, mouvements) | ✅ Terminé | Géré par le rôle SL ; articles à saisir |

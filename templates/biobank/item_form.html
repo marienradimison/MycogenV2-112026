@@ -1,0 +1,32 @@
+{% extends "generic/form.html" %}
+{% block extra_js %}
+<datalist id="preservations">{% for p in form.preservations %}<option value="{{ p }}">{% endfor %}</datalist>
+<script>
+/* Projet et étiquette / ID externe repris de l'échantillon source (ou de l'aliquot parent) */
+(function () {
+  var sample = document.getElementById('id_sample'), parent = document.getElementById('id_parent');
+  var project = document.getElementById('id_project'), label = document.getElementById('id_label');
+  if (!sample || !project || !label) return;
+  var auto = {project: '', label: ''};
+  function setSelect(el, value) {
+    value = value == null ? '' : String(value);
+    if (el.tomselect) el.tomselect.setValue(value, true); else el.value = value;
+  }
+  function fill() {
+    var q = 'sample=' + encodeURIComponent(sample.value || '') + '&parent=' + encodeURIComponent(parent ? parent.value || '' : '');
+    if (!sample.value && !(parent && parent.value)) return;
+    fetch('{% url "biobank:source_info" %}?' + q, {credentials: 'same-origin'})
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d) return;
+        // on ne remplace que ce qui est vide ou a été rempli automatiquement
+        if (d.project && (!project.value || project.value === auto.project)) { setSelect(project, d.project); auto.project = String(d.project); }
+        if (!label.value || label.value === auto.label) { label.value = d.label || ''; auto.label = label.value; }
+        if (d.sample && !sample.value) { setSelect(sample, d.sample); }
+      });
+  }
+  sample.addEventListener('change', fill);
+  if (parent) parent.addEventListener('change', fill);
+})();
+</script>
+{% endblock %}

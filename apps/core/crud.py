@@ -84,7 +84,7 @@ class Crud:
                  form_class=None, title=None, icon="bi-table", detail_template=None,
                  form_template=None, ordering=None, group=None, extra_context=None, exclude_urls=(), create_url=None, update_url=None, exporter=None,
                  date_filters=(), hidden_filters=(), list_title=None,
-                 header_links=(), list_tabs=None):
+                 header_links=(), list_tabs=None, queryset=None):
         self.model = model
         self.prefix = prefix
         self.fields = fields
@@ -106,6 +106,7 @@ class Crud:
         self.exclude_urls = exclude_urls
         self.create_url = create_url  # vues dédiées (ex. assistant d'enregistrement)
         self.update_url = update_url
+        self.queryset = queryset  # callable → queryset de base de la liste (ex. anomalies seulement)
         self.list_tabs = list_tabs  # callable → onglets affichés au-dessus de la liste
         self.header_links = header_links  # [(libellé, nom d'URL, icône)] affichés en tête de liste
         self.namespace = model.url_base.split(":")[0]
@@ -118,6 +119,12 @@ class Crud:
 
     def perm(self, action):
         return f"{self.opts.app_label}.{action}_{self.opts.model_name}"
+
+    def has_url(self, action):
+        """Faux pour une vue exclue (exclude_urls) qui n'est pas remplacée par une vue dédiée."""
+        if action == "create" and self.create_url or action == "update" and self.update_url:
+            return True
+        return action not in self.exclude_urls
 
     def url(self, action):
         if action == "create" and self.create_url:
@@ -179,7 +186,7 @@ class Crud:
             paginate_by = 25
 
             def get_queryset(self):
-                qs = super().get_queryset()
+                qs = crud.queryset() if crud.queryset else super().get_queryset()
                 if crud.ordering:
                     qs = qs.order_by(*crud.ordering)
                 q = self.request.GET.get("q", "").strip()
@@ -278,7 +285,7 @@ class Crud:
                 initial = super().get_initial()
                 for k, v in self.request.GET.items():
                     initial[k] = v
-                for name in ("performed_by", "granted_by", "author", "owner"):  # utilisateur courant par défaut
+                for name in ("performed_by", "granted_by", "author", "owner", "operator"):  # utilisateur courant par défaut
                     try:
                         crud.opts.get_field(name)
                         initial.setdefault(name, self.request.user.pk)
@@ -383,7 +390,7 @@ def related_tables(obj, user, limit=50):
             "columns": [c for c in crud.columns()
                         if c[0] != rel.field.name and not c[0].startswith(rel.field.name + "__")],
             "fk": rel.field.name,
-            "can_add": user.has_perm(crud.perm("add")),
+            "can_add": user.has_perm(crud.perm("add")) and crud.has_url("create"),
         })
     return tables
 

@@ -5,6 +5,41 @@ Catégories : **Corrigé** (bugs), **Sécurité**, **Ajouté**, **Modifié**.
 
 ---
 
+## 2026-11-25 — Biobanque : boîtes normalisées et QR codes, inventaires, traçabilité, rapports
+
+Migration : `biobank.0004_inventaires_tracabilite` (reprend les boîtes existantes : année de création,
+étagère / rack au format E03 / R01). Après mise à jour : `migrate` puis `init_mycogen` (permission de validation
+des inventaires pour les rôles SL et MB).
+
+### Ajouté
+
+- **Localisation en chemin** : `MYCO-2209/E03/R01/SCH-2026-01/B07` (congélateur / étagère / rack / boîte / position),
+  affichée dans les listes, fiches et mouvements.
+- **Aliquots** : champ « solution de conservation » ; code = n° de l'échantillon source (26-4244, puis 26-4244-2…) ;
+  projet et étiquette / ID externe (identifiant externe saisi à l'enregistrement) remplis automatiquement depuis l'échantillon source ou l'aliquot parent.
+- **Boîtes** : type d'aliquot, nom automatique `ABR-AAAA-NN` (numérotation par type, remise à 01 chaque année,
+  n° ou nom modifiable) ; fiche avec chemin, capacité / occupées / libres, étiquette 80 × 45 mm avec QR code,
+  affichage du QR code, déplacement tracé de la boîte, historique.
+- **Inventaires** : sessions par congélateur, étagère, rack ou boîte ; scan des QR de boîtes et des codes
+  d'aliquots ; constats (conforme, manquant, non enregistré, mal positionné, étiquette / QR non conforme) ;
+  soumission et validation par un responsable, avec correction optionnelle des positions ; liste des anomalies.
+- **Traçabilité** : dossier d'un aliquot, d'un échantillon ou d'une boîte (localisations successives, opérations,
+  quantités, cycles de congélation, filiation, inventaires, audit), journal filtrable des opérations, audit.
+- **Rapports** : effectifs (type, année, projet, espèce, statut), occupation des congélateurs et des boîtes,
+  capacités disponibles, entrées / sorties sur une période, inventaires et non-conformités ; exports Excel, CSV, PDF.
+  *Fichiers : `apps/biobank/models.py`, `apps/biobank/views.py`, `apps/biobank/reports.py`, `templates/biobank/`*
+
+### Modifié
+
+- Titre de la liste « Biobanque » → **« Aliquots & Souches »**.
+- Mouvements : localisation avant / après enregistrée ; le changement d'emplacement indique la boîte et la position
+  de destination et met à jour l'aliquot.
+- Moteur CRUD : les boutons « Nouveau » / « Modifier » ne s'affichent plus pour une vue désactivée ; liste avec
+  filtre de base (`queryset`) ; l'opérateur courant est proposé par défaut.
+  *Fichiers : `apps/core/crud.py`, `apps/core/templatetags/lims.py`*
+
+---
+
 ## 2026-11-19 — Signatures, SGQ réorganisé, cahiers de laboratoire et MycoLearn
 
 Migrations : `core.0026_user_signature`, `quality.0003_quality_documents`, `research.0006_notebooks_mycolearn`.

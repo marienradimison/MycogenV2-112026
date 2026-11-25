@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Rapports — Biobanque{% endblock %}
+{% block content %}
+<div class="page-title">
+  {% include "generic/_back.html" with fallback="/" %}
+  <div class="icon"><i class="bi bi-graph-up"></i></div>
+  <div><div class="small text-muted">Biobanque</div><h1>Rapports</h1></div>
+  <div class="ms-auto d-flex gap-2 d-print-none">
+    <a class="btn btn-sm btn-outline-primary" href="?{{ export_query }}&export=xlsx"><i class="bi bi-file-earmark-excel"></i> Excel</a>
+    <a class="btn btn-sm btn-outline-primary" href="?{{ export_query }}&export=csv"><i class="bi bi-filetype-csv"></i> CSV</a>
+    <a class="btn btn-sm btn-outline-primary" href="?{{ export_query }}&export=pdf"><i class="bi bi-file-earmark-pdf"></i> PDF</a>
+  </div>
+</div>
+
+<form method="get" class="card card-body py-2 mb-3 d-flex flex-row flex-wrap gap-3 align-items-center d-print-none" id="report-filters">
+  <input type="hidden" name="onglet" value="{{ tab }}">
+  <label class="d-flex align-items-center gap-2 small">Année
+    <select name="annee" class="form-select form-select-sm w-auto"><option value="">Toutes</option>
+      {% for y in f.years %}<option value="{{ y }}" {% if y == f.year %}selected{% endif %}>{{ y }}</option>{% endfor %}</select></label>
+  <label class="d-flex align-items-center gap-2 small">Type
+    <select name="type" class="form-select form-select-sm w-auto"><option value="">Tous</option>
+      {% for k, l in f.types %}<option value="{{ k }}" {% if k == f.item_type %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+  <label class="d-flex align-items-center gap-2 small">Projet
+    <select name="projet" class="form-select form-select-sm w-auto"><option value="">Tous</option>
+      {% for p in f.projects %}<option value="{{ p.pk }}" {% if f.project and p.pk == f.project.pk %}selected{% endif %}>{{ p.code }}</option>{% endfor %}</select></label>
+  <label class="d-flex align-items-center gap-2 small">Espèce
+    <select name="espece" class="form-select form-select-sm w-auto"><option value="">Toutes</option>
+      {% for h in f.hosts %}<option value="{{ h }}" {% if h == f.host %}selected{% endif %}>{{ h }}</option>{% endfor %}</select></label>
+  <label class="d-flex align-items-center gap-2 small">Congélateur
+    <select name="congelateur" class="form-select form-select-sm w-auto"><option value="">Tous</option>
+      {% for u in f.units %}<option value="{{ u.pk }}" {% if f.unit and u.pk == f.unit.pk %}selected{% endif %}>{{ u.name }}</option>{% endfor %}</select></label>
+  {% if tab == "flux" or tab == "inventaires" %}
+    <label class="d-flex align-items-center gap-2 small">Du <input type="date" name="du" class="form-control form-control-sm" value="{{ f.start|date:'Y-m-d' }}"></label>
+    <label class="d-flex align-items-center gap-2 small">au <input type="date" name="au" class="form-control form-control-sm" value="{{ f.end|date:'Y-m-d' }}"></label>
+  {% endif %}
+  <div class="form-check form-switch small mb-0">
+    <input class="form-check-input" type="checkbox" role="switch" name="presents" value="1" id="presents" {% if f.active_only %}checked{% endif %}>
+    <label class="form-check-label" for="presents">Aliquots présents uniquement</label></div>
+  <button class="btn btn-sm btn-primary">Appliquer</button>
+</form>
+<div class="d-none d-print-block mb-2 small">{{ tab_label }} — {{ f.describe }}</div>
+
+<div class="row g-3 mb-3">
+  {% for label, value, icon, cls in kpis %}
+  <div class="col-6 col-xl-3"><div class="card stat {{ cls }}"><div class="d-flex justify-content-between">
+    <div><div class="value">{{ value }}</div><div class="label">{{ label }}</div></div><i class="bi {{ icon }} ico"></i></div></div></div>
+  {% endfor %}
+</div>
+
+<div class="d-print-none">{% include "generic/_tabs.html" %}</div>
+
+{% for t in tables %}
+<div class="card mb-3">
+  <div class="card-header">{{ t.title }}</div>
+  {% if t.rows %}
+  <div class="table-responsive"><table class="table table-sm table-hover mb-0">
+    <thead><tr>{% for h in t.headers %}<th class="{% if not forloop.first %}text-end{% endif %}">{{ h }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for r in t.rows %}<tr>{% for c in r %}<td class="{% if not forloop.first %}text-end{% endif %}">{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    {% if t.foot %}<tfoot><tr class="fw-semibold">{% for c in t.foot %}<td class="{% if not forloop.first %}text-end{% endif %}">{{ c }}</td>{% endfor %}</tr></tfoot>{% endif %}
+  </table></div>
+  {% else %}<div class="card-body text-muted small">Aucune donnée pour ces critères.</div>{% endif %}
+  {% if t.note and t.rows %}<div class="card-footer small text-muted">{{ t.note }}</div>{% endif %}
+</div>
+{% endfor %}
+{% endblock %}

@@ -59,10 +59,13 @@ class SmokeTests(TestCase):
         urls = [reverse("core:dashboard"), reverse("core:search") + "?q=RA", reverse("core:activity")]
         for crud in REGISTRY.values():
             urls += [reverse(crud.url("list")), reverse(crud.url("list")) + "?export=csv"]
-            urls.append(reverse(crud.url("create")))
+            if "create" not in crud.exclude_urls:
+                urls.append(reverse(crud.url("create")))
             obj = crud.model.objects.first()
             if obj:
-                urls += [reverse(crud.url("detail"), args=[obj.pk]), reverse(crud.url("update"), args=[obj.pk])]
+                urls.append(reverse(crud.url("detail"), args=[obj.pk]))
+                if "update" not in crud.exclude_urls:
+                    urls.append(reverse(crud.url("update"), args=[obj.pk]))
         s = Sample.objects.first()
         urls += [reverse("core:sample_report", args=[s.pk]), reverse("core:bench_sheet", args=[s.pk]),
                  reverse("core:register"), reverse("core:validation"),

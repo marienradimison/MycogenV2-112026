@@ -1,0 +1,66 @@
+{% load static %}<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Étiquette{{ boxes|length|pluralize }} — {% for b in boxes %}{{ b.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</title>
+  <style>
+    @font-face { font-family: "Creato Display"; src: url("{% static 'fonts/CreatoDisplay-Regular.otf' %}") format("opentype"); font-weight: 400; }
+    @font-face { font-family: "Creato Display"; src: url("{% static 'fonts/CreatoDisplay-Bold.otf' %}") format("opentype"); font-weight: 700; }
+    /* Étiquette 80 × 45 mm (format 16:9 du modèle) ; une étiquette par page à l'impression */
+    @page { size: 80mm 45mm; margin: 0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #e9eef0; font-family: "Creato Display", Arial, sans-serif; color: #000; }
+    .toolbar { display: flex; gap: 8px; align-items: center; padding: 10px 14px; background: #fff; border-bottom: 1px solid #d5dde0; font-size: 14px; }
+    .toolbar button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid #6eafc4; background: #6eafc4; color: #fff; cursor: pointer; }
+    .toolbar .hint { color: #66777e; font-size: 12px; }
+    .labels { display: flex; flex-wrap: wrap; gap: 6mm; padding: 8mm; }
+    .label { width: 80mm; height: 45mm; background: #fff; padding: 2.2mm 4mm 2mm; display: flex; flex-direction: column;
+             box-shadow: 0 1px 6px rgba(0,0,0,.18); overflow: hidden; }
+    .head { text-align: center; }
+    .head img { height: 11.5mm; display: block; margin: 0 auto .4mm; }
+    .head .unit { font-size: 2.75mm; letter-spacing: .03em; }
+    .rule { height: .55mm; background: #6eafc4; margin: 1.1mm 0 1.6mm; }
+    .body { flex: 1; display: flex; align-items: center; gap: 4mm; padding: 0 1.5mm; }
+    .qr { width: 21mm; height: 21mm; flex: none; }
+    .qr svg { width: 100%; height: 100%; display: block; }
+    .txt { line-height: 1.5; min-width: 0; }
+    .code { font-weight: 700; font-size: 6mm; line-height: 1.2; letter-spacing: .04em; white-space: nowrap; }
+    .line { font-size: 3.1mm; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media print {
+      body { background: #fff; }
+      .toolbar { display: none; }
+      .labels { display: block; padding: 0; }
+      .label { box-shadow: none; break-after: page; page-break-after: always; }
+      .label:last-child { break-after: auto; page-break-after: auto; }
+    }
+  </style>
+</head>
+<body>
+<div class="toolbar">
+  <button type="button" onclick="window.print()">🖨 Imprimer</button>
+  <span class="hint">Format 80 × 45 mm — dans la boîte d'impression, choisir l'imprimante d'étiquettes, marges « Aucune », échelle 100 %.</span>
+</div>
+<div class="labels">
+  {% for box in boxes %}
+  <div class="label">
+    <div class="head">
+      <img src="{% static 'img/Mycogen_main_logo.png' %}" alt="">
+      <div class="unit">Unité des Mycobactéries - IPM</div>
+    </div>
+    <div class="rule"></div>
+    <div class="body">
+      <div class="qr" data-qr="{{ box.name }}"></div>
+      <div class="txt">
+        <div class="code">{{ box.name }}</div>
+        {% if box.label %}<div class="line">{{ box.label }}</div>{% endif %}
+        <div class="line">{{ box.format_display }}</div>
+        <div class="line">Création : {{ box.year|default:box.created_at.year }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% include "biobank/_qr_js.html" %}
+</body>
+</html>

@@ -1,0 +1,6 @@
+<div class="card mb-3"><div class="card-header"><i class="bi bi-shield-lock"></i> Journal d'audit (créations et modifications)</div>
+  <ul class="list-group list-group-flush small">
+    {% for a in audit %}<li class="list-group-item"><span class="text-muted">{{ a.timestamp|date:"d/m/Y H:i" }}</span> · {{ a.user|default:"—" }} ·
+      <b>{{ a.get_action_display }}</b>{% for k, v in a.changes.items %}<div class="ms-3"><span class="text-muted">{{ k }} :</span> {{ v|truncatechars:100 }}</div>{% endfor %}</li>
+    {% empty %}<li class="list-group-item text-muted">Aucune entrée.</li>{% endfor %}
+  </ul></div>

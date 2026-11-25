@@ -1,0 +1,19 @@
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script>
+/* QR codes (SVG) : tout élément [data-qr] reçoit le QR code de son texte (ex. nom de la boîte). */
+(function () {
+  function draw() {
+    document.querySelectorAll('[data-qr]').forEach(function (el) {
+      if (typeof qrcode === 'undefined') { el.textContent = el.dataset.qr; return; }
+      var qr = qrcode(0, 'M');
+      qr.addData(el.dataset.qr);
+      qr.make();
+      el.innerHTML = qr.createSvgTag({cellSize: 4, margin: 0, scalable: true});
+      var svg = el.querySelector('svg');
+      if (svg) { svg.setAttribute('width', '100%'); svg.removeAttribute('height'); svg.setAttribute('role', 'img');
+                 svg.setAttribute('aria-label', 'QR code ' + el.dataset.qr); }
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', draw); else draw();
+})();
+</script>

@@ -39,7 +39,7 @@ ROLES = {
         "instruments": {"*": RW},
         "quality": {"*": L},
         "stock": {"*": ALL},
-        "extra": ["core.view_activitylog", "quality.view_sgq"],
+        "extra": ["core.view_activitylog", "quality.view_sgq", "biobank.validate_inventorysession"],
     }),
     "MB": ("Médecin Biologiste", {
         "core": {"*": ALL},
@@ -50,7 +50,8 @@ ROLES = {
         "instruments": {"*": ALL},
         "quality": {"*": L, "qualitydocument": RW},
         "stock": {"*": L},
-        "extra": ["core.validate_results", "core.view_activitylog", "quality.view_sgq", "quality.approve_qualitydocument"],
+        "extra": ["core.validate_results", "core.view_activitylog", "quality.view_sgq", "quality.approve_qualitydocument",
+                  "biobank.validate_inventorysession"],
     }),
     "AS": ("Agent de Saisie", {
         "core": {"patient": RW, "sample": RW, "facility": L, "room": L},
@@ -170,7 +171,7 @@ class Command(BaseCommand):
         names = ["RAKOTO", "RABE", "RASOA", "RANDRIA", "RAZAFY", "RAHARISON", "ANDRIAMANANA", "RAVELO"]
         firsts = ["Jean", "Hery", "Lalao", "Fara", "Tiana", "Nirina", "Mamy", "Voahangy"]
         unit = StorageUnit.objects.create(name="CONG-80-01", type="-80", location="Salle P3")
-        box = StorageBox.objects.create(unit=unit, name="BOX-001", shelf="1", rack="A", content="Souches")
+        box = StorageBox.objects.create(unit=unit, item_type="ISOLATE", shelf="1", rack="1")  # SCH-<année>-01
         run = SequencingRun.objects.create(run_id="ONT-2026-001", technology="WGS", platform="ONT_GRIDION",
                                            project=proj, library_kit="SQK-RBK114.24", status="DONE")
         pos = 0

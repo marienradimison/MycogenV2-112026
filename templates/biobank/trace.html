@@ -1,0 +1,143 @@
+{% extends "base.html" %}{% load lims %}
+{% block title %}Traçabilité — Biobanque{% endblock %}
+{% block content %}
+<div class="page-title">
+  {% include "generic/_back.html" with fallback="/" %}
+  <div class="icon"><i class="bi bi-clock-history"></i></div>
+  <div><div class="small text-muted">Biobanque</div><h1>Traçabilité</h1></div>
+</div>
+
+<form method="get" class="card card-body py-2 mb-3 d-flex flex-row flex-wrap gap-2 align-items-center">
+  <input type="hidden" name="onglet" value="{% if tab == 'journal' or tab == 'audit' %}{{ tab }}{% else %}dossier{% endif %}">
+  <i class="bi bi-search text-muted"></i>
+  <input class="form-control" style="max-width:26rem" name="q" value="{{ q }}" autofocus
+         placeholder="Code d'aliquot, n° d'échantillon ou nom de boîte (ex. 26-4244, SCH-2026-01)">
+  {% if tab == "journal" %}
+    <label class="small d-flex align-items-center gap-1">Du <input type="date" class="form-control form-control-sm" name="du" value="{{ filters.du }}"></label>
+    <label class="small d-flex align-items-center gap-1">au <input type="date" class="form-control form-control-sm" name="au" value="{{ filters.au }}"></label>
+    <select class="form-select form-select-sm w-auto" name="type" aria-label="Type d'opération"><option value="">Toutes les opérations</option>
+      {% for k, l in types %}<option value="{{ k }}" {% if k == filters.type %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+    <select class="form-select form-select-sm w-auto" name="operateur" aria-label="Opérateur"><option value="">Tous les opérateurs</option>
+      {% for u in operators %}<option value="{{ u.pk }}" {% if u.pk|stringformat:"s" == filters.operateur %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>{% endfor %}</select>
+  {% endif %}
+  <button class="btn btn-primary btn-sm">Rechercher</button>
+</form>
+
+{% include "generic/_tabs.html" %}
+
+{% if tab == "dossier" %}
+  {% if not q %}
+    <div class="alert alert-light border">Saisissez ou scannez un code pour afficher le dossier complet : localisations successives, entrées,
+      sorties et déplacements, quantités et cycles de congélation / décongélation, filiation (échantillon → souche → ADN…),
+      inventaires et journal d'audit.</div>
+  {% elif item %}
+    <div class="row g-3">
+      <div class="col-xl-4">
+        <div class="card mb-3"><div class="card-header"><i class="bi bi-box-seam"></i> <a href="{{ item.get_absolute_url }}">{{ item.code }}</a> {% cell item "status" %}</div>
+          <div class="card-body"><dl class="row details mb-0">
+            <dt class="col-5">Type</dt><dd class="col-7">{{ item.get_item_type_display }}</dd>
+            <dt class="col-5">Localisation</dt><dd class="col-7"><code>{{ item.path|default:"—" }}</code></dd>
+            <dt class="col-5">Quantité</dt><dd class="col-7">{{ item.quantity|default:"—" }} {{ item.get_unit_display }}</dd>
+            <dt class="col-5">Conservation</dt><dd class="col-7">{{ item.preservation|default:"—" }}</dd>
+            <dt class="col-5">Congélation / décongélation</dt><dd class="col-7">{{ item.freeze_thaw }} cycle{{ item.freeze_thaw|pluralize }}</dd>
+            <dt class="col-5">Projet</dt><dd class="col-7">{{ item.project.code|default:"—" }}</dd>
+            <dt class="col-5">Étiquette / ID externe</dt><dd class="col-7">{{ item.label|default:"—" }}</dd>
+            <dt class="col-5">Stocké le</dt><dd class="col-7">{{ item.stored_on|date:"d/m/Y" }}</dd>
+          </dl></div></div>
+        <div class="card mb-3"><div class="card-header"><i class="bi bi-diagram-3"></i> Filiation</div>
+          <div class="card-body trace-tree small">
+            {% if item.sample %}<div><i class="bi bi-droplet"></i> Échantillon <a href="{{ item.sample.get_absolute_url }}">{{ item.sample.code }}</a> — {{ item.sample.type_display }}{% if item.sample.patient %} · {{ item.sample.patient.code }}{% endif %}</div>{% endif %}
+            {% for a in ancestors %}<div class="depth-{{ forloop.counter }}"><i class="bi bi-arrow-return-right"></i> <a href="?q={{ a.code }}">{{ a.code }}</a> — {{ a.get_item_type_display }}</div>{% endfor %}
+            <div class="depth-{{ ancestors|length|add:1 }} fw-semibold"><i class="bi bi-arrow-return-right"></i> {{ item.code }} — {{ item.get_item_type_display }}</div>
+            {% for n in children %}<div class="depth-{{ ancestors|length|add:2|add:n.depth }}"><i class="bi bi-arrow-return-right"></i> <a href="?q={{ n.item.code }}">{{ n.item.code }}</a> — {{ n.item.get_item_type_display }} <span class="text-muted">{{ n.item.get_status_display }}</span></div>{% endfor %}
+            {% if libraries %}<div class="mt-2 text-muted">Librairies de séquençage :</div>
+              {% for lib in libraries %}<div><a href="{{ lib.get_absolute_url }}">{{ lib.library_id|default:lib }}</a> · {{ lib.run }}</div>{% endfor %}{% endif %}
+          </div></div>
+      </div>
+      <div class="col-xl-8">
+        <div class="card mb-3"><div class="card-header"><i class="bi bi-list-ul"></i> Historique des opérations et des localisations</div>
+          <div class="card-body"><ul class="timeline">
+            {% for m in movements %}
+              <li class="{% if m.type in 'OUT SHIP CONSUME DESTROY' %}exit{% endif %}">
+                <div><b>{{ m.get_type_display }}</b> <span class="text-muted small">— {{ m.date|date:"d/m/Y H:i" }} · {{ m.operator|default:"opérateur non renseigné" }}</span></div>
+                {% if m.from_location and m.to_location != m.from_location %}<div class="small"><code>{{ m.from_location }}</code> → <code>{{ m.to_location|default:"—" }}</code></div>
+                {% elif m.to_location or m.from_location %}<div class="small"><code>{{ m.to_location|default:m.from_location }}</code></div>{% endif %}
+                <div class="small text-muted">{% if m.quantity %}Quantité : {{ m.quantity }} {{ item.get_unit_display }} · {% endif %}{% if m.destination %}{{ m.destination }} · {% endif %}{{ m.reason }}</div>
+              </li>
+            {% empty %}<li class="audit text-muted small">Aucune opération enregistrée.</li>{% endfor %}
+          </ul></div></div>
+        {% if inventories %}
+        <div class="card mb-3"><div class="card-header"><i class="bi bi-clipboard-check"></i> Inventaires</div>
+          <ul class="list-group list-group-flush small">{% for l in inventories %}
+            <li class="list-group-item"><a href="{{ l.session.get_absolute_url }}">{{ l.session.code }}</a> · {{ l.session.started_at|date:"d/m/Y" }} ·
+              <span class="inv-status-{{ l.status }}">{{ l.get_status_display }}</span>{% if l.found_position %} (trouvé en {{ l.found_position }}){% endif %}{% if l.comment %} · {{ l.comment }}{% endif %}</li>{% endfor %}
+          </ul></div>
+        {% endif %}
+        {% include "biobank/_audit.html" %}
+      </div>
+    </div>
+  {% elif box %}
+    <div class="row g-3">
+      <div class="col-xl-5">
+        <div class="card mb-3"><div class="card-header"><i class="bi bi-grid-3x3"></i> <a href="{{ box.get_absolute_url }}">{{ box.name }}</a></div>
+          <div class="card-body"><p class="mb-1"><code>{{ box.path }}</code></p>
+            <p class="small text-muted mb-0">{{ box.get_item_type_display|default:"Type non renseigné" }} · {{ box.format_display }} · {{ box.occupied }} occupée{{ box.occupied|pluralize }}</p></div></div>
+        <div class="card mb-3"><div class="card-header"><i class="bi bi-arrows-move"></i> Localisations successives de la boîte</div>
+          <div class="card-body"><ul class="timeline">
+            {% for m in box_moves %}<li><div class="small"><b>{{ m.date|date:"d/m/Y H:i" }}</b> · {{ m.operator|default:"—" }}</div>
+              <div class="small"><code>{{ m.from_location }}</code> → <code>{{ m.to_location }}</code></div>{% if m.reason %}<div class="small text-muted">{{ m.reason }}</div>{% endif %}</li>
+            {% empty %}<li class="audit small text-muted">Jamais déplacée depuis sa création ({{ box.created_at|date:"d/m/Y" }}).</li>{% endfor %}
+          </ul></div></div>
+        <div class="card mb-3"><div class="card-header">Contenu actuel</div>
+          <ul class="list-group list-group-flush small">{% for i in box_items %}
+            <li class="list-group-item">{{ i.position }} · <a href="?q={{ i.code }}">{{ i.code }}</a> — {{ i.get_item_type_display }} <span class="text-muted">{{ i.get_status_display }}</span></li>
+          {% empty %}<li class="list-group-item text-muted">Boîte vide.</li>{% endfor %}</ul></div>
+      </div>
+      <div class="col-xl-7">
+        <div class="card mb-3"><div class="card-header"><i class="bi bi-list-ul"></i> Entrées, sorties et déplacements d'aliquots</div>
+          <div class="table-responsive"><table class="table table-sm mb-0 small">
+            <thead><tr><th>Date</th><th>Aliquot</th><th>Opération</th><th>De → vers</th><th>Opérateur</th></tr></thead>
+            <tbody>{% for m in box_movements %}<tr><td>{{ m.date|date:"d/m/Y H:i" }}</td><td><a href="?q={{ m.item.code }}">{{ m.item.code }}</a></td>
+              <td>{{ m.get_type_display }}</td><td><code>{{ m.from_location|default:"—" }}</code>{% if m.to_location != m.from_location %} → <code>{{ m.to_location|default:"—" }}</code>{% endif %}</td><td>{{ m.operator|default:"" }}</td></tr>
+            {% empty %}<tr><td colspan="5" class="text-muted">Aucune opération.</td></tr>{% endfor %}</tbody></table></div></div>
+        {% include "biobank/_audit.html" %}
+      </div>
+    </div>
+  {% elif sample %}
+    <div class="card"><div class="card-header"><i class="bi bi-droplet"></i> Échantillon <a href="{{ sample.get_absolute_url }}">{{ sample.code }}</a> — {{ sample.type_display }}</div>
+      <div class="card-body trace-tree">
+        {% for n in sample_tree %}<div class="depth-{{ n.depth }} py-1"><i class="bi bi-arrow-return-right"></i> <a href="?q={{ n.item.code }}">{{ n.item.code }}</a>
+          — {{ n.item.get_item_type_display }} · <code class="small">{{ n.item.path|default:"sans emplacement" }}</code> <span class="small text-muted">{{ n.item.get_status_display }}</span></div>
+        {% empty %}<p class="text-muted mb-0">Aucun aliquot n'a été stocké pour cet échantillon.</p>{% endfor %}
+      </div></div>
+  {% else %}
+    {% if matches or box_matches %}
+      <div class="card"><div class="card-header">Résultats pour « {{ q }} »</div><ul class="list-group list-group-flush">
+        {% for b in box_matches %}<li class="list-group-item"><i class="bi bi-grid-3x3"></i> <a href="?q={{ b.name }}">{{ b.name }}</a></li>{% endfor %}
+        {% for i in matches %}<li class="list-group-item"><i class="bi bi-box-seam"></i> <a href="?q={{ i.code }}">{{ i.code }}</a> — {{ i.get_item_type_display }}{% if i.label %} · {{ i.label }}{% endif %} <code class="small">{{ i.path }}</code></li>{% endfor %}
+      </ul></div>
+    {% else %}<div class="alert alert-warning">Aucun aliquot, échantillon ni boîte ne correspond à « {{ q }} ».</div>{% endif %}
+  {% endif %}
+
+{% elif tab == "journal" %}
+  <div class="card"><div class="table-responsive"><table class="table table-sm table-hover mb-0 small">
+    <thead><tr><th>Date</th><th>Opération</th><th>Objet</th><th>Localisation avant</th><th>Localisation après</th><th>Quantité</th><th>Opérateur</th><th>Motif</th></tr></thead>
+    <tbody>{% for e in page %}<tr>
+      <td class="text-nowrap">{{ e.date|date:"d/m/Y H:i" }}</td><td>{{ e.kind }}</td>
+      <td><a href="?onglet=dossier&q={{ e.code|urlencode }}">{{ e.code }}</a></td>
+      <td><code>{{ e.from|default:"—" }}</code></td><td><code>{{ e.to|default:"—" }}</code></td>
+      <td>{{ e.quantity|default:"" }}</td><td>{{ e.operator|default:"" }}</td><td>{{ e.reason }}</td></tr>
+    {% empty %}<tr><td colspan="8" class="text-muted">Aucune opération pour ces critères.</td></tr>{% endfor %}</tbody></table></div></div>
+  {% include "biobank/_pager.html" %}
+
+{% elif tab == "audit" %}
+  <p class="small text-muted">Créations, modifications, suppressions et validations des aliquots, boîtes, congélateurs, mouvements et inventaires.</p>
+  <div class="card"><div class="table-responsive"><table class="table table-sm table-hover mb-0 small">
+    <thead><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Objet</th><th>Description</th><th>Modifications</th></tr></thead>
+    <tbody>{% for a in page %}<tr><td class="text-nowrap">{{ a.timestamp|date:"d/m/Y H:i" }}</td><td>{{ a.user|default:"—" }}</td>
+      <td>{{ a.get_action_display }}</td><td>{{ a.model }}</td><td>{{ a.object_repr }}</td>
+      <td>{% for k, v in a.changes.items %}<div><b>{{ k }}</b> : {{ v|truncatechars:80 }}</div>{% endfor %}</td></tr>
+    {% empty %}<tr><td colspan="6" class="text-muted">Aucune entrée.</td></tr>{% endfor %}</tbody></table></div></div>
+  {% include "biobank/_pager.html" %}
+{% endif %}
+{% endblock %}

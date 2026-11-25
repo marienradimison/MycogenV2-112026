@@ -1,0 +1,179 @@
+{% extends "generic/detail.html" %}{% load lims %}
+{% block content %}
+{% include "generic/_detail_header.html" %}
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">Inventaire {{ object.code }} <span class="ms-2">{% cell object "status" %}</span></div>
+      <div class="card-body">
+        <dl class="row details mb-0">
+          <dt class="col-5">Niveau</dt><dd class="col-7">{{ object.level }}</dd>
+          <dt class="col-5">Périmètre</dt><dd class="col-7"><code>{{ object.scope }}</code></dd>
+          <dt class="col-5">Début</dt><dd class="col-7">{{ object.started_at|date:"d/m/Y H:i" }} · {{ object.performed_by|default:"—" }}</dd>
+          {% if object.submitted_at %}<dt class="col-5">Soumis le</dt><dd class="col-7">{{ object.submitted_at|date:"d/m/Y H:i" }}</dd>{% endif %}
+          {% if object.validated_at %}<dt class="col-5">Validé</dt><dd class="col-7">{{ object.validated_at|date:"d/m/Y H:i" }} · {{ object.validated_by }}</dd>{% endif %}
+          {% if object.validation_comment %}<dt class="col-5">Commentaire du responsable</dt><dd class="col-7">{{ object.validation_comment|linebreaksbr }}</dd>{% endif %}
+          {% if object.notes %}<dt class="col-5">Remarques</dt><dd class="col-7">{{ object.notes|linebreaksbr }}</dd>{% endif %}
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="row g-2">
+      {% for code, label in anomaly_labels.items %}
+      <div class="col-6 col-md-4"><div class="card stat py-2"><div class="value inv-status-{{ code }}">{{ counts|get_item:code }}</div><div class="label">{{ label }}</div></div></div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% if editable %}
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="post" action="{% url 'biobank:inventory_scan' object.pk %}" class="row g-2 align-items-end" id="scan-form">{% csrf_token %}
+      <div class="col-md-4"><label class="form-label" for="scan-code"><i class="bi bi-upc-scan"></i> Scanner / saisir un code</label>
+        <input class="form-control" name="code" id="scan-code" autocomplete="off" autofocus placeholder="Code de l'aliquot ou QR de la boîte"></div>
+      <div class="col-md-3"><label class="form-label" for="scan-box">Boîte en cours</label>
+        <select class="form-select no-ts" name="box" id="scan-box">
+          {% for g in groups %}{% if g.box %}<option value="{{ g.box.pk }}" data-name="{{ g.box.name }}">{{ g.box.name }}</option>{% endif %}{% endfor %}
+        </select></div>
+      <div class="col-md-2"><label class="form-label" for="scan-pos">Position constatée</label>
+        <input class="form-control" name="position" id="scan-pos" maxlength="5" placeholder="B07"></div>
+      <div class="col-md-3"><button class="btn btn-outline-primary w-100"><i class="bi bi-plus-lg"></i> Enregistrer le constat</button></div>
+      <div class="col-12 form-text" id="scan-msg">Un code attendu à sa position est coché « Conforme » dans le tableau (pensez à enregistrer) ;
+        scanner le QR d'une boîte la sélectionne et valide son étiquette. Un code inconnu ou trouvé ailleurs est ajouté comme anomalie.</div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<form method="post" action="{% url 'biobank:inventory_save' object.pk %}" id="lines-form">{% csrf_token %}
+{% for g in groups %}
+<div class="card mb-3" id="box-{{ g.box.pk|default:0 }}">
+  <div class="card-header d-flex flex-wrap align-items-center gap-2">
+    <i class="bi bi-grid-3x3"></i>
+    {% if g.box %}<a href="{{ g.box.get_absolute_url }}" class="fw-semibold">{{ g.box.name }}</a> <code class="small text-muted">{{ g.box.path }}</code>{% else %}<span class="fw-semibold">Hors boîte</span>{% endif %}
+    {% if g.box_line %}
+      <span class="ms-auto small">Étiquette / QR code de la boîte</span>
+      {% if editable %}
+        <select class="form-select form-select-sm no-ts w-auto" name="status_{{ g.box_line.pk }}" data-box-line="{{ g.box.name }}">
+          {% for code, label in box_status %}<option value="{{ code }}" {% if code == g.box_line.status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <input type="hidden" name="found_{{ g.box_line.pk }}" value="">
+        <input class="form-control form-control-sm w-auto" name="comment_{{ g.box_line.pk }}" value="{{ g.box_line.comment }}" placeholder="Commentaire">
+      {% else %}<span class="inv-status-{{ g.box_line.status }}">{{ g.box_line.get_status_display }}</span>{% if g.box_line.comment %} · {{ g.box_line.comment }}{% endif %}{% endif %}
+    {% endif %}
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Position</th><th>Aliquot enregistré</th><th>Type</th><th>Code lu</th><th style="width:13rem">Constat</th><th style="width:7rem">Position constatée</th><th>Commentaire</th><th>Vérifié</th></tr></thead>
+      <tbody>
+      {% for l in g.lines %}
+        <tr class="inv-row" data-code="{{ l.expected_item.code|default:'' }}" data-box="{{ g.box.name|default:'' }}">
+          <td>{{ l.position|default:"—" }}</td>
+          <td>{% if l.expected_item %}<a href="{{ l.expected_item.get_absolute_url }}">{{ l.expected_item.code }}</a>{% else %}—{% endif %}</td>
+          <td class="small">{{ l.expected_item.get_item_type_display|default:"" }}</td>
+          <td class="small">{{ l.found_code|default:"" }}</td>
+          {% if editable and l.status != "UNREGISTERED" %}
+            <td><select class="form-select form-select-sm no-ts" name="status_{{ l.pk }}">
+              {% for code, label in item_status %}<option value="{{ code }}" {% if code == l.status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select></td>
+            <td><input class="form-control form-control-sm" name="found_{{ l.pk }}" value="{{ l.found_position }}" maxlength="5"></td>
+            <td><input class="form-control form-control-sm" name="comment_{{ l.pk }}" value="{{ l.comment }}" maxlength="255"></td>
+          {% else %}
+            <td class="inv-status-{{ l.status }}">{{ l.get_status_display }}{% if l.corrected %} <span class="badge text-bg-success">corrigé</span>{% endif %}</td>
+            <td>{{ l.found_position|default:"" }}</td><td class="small">{{ l.comment }}</td>
+          {% endif %}
+          <td class="small text-muted">{% if l.checked_at %}{{ l.checked_at|date:"d/m H:i" }} · {{ l.checked_by|default:"" }}{% endif %}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="text-muted small">Aucun aliquot enregistré dans cette boîte.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% empty %}
+<div class="alert alert-light border">Aucune boîte dans ce périmètre.</div>
+{% endfor %}
+{% if editable and groups %}
+<div class="d-flex flex-wrap gap-2 mb-3 position-sticky bottom-0 bg-body py-2">
+  <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Enregistrer les constats</button>
+  <span class="small text-warning align-self-center d-none" id="dirty"><i class="bi bi-exclamation-circle"></i> Modifications non enregistrées</span>
+</div>
+{% endif %}
+</form>
+
+{% if editable %}
+<div class="d-flex flex-wrap gap-2 mb-3">
+  <form method="post" action="{% url 'biobank:inventory_missing' object.pk %}" onsubmit="return confirm('Déclarer manquants tous les éléments encore « à vérifier » ?')">{% csrf_token %}
+    <button class="btn btn-outline-danger"><i class="bi bi-question-octagon"></i> Non vérifiés → manquants</button></form>
+  <form method="post" action="{% url 'biobank:inventory_submit' object.pk %}">{% csrf_token %}
+    <button class="btn btn-success"><i class="bi bi-send-check"></i> Soumettre au responsable</button></form>
+  <form method="post" action="{% url 'biobank:inventory_cancel' object.pk %}" class="ms-auto" onsubmit="return confirm('Annuler cet inventaire ?')">{% csrf_token %}
+    <button class="btn btn-light"><i class="bi bi-x-lg"></i> Annuler l'inventaire</button></form>
+</div>
+{% endif %}
+
+{% if can_validate %}
+<div class="card border-success mb-3">
+  <div class="card-header"><i class="bi bi-patch-check text-success"></i> Validation par le responsable</div>
+  <form class="card-body" method="post" action="{% url 'biobank:inventory_validate' object.pk %}">{% csrf_token %}
+    <label class="form-label" for="val-comment">Commentaire</label>
+    <textarea class="form-control mb-2" name="comment" id="val-comment" rows="2" maxlength="2000"></textarea>
+    <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="apply" value="1" id="val-apply" checked>
+      <label class="form-check-label" for="val-apply">Corriger dans Mycogen la position des aliquots mal positionnés (si la position constatée est libre)</label></div>
+    <button class="btn btn-success" name="decision" value="validate"><i class="bi bi-patch-check"></i> Valider l'inventaire</button>
+    <button class="btn btn-outline-secondary" name="decision" value="reopen"><i class="bi bi-arrow-counterclockwise"></i> Renvoyer pour reprise</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var form = document.getElementById('lines-form'), dirty = document.getElementById('dirty');
+  function markDirty() { if (dirty) dirty.classList.remove('d-none'); }
+  if (form) form.addEventListener('change', markDirty);
+  var scan = document.getElementById('scan-form');
+  if (!scan) return;
+  var code = document.getElementById('scan-code'), boxSel = document.getElementById('scan-box'),
+      pos = document.getElementById('scan-pos'), msg = document.getElementById('scan-msg');
+  scan.addEventListener('submit', function (e) {
+    var value = code.value.trim();
+    if (!value) { e.preventDefault(); return; }
+    var upper = value.toUpperCase();
+    // QR code d'une boîte : sélection de la boîte et étiquette conforme
+    var opt = Array.prototype.find.call(boxSel.options, function (o) { return o.dataset.name.toUpperCase() === upper; });
+    if (opt) {
+      e.preventDefault();
+      boxSel.value = opt.value;
+      var sel = document.querySelector('[data-box-line="' + opt.dataset.name + '"]');
+      if (sel && sel.value === 'PENDING') { sel.value = 'OK'; markDirty(); }
+      document.getElementById('box-' + opt.value).scrollIntoView({behavior: 'smooth', block: 'start'});
+      msg.textContent = 'Boîte ' + opt.dataset.name + ' sélectionnée : étiquette / QR conforme.';
+      code.value = ''; code.focus();
+      return;
+    }
+    // Aliquot attendu dans la boîte en cours, sans position différente : coché conforme
+    var current = boxSel.options[boxSel.selectedIndex];
+    var row = Array.prototype.find.call(document.querySelectorAll('.inv-row'), function (r) { return r.dataset.code.toUpperCase() === upper; });
+    var p = pos.value.trim().toUpperCase().replace(/^([A-Z])0*(\d)/, '$1$2');
+    if (row && current && row.dataset.box === current.dataset.name && (!p || row.cells[0].textContent.trim() === p)) {
+      e.preventDefault();
+      var s = row.querySelector('select');
+      if (s) { s.value = 'OK'; markDirty(); }
+      row.classList.remove('scanned'); void row.offsetWidth; row.classList.add('scanned');
+      row.scrollIntoView({behavior: 'smooth', block: 'center'});
+      msg.textContent = value + ' : conforme.';
+      code.value = ''; pos.value = ''; code.focus();
+    }
+    // sinon : envoi au serveur (mal positionné, trouvé ailleurs ou non enregistré)
+    if (dirty && !dirty.classList.contains('d-none') &&
+        !confirm('Des constats du tableau ne sont pas enregistrés et seront perdus. Continuer ?')) e.preventDefault();
+  });
+})();
+</script>
+{% endblock %}

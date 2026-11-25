@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Biobanque — {{ tab_label }}</title>
+  <style>
+    @page { size: A4 landscape; margin: 12mm; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #111; margin: 0; }
+    .toolbar { padding: 8px 12px; background: #f2f5f6; border-bottom: 1px solid #ccd; margin-bottom: 10px; }
+    .warn { color: #b03a2e; margin-right: 10px; }
+    header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #6eafc4; padding-bottom: 4px; margin-bottom: 10px; }
+    header .inst { font-weight: bold; font-size: 10pt; } header .unit { font-size: 8.5pt; color: #444; }
+    h1 { font-size: 14pt; margin: 0; }
+    h2 { font-size: 10.5pt; margin: 14px 0 4px; color: #3f8197; }
+    table { border-collapse: collapse; width: 100%; page-break-inside: auto; }
+    th, td { border: 1px solid #c8d2d6; padding: 3px 5px; text-align: right; }
+    th:first-child, td:first-child { text-align: left; }
+    th { background: #e8f1f4; } tfoot td { font-weight: bold; background: #f6f8f9; }
+    tr { page-break-inside: avoid; }
+    .meta { font-size: 8.5pt; color: #555; }
+    .empty { color: #777; font-style: italic; }
+    @media print { .toolbar { display: none; } }
+  </style>
+</head>
+<body>
+{% if pdf_error %}<div class="toolbar"><span class="warn">PDF indisponible : {{ pdf_error }} — utilisez « Imprimer » puis « Enregistrer au format PDF ».</span>
+  <button onclick="window.print()">🖨 Imprimer</button></div>{% endif %}
+<header>
+  <div><div class="inst">INSTITUT PASTEUR DE MADAGASCAR</div><div class="unit">Unité des Mycobactéries — Biobanque</div></div>
+  <div style="text-align:right"><h1>{{ tab_label }}</h1><div class="meta">{{ description }} · édité le {{ now|date:"d/m/Y H:i" }}</div></div>
+</header>
+{% for t in tables %}
+  <h2>{{ t.title }}</h2>
+  {% if t.rows %}
+  <table>
+    <thead><tr>{% for h in t.headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for r in t.rows %}<tr>{% for c in r %}<td>{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody>
+    {% if t.foot %}<tfoot><tr>{% for c in t.foot %}<td>{{ c }}</td>{% endfor %}</tr></tfoot>{% endif %}
+  </table>
+  {% else %}<p class="empty">Aucune donnée pour ces critères.</p>{% endif %}
+{% endfor %}
+</body>
+</html>

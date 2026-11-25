@@ -1,20 +1,55 @@
-{% extends "generic/detail.html" %}
+{% extends "generic/detail.html" %}{% load lims %}
 {% block content %}
 {% include "generic/_detail_header.html" %}
+<div class="card mb-3 box-head">
+  <div class="card-body">
+    <nav class="box-path mb-3" aria-label="Localisation">
+      <i class="bi bi-snow2"></i>
+      <a href="{{ object.unit.get_absolute_url }}">{{ object.unit.name }}</a>
+      {% if object.shelf %}<i class="bi bi-chevron-right"></i><span>{{ object.shelf }}</span>{% endif %}
+      {% if object.rack %}<i class="bi bi-chevron-right"></i><span>{{ object.rack }}</span>{% endif %}
+      <i class="bi bi-chevron-right"></i><b>{{ object.name }}</b>
+      <code class="ms-auto small text-muted d-none d-md-inline">{{ object.path }}</code>
+    </nav>
+    <div class="row g-3 mb-3">
+      <div class="col-4"><div class="card stat"><div class="value">{{ object.capacity }}</div><div class="label">Capacité</div></div></div>
+      <div class="col-4"><div class="card stat"><div class="value">{{ object.occupied }}</div><div class="label">Occupées</div></div></div>
+      <div class="col-4"><div class="card stat green"><div class="value">{{ object.free }}</div><div class="label">Libres</div></div></div>
+    </div>
+    <div class="row g-2">
+      <div class="col-md-6"><a class="btn btn-outline-primary w-100 text-start" href="{% url 'biobank:box_label' object.pk %}" target="_blank"><i class="bi bi-printer me-2"></i>Imprimer l'étiquette</a></div>
+      <div class="col-md-6"><button type="button" class="btn btn-outline-primary w-100 text-start" data-bs-toggle="modal" data-bs-target="#qrModal"><i class="bi bi-qr-code me-2"></i>Afficher le QR code</button></div>
+      {% crud_perm user crud "change" as can_change %}
+      {% if can_change %}<div class="col-md-6"><button type="button" class="btn btn-outline-primary w-100 text-start" data-bs-toggle="modal" data-bs-target="#moveModal"><i class="bi bi-arrow-left-right me-2"></i>Déplacer la boîte</button></div>{% endif %}
+      <div class="col-md-6"><a class="btn btn-outline-primary w-100 text-start" href="{{ trace_url }}"><i class="bi bi-clock-history me-2"></i>Historique</a></div>
+    </div>
+  </div>
+</div>
+
 <div class="row g-3">
   <div class="col-xl-4">
-    <div class="card">
+    <div class="card mb-3">
       <div class="card-header">Informations</div>
       <div class="card-body">
         <dl class="row details mb-0">
-          <dt class="col-5">Unité</dt><dd class="col-7"><a href="{{ object.unit.get_absolute_url }}">{{ object.unit }}</a></dd>
-          <dt class="col-5">Étagère / rack</dt><dd class="col-7">{{ object.shelf|default:"—" }} / {{ object.rack|default:"—" }}</dd>
-          <dt class="col-5">Format</dt><dd class="col-7">{{ object.rows }} × {{ object.cols }}</dd>
-          <dt class="col-5">Occupation</dt><dd class="col-7">{{ object.occupied }} / {{ object.capacity }}</dd>
-          <dt class="col-5">Contenu</dt><dd class="col-7">{{ object.content|default:"—" }}</dd>
+          <dt class="col-5">Type d'aliquot</dt><dd class="col-7">{{ object.get_item_type_display|default:"—" }}</dd>
+          <dt class="col-5">Étiquette</dt><dd class="col-7">{{ object.label|default:"—" }}</dd>
+          <dt class="col-5">Année / n°</dt><dd class="col-7">{{ object.year|default:"—" }}{% if object.number %} / {{ object.number|stringformat:"02d" }}{% endif %}</dd>
+          <dt class="col-5">Format</dt><dd class="col-7">{{ object.format_display }}</dd>
+          <dt class="col-5">Occupation</dt><dd class="col-7">{{ object.occupied }} / {{ object.capacity }} ({{ object.occupancy_pct }} %)</dd>
+          <dt class="col-5">Créée</dt><dd class="col-7 small text-muted">{{ object.created_at|date:"d/m/Y H:i" }}{% if object.created_by %} · {{ object.created_by }}{% endif %}</dd>
         </dl>
       </div>
     </div>
+    {% if moves %}
+    <div class="card">
+      <div class="card-header">Derniers déplacements</div>
+      <ul class="list-group list-group-flush small">
+        {% for m in moves %}<li class="list-group-item"><span class="text-muted">{{ m.date|date:"d/m/Y H:i" }}</span> · {{ m.operator|default:"—" }}<br>
+          <code>{{ m.from_location }}</code> → <code>{{ m.to_location }}</code>{% if m.reason %}<br><span class="text-muted">{{ m.reason }}</span>{% endif %}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
   </div>
   <div class="col-xl-8">
     <div class="card">
@@ -26,9 +61,9 @@
             <tr><th>{{ r }}</th>
             {% for pos, item in cells %}
               {% if item %}
-                <td class="filled" title="{{ item }} — {{ item.label }}"><a href="{{ item.get_absolute_url }}">{{ item.code }}<br><span class="fw-normal">{{ item.get_item_type_display|truncatechars:10 }}</span></a></td>
+                <td class="filled" title="{{ item.path }} — {{ item.get_item_type_display }}{% if item.label %} — {{ item.label }}{% endif %}"><a href="{{ item.get_absolute_url }}">{{ item.code }}<br><span class="fw-normal">{{ item.get_item_type_display|truncatechars:10 }}</span></a></td>
               {% else %}
-                <td class="empty"><a href="{% url 'biobank:item_create' %}?box={{ object.pk }}&position={{ pos }}&next={{ request.path|urlencode }}">{{ pos }}</a></td>
+                <td class="empty"><a href="{% url 'biobank:item_create' %}?box={{ object.pk }}&position={{ pos }}{% if object.item_type %}&item_type={{ object.item_type }}{% endif %}&next={{ request.path|urlencode }}">{{ pos }}</a></td>
               {% endif %}
             {% endfor %}</tr>
           {% endfor %}
@@ -37,4 +72,44 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="qrModal" tabindex="-1" aria-label="QR code de la boîte">
+  <div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title"><i class="bi bi-qr-code"></i> {{ object.name }}</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button></div>
+    <div class="modal-body text-center">
+      <div class="qr-box mx-auto" data-qr="{{ object.name }}" style="width:220px"></div>
+      <div class="small text-muted mt-2">{{ object.path }}</div>
+    </div>
+    <div class="modal-footer"><a class="btn btn-primary btn-sm" href="{% url 'biobank:box_label' object.pk %}" target="_blank"><i class="bi bi-printer"></i> Imprimer l'étiquette</a></div>
+  </div></div>
+</div>
+
+{% if can_change %}
+<div class="modal fade" id="moveModal" tabindex="-1" aria-label="Déplacer la boîte">
+  <div class="modal-dialog"><form class="modal-content" method="post" action="{% url 'biobank:box_move' object.pk %}">{% csrf_token %}
+    <div class="modal-header"><h5 class="modal-title"><i class="bi bi-arrow-left-right"></i> Déplacer {{ object.name }}</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button></div>
+    <div class="modal-body">
+      <p class="small text-muted mb-2">Emplacement actuel : <code>{{ object.path }}</code></p>
+      <div class="row g-2">
+        <div class="col-12"><label class="form-label" for="mv-unit">Congélateur</label>
+          <select class="form-select no-ts" name="unit" id="mv-unit" required>
+            {% for u in units %}<option value="{{ u.pk }}" {% if u.pk == object.unit_id %}selected{% endif %}>{{ u }}</option>{% endfor %}
+          </select></div>
+        <div class="col-6"><label class="form-label" for="mv-shelf">Étagère</label>
+          <input class="form-control" name="shelf" id="mv-shelf" value="{{ object.shelf }}" placeholder="E03"></div>
+        <div class="col-6"><label class="form-label" for="mv-rack">Rack</label>
+          <input class="form-control" name="rack" id="mv-rack" value="{{ object.rack }}" placeholder="R01"></div>
+        <div class="col-12"><label class="form-label" for="mv-reason">Motif</label>
+          <input class="form-control" name="reason" id="mv-reason" maxlength="255" placeholder="Ex. dégivrage du congélateur"></div>
+      </div>
+      <div class="form-text">Les aliquots suivent la boîte ; le déplacement est inscrit dans la traçabilité.</div>
+    </div>
+    <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+      <button class="btn btn-primary"><i class="bi bi-check-lg"></i> Déplacer</button></div>
+  </form></div>
+</div>
+{% endif %}
 {% endblock %}
+{% block extra_js %}{% include "biobank/_qr_js.html" %}{% endblock %}
