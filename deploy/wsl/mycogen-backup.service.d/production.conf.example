@@ -1,0 +1,2 @@
+[Service]
+Environment=DB_NAME=mycogen_repetition

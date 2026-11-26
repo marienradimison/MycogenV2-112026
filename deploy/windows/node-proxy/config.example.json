@@ -1,0 +1,18 @@
+{
+    "automates":  [
+                      {
+                          "cible_hote":  "127.0.0.1",
+                          "nom":  "GeneXpert-exemple",
+                          "cible_port":  12000,
+                          "actif":  false,
+                          "ecoute_port":  12000
+                      }
+                  ],
+    "journal":  "logs/passerelle.log",
+    "web":  {
+                "cible_hote":  "127.0.0.1",
+                "ecoute_hote":  "0.0.0.0",
+                "cible_port":  8001,
+                "ecoute_port":  8000
+            }
+}
