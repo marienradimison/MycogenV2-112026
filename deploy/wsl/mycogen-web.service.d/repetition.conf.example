@@ -1,0 +1,4 @@
+[Service]
+Environment=DB_NAME=mycogen_repetition
+Environment=MYCOGEN_PORT=8001
+Environment=MYCOGEN_HOST=127.0.0.1

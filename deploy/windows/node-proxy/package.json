@@ -1,0 +1,12 @@
+{
+  "name": "mycogen-v2-passerelle",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MYCOGEN V2 - passerelle reseau Node.js (Windows) vers MYCOGEN Django dans WSL",
+  "main": "passerelle.js",
+  "scripts": {
+    "start": "node passerelle.js",
+    "test": "node test-passerelle.js"
+  },
+  "engines": { "node": ">=18" }
+}
