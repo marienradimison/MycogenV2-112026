@@ -19,7 +19,8 @@ class RolesTests(TestCase):
 
     def test_roles_in_code_library(self):
         codes = dict(AnalysisCode.objects.filter(category="ROLE").values_list("code", "meaning"))
-        self.assertEqual(set(codes), {"TL", "SL", "MB", "AS", "RSR", "RQ/CQ", "AL"})
+        self.assertEqual(set(codes), {"TL", "SL", "MB", "CDS", "AS", "RSR", "RQ/CQ", "AL", "STG"})
+        self.assertEqual((codes["CDS"], codes["STG"]), ("Chef de Service", "Stagiaire"))
         self.assertEqual(codes["MB"], "Médecin Biologiste")
         self.assertTrue(all(c.group for c in AnalysisCode.objects.filter(category="ROLE")))
         # les rôles ne sont pas proposés comme analyses à l'enregistrement
@@ -27,13 +28,13 @@ class RolesTests(TestCase):
 
     def test_permissions_are_cumulative(self):
         u = User.objects.create_user("hery", password="x")
+        u.groups.add(Group.objects.get(role_code__code="STG"))
+        self.assertTrue(u.has_perm("research.add_labnotebook"))
+        self.assertFalse(u.has_perm("core.add_sample"))
+        u = User.objects.get(pk=u.pk)   # vide le cache des permissions
         u.groups.add(Group.objects.get(role_code__code="AS"))
         self.assertTrue(u.has_perm("core.add_sample"))
-        self.assertFalse(u.has_perm("diagnostic.add_genexperttest"))
-        self.assertFalse(u.has_perm("core.validate_results"))
-        u = User.objects.get(pk=u.pk)   # vide le cache des permissions
-        u.groups.add(Group.objects.get(role_code__code="TL"))
-        self.assertTrue(u.has_perm("diagnostic.add_genexperttest"))
+        self.assertTrue(u.has_perm("research.add_labnotebook"))       # droits cumulés
         mb = Group.objects.get(role_code__code="MB")
         self.assertTrue(mb.permissions.filter(codename="validate_results").exists())
         sl = Group.objects.get(role_code__code="SL")
@@ -93,13 +94,16 @@ class StockTests(TestCase):
         for name in ("article_list", "lot_list", "movement_list", "article_create", "lot_create"):
             self.assertEqual(self.client.get(reverse(f"stock:{name}")).status_code, 200, name)
 
-    def test_lab_agent_can_only_record_outputs(self):
+    def test_stock_reserved_to_sl_rq_cds(self):
         al = User.objects.create_user("al", password="x")
         al.groups.add(Group.objects.get(role_code__code="AL"))
         self.client.force_login(al)
+        self.assertEqual(self.client.get(reverse("stock:home")).status_code, 403)
+        cds = User.objects.create_user("cds", password="x")
+        cds.groups.add(Group.objects.get(role_code__code="CDS"))
+        self.client.force_login(cds)
         lot = Lot.objects.create(article=self.art, lot_number="B1", quantity_received=10)
-        self.assertEqual(self.client.get(reverse("stock:home")).status_code, 200)
-        self.assertEqual(self.client.get(reverse("stock:article_create")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("stock:article_create")).status_code, 200)
         self.client.post(reverse("stock:home"), {"lot": lot.pk, "kind": "OUT", "quantity": "2",
                                                  "date": self.today.isoformat()})
         self.assertEqual(lot.remaining, 8)

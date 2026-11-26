@@ -40,6 +40,37 @@ des inventaires pour les rôles SL et MB).
 
 ---
 
+## 2026-11-26 — Autorisations par rôle (permissions.xlsx)
+
+Migration : `core.0027_validation_view_permission`. Après mise à jour : `migrate` puis **`init_mycogen`**
+(qui réapplique les droits de tous les rôles).
+
+### Modifié
+
+- **Rôles** redéfinis par une matrice module × rôle conforme au fichier `permissions.xlsx`
+  (`MATRIX` dans `apps/core/management/commands/init_mycogen.py`) ; les droits d'un rôle sont l'union des lignes
+  où il figure. L'administrateur (superutilisateur) garde tous les droits.
+- **Validation** : nouvelle permission `core.view_validation` (consulter et exporter la table) distincte de
+  `core.validate_results` (valider) ; sans droit de valider, la page s'affiche sans cases ni bouton et refuse les
+  envois.
+
+### Ajouté
+
+- Rôles **CDS — Chef de Service** et **STG — Stagiaire** (bibliothèque de codes, catégorie Rôle).
+- Tests de la matrice des autorisations (`apps/core/test_permissions.py`).
+
+### Ajusté (même jour)
+
+- **MycoLearn** : consultation pour tous ; ajout, modification et suppression des contenus réservés à SL, RSR,
+  RQ/CQ et CDS.
+- **Documents qualité (SOP, manuels…)** : consultables par tous les rôles (menu SGQ réduit à « DQ — Documents
+  qualité » pour les rôles sans autre accès SGQ) ; rédaction et approbation restent à SL, RQ/CQ et CDS.
+- **AL** : consultation et saisie des températures d'étuve, par l'entrée « Températures des étuves » du module
+  Analyses TB (affichée aux rôles qui n'ont pas accès à la Culture LJ) ; les onglets de la Culture LJ
+  inaccessibles sont masqués.
+
+---
+
 ## 2026-11-19 — Signatures, SGQ réorganisé, cahiers de laboratoire et MycoLearn
 
 Migrations : `core.0026_user_signature`, `quality.0003_quality_documents`, `research.0006_notebooks_mycolearn`.

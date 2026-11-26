@@ -13,7 +13,7 @@ MODULES = [
     {"key": "cnrm", "label": "CNRM", "icon": "bi-hospital", "expanded": True, "items": [
         ("core:sample_list", "bi-droplet", "Échantillons", "core.view_sample", "Liste et fiches des échantillons", None),
         ("core:register", "bi-clipboard-plus", "Enregistrer", "core.add_sample", "Nouvel échantillon (patient + examens)", None),
-        ("core:validation", "bi-patch-check", "Validation", "core.validate_results", "Résultats en attente de validation", None),
+        ("core:validation", "bi-patch-check", "Validation", "core.view_validation", "Résultats en attente de validation", None),
         ("core:facility_list", "bi-buildings", "Structures / CDT", "core.view_facility", "CDT et structures de provenance", None),
     ]},
     {"key": "analyses", "label": "Analyses TB", "icon": "bi-clipboard2-pulse", "items": [
@@ -25,6 +25,9 @@ MODULES = [
          "Ziehl-Neelsen et fluorescence", None),
         ("diagnostic:lj_home", "bi-thermometer-sun", "Culture LJ", "diagnostic.view_culture",
          "Étuve, ensemencement, lecture hebdomadaire, températures", lambda r: culture_page(r, "LJ")),
+        ("diagnostic:lj_temperatures", "bi-thermometer-half", "Températures des étuves",
+         lambda u: u.has_perm("diagnostic.add_temperaturelog") and not u.has_perm("diagnostic.view_culture"),
+         "Relevés de température des étuves", "/diagnostic/lj/temperatures/"),
         ("diagnostic:culture_list?medium=MGIT", "bi-moisture", "Culture MGIT", "diagnostic.view_culture",
          "Suivi des cultures MGIT", lambda r: culture_page(r, "MGIT")),
         ("diagnostic:dst_list", "bi-capsule", "Antibiogramme (DST)", "diagnostic.view_dst",
@@ -107,6 +110,8 @@ def culture_page(request, medium):
 
 
 def allowed(user, perm):
+    if callable(perm):
+        return perm(user)
     if perm == "is_staff":
         return user.is_staff
     return perm is None or user.has_perm(perm)

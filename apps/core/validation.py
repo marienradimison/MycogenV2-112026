@@ -2,7 +2,7 @@
 from datetime import date
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -22,14 +22,21 @@ def parse_date(value):
 
 
 @login_required
-@permission_required("core.validate_results", raise_exception=True)
 def validation(request):
+    """Table de validation : consultation et export (core.view_validation), validation (core.validate_results)."""
+    from django.core.exceptions import PermissionDenied
+
     from apps.research.models import Project
 
+    can_validate = request.user.has_perm("core.validate_results")
+    if not (can_validate or request.user.has_perm("core.view_validation")):
+        raise PermissionDenied
     cruds = validatable_cruds()
     keys = {c.prefix: c for c in cruds}
 
     if request.method == "POST":
+        if not can_validate:
+            raise PermissionDenied
         done = 0
         for token in request.POST.getlist("items"):
             prefix, _, pk = token.partition(":")
@@ -65,7 +72,7 @@ def validation(request):
         "rows": rows, "legend": sorted(used.items()), "tabs": tabs, "f": f,
         "total": sum(t["count"] for t in tabs), "statut_choices": STATUS_CHOICES,
         "projects": Project.objects.order_by("code"), "querystring": request.GET.urlencode(),
-        "export_query": export_query(request.GET),
+        "export_query": export_query(request.GET), "can_validate": can_validate,
     })
 
 

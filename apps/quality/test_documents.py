@@ -27,6 +27,9 @@ class SignatureAndDocumentTests(TestCase):
         profile.job_title = "Médecin biologiste"
         profile.signature = SimpleUploadedFile("sig.png", PNG, content_type="image/png")
         profile.save()
+        cls.cds = User.objects.create_user("chef", password="x", first_name="Voahangy", last_name="R")
+        cls.cds.groups.add(Group.objects.get(role_code__code="CDS"))
+        UserProfile.objects.update_or_create(user=cls.cds, defaults={"signature": profile.signature.name})
         cls.tl = User.objects.create_user("tech", password="x")
         cls.tl.groups.add(Group.objects.get(role_code__code="TL"))
 
@@ -51,22 +54,22 @@ class SignatureAndDocumentTests(TestCase):
         self.assertContains(self.client.get(reverse("core:validation")), "Signature apposée")
 
     def test_document_approval_signed_and_versioning(self):
-        self.client.force_login(self.mb)
+        self.client.force_login(self.cds)
         r = self.client.post(reverse("quality:document_create"), {
             "reference": "MYC-SOP-001", "title": "Coloration auramine", "category": "SOP", "version": "01",
-            "status": "DRAFT", "author": self.mb.pk, "file": SimpleUploadedFile("sop.pdf", b"%PDF-1.4 test", content_type="application/pdf")})
+            "status": "DRAFT", "author": self.cds.pk, "file": SimpleUploadedFile("sop.pdf", b"%PDF-1.4 test", content_type="application/pdf")})
         self.assertEqual(r.status_code, 302)
         v1 = QualityDocument.objects.get(reference="MYC-SOP-001")
-        self.assertEqual(v1.author, self.mb)
+        self.assertEqual(v1.author, self.cds)
         self.client.post(reverse("quality:document_approve", args=[v1.pk]), {"comment": "OK"})
         v1.refresh_from_db()
-        self.assertEqual((v1.status, v1.approved_by), ("APPROVED", self.mb))
+        self.assertEqual((v1.status, v1.approved_by), ("APPROVED", self.cds))
         self.assertIsNotNone(v1.effective_on)
         self.assertContains(self.client.get(v1.get_absolute_url()), "data:image/png;base64")
         # nouvelle version approuvée : l'ancienne est archivée
         v2 = QualityDocument.objects.create(reference="MYC-SOP-001", title="Coloration auramine", version="02",
                                             file=SimpleUploadedFile("sop2.pdf", b"%PDF-1.4"))
-        v2.approve(self.mb)
+        v2.approve(self.cds)
         v1.refresh_from_db()
         self.assertEqual(v1.status, "ARCHIVED")
         # un document approuvé dont le fichier change repart en brouillon
@@ -77,11 +80,11 @@ class SignatureAndDocumentTests(TestCase):
         d = QualityDocument.objects.create(reference="MYC-COMM-001", title="Note", category="COMM", status="APPROVED")
         self.assertEqual(d.status, "REVIEW")
 
-    def test_technician_reads_but_cannot_approve(self):
+    def test_document_access_reserved_to_sgq_roles(self):
         doc = QualityDocument.objects.create(reference="MYC-MQ-001", title="Manuel qualité", category="MQ",
                                              file=SimpleUploadedFile("mq.pdf", b"%PDF"))
         self.client.force_login(self.tl)
-        self.assertEqual(self.client.get(reverse("quality:document_list")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("quality:document_list")).status_code, 200)   # lecture : tous
         self.assertEqual(self.client.post(reverse("quality:document_approve", args=[doc.pk])).status_code, 403)
         doc.refresh_from_db()
         self.assertEqual(doc.status, "DRAFT")
@@ -89,7 +92,9 @@ class SignatureAndDocumentTests(TestCase):
     def test_sgq_menu(self):
         from apps.core.menu import build_menu
 
-        sidebar, _ = build_menu(self.mb)
+        mb_sgq = next(m for m in build_menu(self.mb)[0] if m["key"] == "quality")   # MB : documents seulement
+        self.assertEqual([i["label"] for i in mb_sgq["items"]], ["DQ — Documents qualité"])
+        sidebar, _ = build_menu(self.cds)
         sgq = next(m for m in sidebar if m["key"] == "quality")
         self.assertEqual(sgq["label"], "SGQ")
         self.assertEqual([i["label"] for i in sgq["items"]],
