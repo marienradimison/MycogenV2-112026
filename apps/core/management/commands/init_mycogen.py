@@ -19,72 +19,71 @@ L = ("view",)
 LM = ("view", "change")
 LA = ("view", "add")
 
-# Rôles = jeux de permissions (un utilisateur peut en cumuler plusieurs).
-# code -> (libellé, {app_label: {modèle: actions}})   ("*" = tous les modèles de l'app ; "extra" = permissions spéciales)
+# Rôles (un utilisateur peut en cumuler plusieurs). L'administrateur (compte superutilisateur) a tous les droits.
 ROLES = {
-    "TL": ("Technicien(ne) de Laboratoire", {
-        "core": {"patient": RW, "sample": RW, "facility": L, "room": L},
-        "diagnostic": {"*": RW},
-        "research": {"project": L, "*": RW},
-        "biobank": {"*": RW},
-        "instruments": {"instrument": L, "instrumentmessage": LM},
-        "quality": {"equipment": L, "roomaccess": L, "qualitydocument": L},
-        "stock": {"article": L, "lot": L, "movement": LA},
-    }),
-    "SL": ("Surveillant(e) de Laboratoire", {
-        "core": {"patient": RW, "sample": RW, "facility": L, "room": L, "analysiscode": L},
-        "diagnostic": {"*": ALL},
-        "research": {"*": L},
-        "biobank": {"*": ALL},
-        "instruments": {"*": RW},
-        "quality": {"*": L},
-        "stock": {"*": ALL},
-        "extra": ["core.view_activitylog", "quality.view_sgq", "biobank.validate_inventorysession"],
-    }),
-    "MB": ("Médecin Biologiste", {
-        "core": {"*": ALL},
-        "diagnostic": {"*": ALL},
-        "research": {"*": ALL},
-        "biobank": {"*": ALL},
-        "bioinfo": {"*": L},
-        "instruments": {"*": ALL},
-        "quality": {"*": L, "qualitydocument": RW},
-        "stock": {"*": L},
-        "extra": ["core.validate_results", "core.view_activitylog", "quality.view_sgq", "quality.approve_qualitydocument",
-                  "biobank.validate_inventorysession"],
-    }),
-    "AS": ("Agent de Saisie", {
-        "core": {"patient": RW, "sample": RW, "facility": L, "room": L},
-        "research": {"project": L, "study": L, "projectcase": L, "learningresource": L, "learningdomain": L},
-        "quality": {"qualitydocument": L},
-    }),
-    "RSR": ("Researcher", {
-        "core": {"patient": L, "sample": RW, "facility": L, "room": L},
-        "diagnostic": {"*": L},
-        "research": {"*": ALL},
-        "biobank": {"*": RW},
-        "bioinfo": {"*": ALL},
-        "stock": {"article": L, "lot": L},
-        "quality": {"qualitydocument": L},
-    }),
-    "RQ/CQ": ("Responsable Qualité / Correspondant Qualité", {
-        "core": {"room": LM, "facility": L, "sample": L},
-        "quality": {"*": ALL},
-        "instruments": {"instrument": L},
-        "biobank": {"storageunit": L},
-        "diagnostic": {"temperaturelog": L},
-        "stock": {"article": L, "lot": L, "movement": L},
-        "research": {"labnotebook": L, "notebookentry": L, "learningresource": L, "learningdomain": L},
-        "extra": ["core.view_activitylog", "quality.view_sgq", "quality.approve_qualitydocument"],
-    }),
-    "AL": ("Agent de Laboratoire", {
-        "core": {"sample": L, "room": L},
-        "diagnostic": {"culture": L, "culturetube": L, "temperaturelog": LA},
-        "quality": {"equipment": L, "qualitydocument": L},
-        "research": {"learningresource": L, "learningdomain": L},
-        "stock": {"article": L, "lot": L, "movement": LA},
-    }),
+    "TL": "Technicien(ne) de Laboratoire",
+    "SL": "Surveillant(e) de Laboratoire",
+    "MB": "Médecin Biologiste",
+    "CDS": "Chef de Service",
+    "AS": "Agent de Saisie",
+    "RSR": "Researcher",
+    "RQ/CQ": "Responsable Qualité / Correspondant Qualité",
+    "AL": "Agent de Laboratoire",
+    "STG": "Stagiaire",
 }
+EVERYONE = tuple(ROLES)
+
+# Matrice des autorisations (fichier « permissions.xlsx », 26/11/2026, ajusté le 26/11 : MycoLearn modifiable par
+# SL, RSR, RQ/CQ, CDS seulement ; documents qualité consultables par tous ; températures saisies par AL).
+# (rôles, {app_label: {modèle: actions}}, permissions spéciales) — "*" = tous les modèles de l'app ;
+# les droits d'un rôle sont l'union de toutes les lignes où il figure.
+MATRIX = [
+    # Tableau de bord (consulter, interagir) ; Structures / CDT : consulter, exporter ; MycoLearn : consulter ;
+    # SGQ → Documents qualité (SOP…) : consulter
+    (EVERYONE, {"core": {"facility": L}, "research": {"learningresource": L, "learningdomain": L},
+                "quality": {"qualitydocument": L}}, []),
+    # Températures des étuves : consulter, saisir
+    (("AL",), {"diagnostic": {"temperaturelog": LA}}, []),
+    # Échantillons (consulter, exporter, enregistrer, saisir / modifier) ; Enregistrer ; Analyses TB (toutes) ;
+    # Validation : consulter et exporter
+    (("AS", "SL", "TL", "MB", "CDS", "RQ/CQ"),
+     {"core": {"patient": RW, "sample": RW}, "diagnostic": {"*": ALL}}, ["core.view_validation"]),
+    # Validation : valider
+    (("SL", "MB", "CDS"), {}, ["core.validate_results"]),
+    # Structures / CDT : ajouter, modifier
+    (("SL", "RQ/CQ", "CDS"), {"core": {"facility": RW}}, []),
+    # Analyses TB : consulter, exporter
+    (("RSR",), {"diagnostic": {"*": L}}, []),
+    # Recherche : tous les sous-modules, dont MycoLearn (ajouter / modifier / supprimer des contenus)
+    (("SL", "CDS", "RQ/CQ", "RSR"), {"research": {"*": ALL}, "bioinfo": {"*": ALL}}, []),
+    # Recherche → Cahiers de laboratoire
+    (("TL", "STG"), {"research": {"labnotebook": ALL, "notebookentry": ALL}}, []),
+    # Biobanque (toutes) ; Automates → Suivi en temps réel, Messages reçus
+    (("SL", "CDS", "RQ/CQ", "RSR", "TL", "AS"),
+     {"biobank": {"*": ALL}, "instruments": {"instrument": L, "instrumentmessage": ALL}},
+     ["biobank.validate_inventorysession"]),
+    # Automates → Configuration ; Stock ; SGQ (tous) ; Administration → Bibliothèque de codes, Journal d'activité
+    (("SL", "RQ/CQ", "CDS"),
+     {"instruments": {"*": ALL}, "stock": {"*": ALL}, "quality": {"*": ALL},
+      "core": {"room": ALL, "analysiscode": ALL}},
+     ["quality.view_sgq", "quality.approve_qualitydocument", "core.view_activitylog"]),
+]
+
+
+def role_spec(code):
+    """Union des lignes de la matrice pour un rôle : ({app: {modèle: actions}}, permissions spéciales)."""
+    spec, extra = {}, []
+    for roles, perms, specials in MATRIX:
+        if code not in roles:
+            continue
+        for app_label, models in perms.items():
+            app = spec.setdefault(app_label, {})
+            for model, actions in models.items():
+                app[model] = tuple(sorted(set(app.get(model, ())) | set(actions)))
+        extra += [s for s in specials if s not in extra]
+    return spec, extra
+
+
 # Anciens rôles → nouveaux (les utilisateurs sont transférés, puis l'ancien groupe est supprimé)
 LEGACY = {"Réception": "AS", "Technicien": "TL", "Biologiste": "MB", "Chercheur": "RSR",
           "Gestionnaire biobanque": "SL", "Bioinformaticien": "RSR", "Responsable matériel & qualité": "RQ/CQ"}
@@ -101,35 +100,33 @@ class Command(BaseCommand):
 
         from apps.core.models import AnalysisCode
 
-        for order, (code, (label, spec)) in enumerate(ROLES.items(), start=1):
+        for order, (code, label) in enumerate(ROLES.items(), start=1):
             group, _ = Group.objects.get_or_create(name=label)
             AnalysisCode.objects.update_or_create(code=code, defaults={
                 "category": "ROLE", "meaning": label, "group": group, "kind": "", "method": "",
                 "requestable": False, "order": 500 + order, "active": True})
             role = f"{code} — {label}"
-            perms = []
+            spec, extra = role_spec(code)
+            perms = set()
+            for p in extra:
+                app_label, codename = p.split(".")
+                perms.add(Permission.objects.get(content_type__app_label=app_label, codename=codename))
             for app_label, models in spec.items():
-                if app_label == "extra":
-                    for p in models:
-                        a, code = p.split(".")
-                        perms.append(Permission.objects.get(content_type__app_label=a, codename=code))
-                    continue
-                default = models.get("*")
                 for model in apps.get_app_config(app_label).get_models():
                     name = model._meta.model_name
-                    actions = models.get(name, default)
-                    if name == "activitylog" or not actions:
+                    actions = set(models.get(name, ())) | set(models.get("*", ()))
+                    if name == "activitylog":
                         continue
                     for act in actions:
-                        perms.append(Permission.objects.get(content_type__app_label=app_label,
-                                                            codename=f"{act}_{name}"))
+                        perms.add(Permission.objects.get(content_type__app_label=app_label,
+                                                         codename=f"{act}_{name}"))
             group.permissions.set(perms)
             self.stdout.write(f"  rôle « {role} » : {len(perms)} permissions")
 
         for old_name, code in LEGACY.items():
             old = Group.objects.filter(name=old_name).first()
             if old:
-                new = Group.objects.get(name=ROLES[code][0])
+                new = Group.objects.get(name=ROLES[code])
                 for user in old.user_set.all():
                     user.groups.add(new)
                 old.delete()

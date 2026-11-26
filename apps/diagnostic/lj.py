@@ -29,7 +29,7 @@ from .models import Culture, CultureTube, IncubatorReading, ReadingEntry, Temper
 LJ_CODE = "Cult-LJ"
 
 
-def lj_tabs(active):
+def lj_tabs(active, user=None):
     items = [
         ("home", "En étuve", "bi-thermometer-sun", "diagnostic:lj_home"),
         ("inoculation", "Ensemencement", "bi-plus-circle", "diagnostic:lj_inoculation"),
@@ -38,9 +38,12 @@ def lj_tabs(active):
         ("retreatment", "Retraitement", "bi-arrow-repeat", "diagnostic:lj_retreatment"),
         ("temperature", "Températures", "bi-thermometer-half", "diagnostic:lj_temperatures"),
     ]
+    if user is not None and not user.has_perm("diagnostic.view_culture"):   # ex. AL : températures seulement
+        items = [i for i in items if i[0] == "temperature"]
     tabs = [(k, label, icon, reverse(url), k == active) for k, label, icon, url in items]
-    tabs.append(("results", "Résultats LJ", "bi-list-ul", reverse("diagnostic:culture_list") + "?medium=LJ",
-                 active == "results"))
+    if user is None or user.has_perm("diagnostic.view_culture"):
+        tabs.append(("results", "Résultats LJ", "bi-list-ul", reverse("diagnostic:culture_list") + "?medium=LJ",
+                     active == "results"))
     return tabs
 
 
@@ -473,7 +476,7 @@ def lj_temperatures(request):
         chart.setdefault(t.incubator.name, []).append({"x": timezone.localtime(t.measured_at).strftime("%Y-%m-%d %H:%M"),
                                                        "y": float(t.value)})
     return render(request, "diagnostic/lj_temperatures.html", {
-        "tabs": lj_tabs("temperature"), "form": form, "can_add": can_add, "logs": logs[:100], "chart": chart,
+        "tabs": lj_tabs("temperature", request.user), "form": form, "can_add": can_add, "logs": logs[:100], "chart": chart,
         "no_incubator": not incubators().exists(), "tmin": float(TemperatureLog.TARGET_MIN),
         "tmax": float(TemperatureLog.TARGET_MAX),
         "out_count": sum(1 for t in logs.filter(measured_at__gte=since) if t.out_of_range),

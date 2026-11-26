@@ -48,13 +48,17 @@ class NotebookAndMycoLearnTests(TestCase):
                                         file=SimpleUploadedFile("intro.mp4", b"\x00\x00"))
         LearningResource.objects.create(title="Brouillon caché", domain=domain, kind="LINK",
                                         url="https://example.org", published=False)
-        self.client.force_login(self.al)                                    # lecture seule
+        self.client.force_login(self.al)                                    # MycoLearn : consultation
         page = self.client.get(reverse("research:mycolearn"), {"domaine": domain.pk})
         self.assertContains(page, "Introduction à TB-Profiler")
         self.assertNotContains(page, "Brouillon caché")
         self.assertNotContains(page, "Ajouter un support")
+        self.assertEqual(self.client.get(reverse("research:learning_create")).status_code, 403)
         res = LearningResource.objects.get(title="Introduction à TB-Profiler")
         self.assertContains(self.client.get(res.get_absolute_url()), "<video")
+        nobody = User.objects.create_user("sansrole", password="x")                # compte sans rôle
+        self.client.force_login(nobody)
+        self.assertEqual(self.client.get(reverse("research:mycolearn")).status_code, 403)
         self.client.force_login(self.rsr)
         self.assertContains(self.client.get(reverse("research:mycolearn")), "Brouillon caché")
         # ni fichier ni lien : refusé

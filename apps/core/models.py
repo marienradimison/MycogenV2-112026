@@ -379,7 +379,8 @@ class Sample(CodedModel):
         verbose_name = "échantillon"
         verbose_name_plural = "échantillons"
         ordering = ["-received_at"]
-        permissions = [("validate_results", "Peut valider les résultats")]
+        permissions = [("validate_results", "Peut valider les résultats"),
+                       ("view_validation", "Peut consulter et exporter la table de validation")]
 
     def build_prefix(self):
         return f"{timezone.localdate():%y}-"

@@ -11,7 +11,7 @@
   </div>
 </div>
 
-{% signature request.user as my_signature %}
+{% if can_validate %}{% signature request.user as my_signature %}
 <div class="d-flex align-items-center gap-3 mb-3 small">
   {% if my_signature %}
     <span class="signature-box d-flex align-items-center gap-3">{{ my_signature }}<span class="caption">Signature apposée sur les résultats que vous validez<br>{{ request.user|signature_caption }}</span></span>
@@ -20,6 +20,7 @@
       Demandez à l'administrateur de l'ajouter (Administration → Utilisateurs &amp; rôles).</span>
   {% endif %}
 </div>
+{% else %}<div class="small text-muted mb-3"><i class="bi bi-eye"></i> Consultation et export : la validation est réservée aux rôles SL, MB et CDS.</div>{% endif %}
 
 <div class="d-flex flex-wrap gap-2 mb-3 validation-tabs">
   <a class="btn btn-sm {% if not f.analyse %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="?{% if f.projet %}projet={{ f.projet }}&{% endif %}{% if f.statut %}statut={{ f.statut }}{% endif %}">Tous les tests <span class="badge text-bg-light">{{ total }}</span></a>
@@ -55,13 +56,13 @@
     <div class="table-responsive">
       <table class="table table-sm table-hover align-middle mb-0 dbl-rows">
         <thead><tr>
-          <th style="width:32px"><input class="form-check-input" type="checkbox" id="check-all" title="Tout sélectionner"></th>
+          <th style="width:32px">{% if can_validate %}<input class="form-check-input" type="checkbox" id="check-all" title="Tout sélectionner">{% endif %}</th>
           <th>Analyse</th><th>N° échantillon</th><th>Patient</th><th>Date de rendu</th><th>Résultat</th><th>Projet</th><th>Saisi par</th><th style="min-width:220px">Commentaire du validateur</th><th></th>
         </tr></thead>
         <tbody>
         {% for r in rows %}
           <tr data-href="{{ r.obj.get_absolute_url }}">
-            <td>{% if r.obj.is_validated %}<i class="bi bi-patch-check-fill text-success" title="Validé par {{ r.obj.validated_by|default:'—' }} le {{ r.obj.validated_at|date:'d/m/Y H:i' }}"></i>{% else %}<input class="form-check-input row-check" type="checkbox" name="items" value="{{ r.token }}">{% endif %}</td>
+            <td>{% if r.obj.is_validated %}<i class="bi bi-patch-check-fill text-success" title="Validé par {{ r.obj.validated_by|default:'—' }} le {{ r.obj.validated_at|date:'d/m/Y H:i' }}"></i>{% elif can_validate %}<input class="form-check-input row-check" type="checkbox" name="items" value="{{ r.token }}">{% else %}<i class="bi bi-hourglass-split text-muted" title="En attente de validation"></i>{% endif %}</td>
             <td>{% if r.code %}<span class="code-badge" title="{{ r.tab.title }} — {{ r.code.meaning }}">{{ r.code.code }}</span>{% else %}<i class="bi {{ r.crud.icon }} text-secondary"></i> {{ r.crud.title }}{% endif %}</td>
             <td class="mono"><a href="{{ r.obj.sample.get_absolute_url }}">{{ r.obj.sample.code }}</a></td>
             <td>{{ r.obj.sample.patient.full_name|default:"—" }}</td>
@@ -69,7 +70,7 @@
             <td>{% if r.codes %}<span class="result-codes" title="{{ r.summary }}">{% for t in r.codes %}<span class="rcode rcode-{{ t.cls|default:'x' }}" title="{{ t.title }}">{{ t.label }}</span>{% endfor %}</span>{% else %}{{ r.summary }}{% endif %}</td>
             <td>{{ r.obj.sample.project.code|default:"—" }}</td>
             <td class="small">{{ r.obj.performed_by|default:"—" }}</td>
-            <td>{% if r.obj.is_validated %}<span class="small">{{ r.obj.validation_comment|default:"—" }}</span>{% else %}<input class="form-control form-control-sm val-comment" name="comment_{{ r.token }}" maxlength="2000" placeholder="Facultatif">{% endif %}</td>
+            <td>{% if r.obj.is_validated %}<span class="small">{{ r.obj.validation_comment|default:"—" }}</span>{% elif can_validate %}<input class="form-control form-control-sm val-comment" name="comment_{{ r.token }}" maxlength="2000" placeholder="Facultatif">{% else %}<span class="small text-muted">—</span>{% endif %}</td>
             <td class="text-end"><a class="btn btn-sm btn-light" href="{{ r.obj.get_absolute_url }}" title="Ouvrir"><i class="bi bi-chevron-right"></i></a></td>
           </tr>
         {% empty %}
@@ -83,7 +84,7 @@
       {% for code, meaning in legend %}<span class="me-3"><span class="code-badge">{{ code }}</span> {{ meaning }}</span>{% endfor %}
       <a class="ms-1" href="{% url 'core:code_list' %}">Bibliothèque de codes</a></div>
     {% endif %}
-    {% if rows and f.statut != "valides" %}
+    {% if rows and f.statut != "valides" and can_validate %}
     <div class="card-footer d-flex align-items-center gap-2">
       <span class="small text-muted fw-normal" id="sel-count">0 sélectionné</span>
       <button class="btn btn-sm btn-success ms-auto" id="validate-btn" disabled onclick="return confirm('Valider les résultats sélectionnés ?')">

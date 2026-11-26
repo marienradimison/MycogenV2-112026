@@ -322,17 +322,42 @@ Les comptes se gèrent dans **Administration → Utilisateurs & paramètres → 
 - Les **rôles** donnent les permissions. Un utilisateur peut avoir **plusieurs rôles** : ses droits s'additionnent.
 - Les codes des rôles sont enregistrés dans la **Bibliothèque de codes** (catégorie « Rôle »).
 
-| Code | Rôle | Permissions principales |
-|---|---|---|
-| **TL** | Technicien(ne) de Laboratoire | Enregistrer patients/échantillons ; saisir tous les résultats (diagnostic, recherche) ; biobanque ; messages d'automates ; consulter matériels et accès ; consulter le stock et **enregistrer des sorties** |
-| **SL** | Surveillant(e) de Laboratoire | Diagnostic et biobanque complets (y compris suppression) ; automates ; **gestion complète du stock** ; consultation recherche, qualité, SGQ, journal d'audit |
-| **MB** | Médecin Biologiste | Tout le CNRM, le diagnostic, la recherche, la biobanque, les automates ; **validation des résultats** ; journal d'audit ; SGQ (consultation, documents qualité : rédaction et **approbation signée**) et stock |
-| **AS** | Agent de Saisie | Enregistrer et modifier patients et échantillons ; consulter structures, salles, projets / études / cas |
-| **RSR** | Researcher | Recherche et bioinformatique complètes ; biobanque ; échantillons ; consultation du diagnostic et du stock |
-| **RQ/CQ** | Responsable Qualité / Correspondant Qualité | **SGQ** (suivi performance, documents qualité avec **approbation signée**), matériels, accès aux salles, surveillance ; modification des salles ; consultation des automates, congélateurs, températures, stock, journal d'audit |
-| **AL** | Agent de Laboratoire | Consulter échantillons, cultures, salles, matériels ; **saisir les températures d'étuve** ; consulter le stock et **enregistrer des sorties** |
+Rôles : **AS** Agent de Saisie · **SL** Surveillant(e) de Laboratoire · **TL** Technicien(ne) de Laboratoire ·
+**MB** Médecin Biologiste · **CDS** Chef de Service · **RQ/CQ** Responsable / Correspondant Qualité ·
+**RSR** Researcher · **AL** Agent de Laboratoire · **STG** Stagiaire.
 
-Un **administrateur** (superutilisateur) a tous les droits. Les demandes de réinitialisation de mot de passe et les
+Matrice des autorisations (fichier « permissions.xlsx », 26/11/2026, avec les ajustements demandés le même jour) :
+
+| Module | Sous-module | Actions | Rôles autorisés |
+|---|---|---|---|
+| Tableau de bord | tous | consulter, interagir | Tout le monde |
+| Échantillons | tous | consulter, exporter, enregistrer, saisir / modifier | AS, SL, TL, MB, CDS, RQ/CQ |
+| Enregistrer | tous | saisir / enregistrer | AS, SL, TL, MB, CDS, RQ/CQ |
+| Validation | tous | **valider** | SL, MB, CDS |
+| | | consulter, exporter | AS, SL, TL, MB, CDS, RQ/CQ |
+| Structures / CDT | tous | consulter, exporter | Tout le monde |
+| | | ajouter, modifier | SL, RQ/CQ, CDS |
+| Analyses TB | tous | toutes | AS, SL, TL, MB, CDS, RQ/CQ |
+| | Températures des étuves | consulter, saisir | + AL (entrée « Températures des étuves » du menu) |
+| | | consulter, exporter | RSR |
+| Recherche | tous | toutes | SL, CDS, RQ/CQ, RSR |
+| | Cahiers de laboratoire | toutes | + TL, STG |
+| | MycoLearn | consulter | Tout le monde |
+| | | ajouter, modifier, supprimer des contenus | SL, RSR, RQ/CQ, CDS |
+| Biobanque | tous | toutes (dont validation des inventaires) | SL, CDS, RQ/CQ, RSR, TL, AS |
+| Automates | Suivi en temps réel, Messages reçus | toutes | SL, CDS, RQ/CQ, RSR, TL, AS |
+| | Configuration | toutes | SL, RQ/CQ, CDS |
+| Stock | tous | toutes | SL, RQ/CQ, CDS |
+| SGQ | tous (dont approbation signée des documents) | toutes | SL, RQ/CQ, CDS |
+| | DQ — Documents qualité (SOP, manuels…) | consulter | Tout le monde |
+| Administration | Bibliothèque de codes, Journal d'activité | toutes | SL, RQ/CQ, CDS |
+| | Utilisateurs & rôles, Support | toutes | Administrateur |
+
+« Toutes » comprend la suppression. La suppression des patients et des échantillons est réservée à
+l'administrateur. La matrice est définie dans `apps/core/management/commands/init_mycogen.py` (MATRIX) et
+appliquée par `python manage.py init_mycogen`.
+
+L'**administrateur** a tous les droits (*full control*) : cocher « Statut superutilisateur » et « Statut équipe » dans sa fiche. Les demandes de réinitialisation de mot de passe et les
 signalements de bugs arrivent dans **Administration → Support** (cloche rouge dans le bandeau).
 
 ---
@@ -679,6 +704,7 @@ L'export JSON de l'ancien LIMS (fiches patients) est importé par :
 | 11/11/2026 | Reprise de l'ancien LIMS : 1 187 fiches (1 186 patients, 2 239 résultats) importées ; commande `import_legacy` relançable |
 | 13/11/2026 | Module SGQ (Qualité) : statistiques mensuelles par méthode, concordances, indicateurs DT-1 à DT-10, délais de rendu, export CSV ; bibliothèque enrichie (indicateurs, CMTB +/-, RTT, TB-MR, TB-XDR, antibiotiques de 2ème ligne) ; antibiogramme 2ème ligne : OFX, KAN et CAP ajoutés, LFX/MFX renommés LEV/MOX |
 | 19/11/2026 | Signature des utilisateurs (fiche admin) apposée sur les résultats validés et les documents approuvés ; module Qualité renommé SGQ (Suivi performance, Matériels, Accès aux salles, DQ — Documents qualité avec approbation signée) ; Recherche : Cahiers de laboratoire et MycoLearn, sous-modules bioinformatiques retirés du menu |
+| 26/11/2026 | Autorisations par rôle selon le fichier permissions.xlsx : nouveaux rôles CDS (Chef de Service) et STG (Stagiaire), validation consultable et exportable sans droit de valider, SGQ / Stock / Administration réservés à SL, RQ/CQ et CDS ; SOP consultables par tous, MycoLearn modifiable par SL, RSR, RQ/CQ et CDS, températures saisies par AL |
 
 ---
 

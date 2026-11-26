@@ -67,11 +67,14 @@ class QualityTests(TestCase):
                     reverse("quality:equipment_create") + f"?room={self.room.pk}"):
             self.assertEqual(self.client.get(url).status_code, 200)
 
-    def test_technician_read_only(self):
+    def test_sgq_reserved_to_sl_rq_cds(self):
         self.tech.groups.add(Group.objects.get(role_code__code="TL"))
         self.client.force_login(self.tech)
-        self.assertEqual(self.client.get(reverse("quality:equipment_list")).status_code, 200)
-        self.assertEqual(self.client.get(reverse("quality:equipment_create")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("quality:equipment_list")).status_code, 403)
+        sl = User.objects.create_user("sl", password="x")
+        sl.groups.add(Group.objects.get(role_code__code="SL"))
+        self.client.force_login(sl)
+        self.assertEqual(self.client.get(reverse("quality:equipment_create")).status_code, 200)
 
 
 class SGQTests(TestCase):
