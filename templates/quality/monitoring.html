@@ -2,7 +2,7 @@
 {% block title %}Surveillance matériels & accès{% endblock %}
 {% block content %}
 <div class="page-title">
-  {% include "generic/_back.html" with fallback="/" %}
+  {% url 'quality:equipment_list' as parent %}{% include "generic/_back.html" with fallback=parent %}
   <div class="icon"><i class="bi bi-shield-check"></i></div>
   <div>
     <div class="small text-muted">Qualité</div>

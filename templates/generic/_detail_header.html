@@ -1,6 +1,6 @@
 {% load lims %}
 <div class="page-title">
-  {% crud_url crud 'list' as list_url %}{% include "generic/_back.html" with fallback=list_url %}
+  {% crud_url crud 'list' as list_url %}{% include "generic/_back.html" with fallback=back_url|default:list_url %}
   <div class="icon"><i class="bi {{ crud.icon }}"></i></div>
   <div>
     <div class="small text-muted"><a href="{% crud_url crud 'list' %}">{{ crud.title }}</a></div>

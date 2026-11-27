@@ -11,6 +11,7 @@ from django.db.models import Count, F, Q
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -84,7 +85,8 @@ def collection_context(obj, request):
         "research.change_learningresource")), request.user)
     done = sum(1 for r in resources if r.act and r.act.completed)
     resume = next((r for r in resources if not (r.act and r.act.completed)), resources[0] if resources else None)
-    return {"resources": resources, "done": done, "percent": int(100 * done / len(resources)) if resources else 0,
+    return {"back_url": reverse("research:mycolearn"),
+            "resources": resources, "done": done, "percent": int(100 * done / len(resources)) if resources else 0,
             "resume": resume, "can_manage": request.user.has_perm("research.change_learningcollection")}
 
 
@@ -122,6 +124,7 @@ CRUDS = [
     ),
     Crud(
         CollectionItem, "collectionitem",
+        parent="collection",
         fields=["collection", "resource", "order"],
         list_display=["collection", "order", "resource"],
         search_fields=["collection__title", "resource__title"],

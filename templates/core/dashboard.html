@@ -32,15 +32,30 @@
       <div class="card-header">Échantillons reçus — 30 derniers jours</div>
       <div class="card-body"><canvas id="chart" height="95"></canvas></div>
     </div>
-    <div class="card">
+    <div class="card une-card">
       <div class="card-header d-flex align-items-center">
-        <i class="bi bi-diagram-3 me-2 text-secondary"></i> Organigramme de l'Unité des Mycobactéries
-        <button class="btn btn-sm btn-link ms-auto" data-bs-toggle="modal" data-bs-target="#orgModal"><i class="bi bi-arrows-fullscreen"></i> Agrandir</button>
+        <i class="bi bi-star-fill me-2 text-warning"></i> À la une
+        {% if perms.feed.manage_highlight %}<div class="ms-auto d-flex gap-1">
+          {% if highlight %}<a class="btn btn-sm btn-link" href="{% url 'feed:highlight_edit' highlight.pk %}"><i class="bi bi-pencil"></i> Modifier</a>{% endif %}
+          <a class="btn btn-sm btn-link" href="{% url 'feed:highlight_new' %}"><i class="bi bi-plus-lg"></i> Nouvelle</a></div>{% endif %}
       </div>
-      <div class="card-body p-2">
-        <img class="org-chart" src="{% static 'img/organigramme_2026.webp' %}" alt="Organigramme de l'Unité des Mycobactéries 2026"
-             data-bs-toggle="modal" data-bs-target="#orgModal">
+      {% if highlight %}
+      <div class="une-body {% if highlight.image %}with-image{% endif %}">
+        {% if highlight.image %}<img class="une-image" src="{{ highlight.image.url }}" alt="" data-bs-toggle="modal" data-bs-target="#uneModal" title="Agrandir">{% endif %}
+        <div class="une-text">
+          {% if highlight.title %}<h2>{{ highlight.title }}</h2>{% endif %}
+          {% if highlight.text %}<div class="une-content">{{ highlight.text|urlize|linebreaksbr }}</div>{% endif %}
+          {% if une_post %}<div class="une-interactive" id="une-interactive">{% include "feed/_interactive.html" with p=une_post %}</div>
+          {% elif highlight.post is None and highlight.kind_label %}<div class="small text-muted mt-2"><i class="bi bi-info-circle"></i> {{ highlight.kind_label }} : la publication d'origine a été supprimée, les votes et réponses ne sont plus disponibles.</div>{% endif %}
+          {% if highlight.link %}<a class="btn btn-sm btn-primary mt-2" href="{{ highlight.link }}"{% if highlight.is_external %} target="_blank" rel="noopener noreferrer"{% endif %}>En savoir plus <i class="bi bi-arrow-right"></i></a>{% endif %}
+          <div class="small text-muted mt-2">{% if highlight.post %}Publié par {{ highlight.post.author.get_full_name|default:highlight.post.author.username }} dans Chaud Chaud Chaud!!! · {% endif %}mis à jour le {{ highlight.updated_at|date:"d/m/Y à H:i" }}</div>
+        </div>
       </div>
+      {% else %}
+      <div class="card-body text-muted small"><i class="bi bi-star"></i> Rien à la une pour le moment.
+        {% if perms.feed.manage_highlight %}Mettez une publication de Chaud Chaud Chaud!!! à la une (étoile <i class="bi bi-star"></i>) ou
+        <a href="{% url 'feed:highlight_new' %}">rédigez un contenu</a>.{% endif %}</div>
+      {% endif %}
     </div>
 
     <div class="card mt-3">
@@ -125,21 +140,55 @@
   </div>
 </div>
 
-<div class="modal fade" id="orgModal" tabindex="-1" aria-label="Organigramme">
+{% if highlight.image %}
+<div class="modal fade" id="uneModal" tabindex="-1" aria-label="À la une">
   <div class="modal-dialog modal-fullscreen">
     <div class="modal-content">
       <div class="modal-header py-2">
-        <h5 class="modal-title">Organigramme de l'Unité des Mycobactéries — 2026</h5>
+        <h5 class="modal-title"><i class="bi bi-star-fill text-warning"></i> {{ highlight.title|default:"À la une" }}</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
       </div>
-      <div class="modal-body d-flex align-items-center justify-content-center p-2" style="background:#e6f7fa">
-        <img src="{% static 'img/organigramme_2026.webp' %}" alt="" style="max-width:100%;max-height:100%;object-fit:contain">
+      <div class="modal-body d-flex align-items-center justify-content-center p-2">
+        <img src="{{ highlight.image.url }}" alt="" style="max-width:100%;max-height:100%;object-fit:contain">
       </div>
     </div>
   </div>
 </div>
+{% endif %}
 {% endblock %}
 {% block extra_js %}
+{% if une_post %}
+<script>
+/* « À la une » : vote de sondage, réponse de challenge, clôture — puis rafraîchissement de la page */
+(function () {
+  var box = document.getElementById('une-interactive');
+  var csrf = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value
+           : (document.cookie.match(/csrftoken=([^;]+)/) || [])[1];
+  async function send(url, body) {
+    var r = await fetch(url, {method: 'POST', body: body, headers: {'X-CSRFToken': csrf}});
+    try { return await r.json(); } catch (e) { return {}; }
+  }
+  box.addEventListener('click', async function (e) {
+    var btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    e.preventDefault();
+    if (btn.dataset.confirm && !confirm(btn.dataset.confirm)) return;
+    await send(btn.dataset.action, new URLSearchParams(btn.dataset.option ? {option: btn.dataset.option} : {}));
+    location.reload();
+  });
+  box.addEventListener('submit', async function (e) {
+    var form = e.target.closest('form.hot-answer-form');
+    if (!form) return;
+    e.preventDefault();
+    var res = await send(form.dataset.action, new FormData(form));
+    if (res.correct) { location.reload(); return; }
+    var fb = form.parentElement.querySelector('.answer-feedback');
+    if (fb) fb.innerHTML = '<span class="text-danger">' + (res.error || 'Ce n\u2019est pas ça… réessayez !') + '</span>';
+    form.reset();
+  });
+})();
+</script>
+{% endif %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 {{ chart_labels|json_script:"labels" }}{{ chart_values|json_script:"values" }}
 <script>

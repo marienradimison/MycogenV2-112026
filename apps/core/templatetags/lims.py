@@ -189,3 +189,17 @@ def signature(user, css_class="signature-img"):
 def signature_caption(user):
     from apps.core.signature import caption
     return caption(user)
+
+
+@register.simple_tag(takes_context=True)
+def back_target(context, fallback="/"):
+    """Destination du bouton « Préc. » : la page parente logique (jamais l'historique du navigateur, qui peut
+    mener à un objet supprimé). Un paramètre ?next= vers une page du site est prioritaire."""
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    request = context.get("request")
+    nxt = request.GET.get("next") if request is not None else None
+    if nxt and url_has_allowed_host_and_scheme(nxt, allowed_hosts={request.get_host()},
+                                               require_https=request.is_secure()):
+        return nxt
+    return fallback or "/"

@@ -40,6 +40,47 @@ des inventaires pour les rôles SL et MB).
 
 ---
 
+## 2026-11-27 — Bouton « Préc. » logique ; sondages et challenges à la une
+
+Migration : `feed.0004_highlight_post_kind`.
+
+### Corrigé
+
+- **Préc.** suivait l'historique réel du navigateur : après une suppression, il pouvait ramener vers l'élément
+  supprimé (page d'erreur). Il ramène désormais à la **page parente logique**, calculée côté serveur : fiche → liste,
+  modification → fiche, création → liste, enfant → parent (entrée → cahier, résultat QFT → plaque, résultat PCR /
+  librairie → run, cas → projet, support → collection), sous-module → module (SGQ, Recherche, Biobanque),
+  Surveillance → Matériels, plan de masse → Accès aux salles, « À la une » → tableau de bord. Un `?next=` interne
+  reste prioritaire. *Fichiers : `static/js/nav.js`, `templates/generic/_back.html`, `apps/core/crud.py` (`parent`)*
+
+### Ajouté
+
+- **« À la une » interactive** : un sondage ou un challenge mis à la une s'affiche avec ses choix (vote, résultats)
+  ou son champ de réponse (indice, gagnants) ; si la publication est supprimée, le contenu reste avec une mention.
+
+---
+
+## 2026-11-27 — Tableau de bord : « À la une »
+
+Migration : `feed.0003_a_la_une`. Après mise à jour : `migrate` puis `init_mycogen` (permission `feed.manage_highlight`
+pour SL, RQ/CQ et CDS).
+
+### Modifié
+
+- L'organigramme du tableau de bord est remplacé par la carte **« À la une »** (titre, texte, image agrandissable,
+  lien « En savoir plus »).
+
+### Ajouté
+
+- Bouton étoile sur les publications de Chaud Chaud Chaud!!! : « Mettre à la une » (copie modifiable du texte et de
+  la photo, conservée si la publication est supprimée) ; badge « À la une » sur la publication concernée.
+- Page « À la une » : modifier le contenu à tout moment, en rédiger un nouveau, historique (remettre à la une,
+  retirer, supprimer). Lien limité aux pages MYCOGEN (/…) et aux adresses http(s).
+  *Fichiers : `apps/feed/models.py` (Highlight), `apps/feed/views.py`, `templates/feed/highlight_form.html`,
+  `templates/core/dashboard.html`*
+
+---
+
 ## 2026-11-27 — MycoLearn : lecteurs intégrés pour tous les formats
 
 Migration : `research.0008_lecteurs_integres`. Serveur : installer LibreOffice (voir MISE_EN_PRODUCTION.md, § 2.4).

@@ -166,6 +166,13 @@ def dashboard(request):
         "pending": pending,
         "news": news.current_articles(),
     }
+    from apps.feed.models import Highlight
+    from apps.feed.views import decorate, posts_queryset
+    highlight = Highlight.objects.filter(current=True).select_related("post", "post__author").first()
+    ctx["highlight"] = highlight
+    if highlight and highlight.post_id and highlight.post.kind in ("POLL", "CHALLENGE"):
+        # sondage / challenge : on vote et on répond directement depuis « À la une »
+        ctx["une_post"] = decorate(list(posts_queryset(request.user).filter(pk=highlight.post_id)), request.user)[0]
     return render(request, "core/dashboard.html", ctx)
 
 

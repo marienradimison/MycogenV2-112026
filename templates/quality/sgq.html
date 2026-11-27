@@ -2,7 +2,7 @@
 {% block title %}SGQ — Système de Gestion de la Qualité{% endblock %}
 {% block content %}
 <div class="page-title">
-  {% include "generic/_back.html" with fallback="/" %}
+  {% url 'core:module' 'quality' as parent %}{% include "generic/_back.html" with fallback=parent %}
   <div class="icon"><i class="bi bi-clipboard-data"></i></div>
   <div>
     <div class="small text-muted">Qualité</div>

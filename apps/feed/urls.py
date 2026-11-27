@@ -16,4 +16,8 @@ urlpatterns = [
     path("<int:pk>/repondre/", views.answer, name="answer"),
     path("<int:pk>/cloturer/", views.close, name="close"),
     path("commentaire/<int:pk>/supprimer/", views.comment_delete, name="comment_delete"),
+    path("<int:pk>/a-la-une/", views.feature, name="feature"),
+    path("a-la-une/", views.highlight_edit, name="highlight_new"),
+    path("a-la-une/<int:pk>/modifier/", views.highlight_edit, name="highlight_edit"),
+    path("a-la-une/<int:pk>/etat/", views.highlight_state, name="highlight_state"),
 ]

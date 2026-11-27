@@ -64,10 +64,11 @@ MATRIX = [
      {"biobank": {"*": ALL}, "instruments": {"instrument": L, "instrumentmessage": ALL}},
      ["biobank.validate_inventorysession"]),
     # Automates → Configuration ; Stock ; SGQ (tous) ; Administration → Bibliothèque de codes, Journal d'activité
+    # + Tableau de bord → « À la une » : mettre une publication à la une, modifier son contenu
     (("SL", "RQ/CQ", "CDS"),
      {"instruments": {"*": ALL}, "stock": {"*": ALL}, "quality": {"*": ALL},
       "core": {"room": ALL, "analysiscode": ALL}},
-     ["quality.view_sgq", "quality.approve_qualitydocument", "core.view_activitylog"]),
+     ["quality.view_sgq", "quality.approve_qualitydocument", "core.view_activitylog", "feed.manage_highlight"]),
 ]
 
 

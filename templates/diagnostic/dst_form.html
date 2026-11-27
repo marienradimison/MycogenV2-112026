@@ -2,7 +2,7 @@
 {% block title %}{% if object %}Modifier {{ object }}{% else %}Nouvel antibiogramme{% endif %}{% endblock %}
 {% block content %}
 <div class="page-title">
-  {% crud_url crud 'list' as list_url %}{% include "generic/_back.html" with fallback=list_url %}
+  {% crud_url crud 'list' as list_url %}{% if object.pk %}{% include "generic/_back.html" with fallback=object.get_absolute_url %}{% else %}{% include "generic/_back.html" with fallback=list_url %}{% endif %}
   <div class="icon"><i class="bi {{ crud.icon }}"></i></div>
   <div>
     <div class="small text-muted"><a href="{% crud_url crud 'list' %}">{{ crud.title }}</a></div>
