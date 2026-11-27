@@ -1,0 +1,78 @@
+{% extends "base.html" %}{% load lims %}
+{% block title %}{{ object }}{% endblock %}
+{% block content %}
+{% include "generic/_detail_header.html" %}
+{% if doc_links %}<div class="d-flex gap-2 mb-3 no-print">{% for label, url, icon in doc_links %}
+  <a class="btn btn-sm btn-primary" href="{{ url }}"><i class="bi {{ icon }}"></i> {{ label }}</a>{% endfor %}</div>{% endif %}
+
+<div class="card result-band mb-3">
+  <div class="result-band-row">
+    <div class="rb-cell"><div class="rb-label">Échantillon</div>
+      <div class="rb-value">{% if band.sample %}<a href="{{ band.sample.get_absolute_url }}">{{ band.sample.code }}</a> <span class="fw-normal">({{ band.sample.get_sample_type_display }})</span>{% else %}—{% endif %}</div></div>
+    <div class="rb-cell"><div class="rb-label">Date d'analyse</div><div class="rb-value">{{ object.test_date|date:"d/m/Y"|default:"—" }}</div></div>
+    <div class="rb-cell"><div class="rb-label">Méthode</div><div class="rb-value">{{ band.method }}</div></div>
+    <div class="rb-cell"><div class="rb-label">Résultat</div>
+      <div class="rb-value d-flex flex-wrap gap-1">{% for c in band.chips %}<span class="result-chip result-chip-{{ c.cls|default:'muted' }}" title="{{ c.title }}">{{ c.label }}</span>{% endfor %}</div></div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-xl-6">
+    <div class="card h-100 result-card">
+      <div class="card-header"><i class="bi bi-info-square"></i> Informations générales</div>
+      <table class="table table-sm result-kv mb-0"><tbody>
+        {% for label, value in general %}<tr><th>{{ label }}</th><td>{% if value == "Non renseigné" %}<span class="empty">Non renseigné</span>{% else %}{{ value }}{% endif %}</td></tr>{% endfor %}
+      </tbody></table>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card h-100 result-card">
+      <div class="card-header d-flex"><span><i class="bi bi-person"></i> Informations du patient</span>
+        {% if patient %}<a class="ms-auto small fw-normal" href="{{ patient.get_absolute_url }}">Fiche patient</a>{% endif %}</div>
+      <table class="table table-sm result-kv mb-0"><tbody>
+        {% for label, value in patient_rows %}<tr><th>{{ label }}</th><td>{% if value == "Non renseigné" %}<span class="empty">Non renseigné</span>{% else %}{{ value }}{% endif %}</td></tr>{% endfor %}
+      </tbody></table>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card h-100 result-card">
+      <div class="card-header"><i class="bi bi-shield-check"></i> Validation biologique</div>
+      <table class="table table-sm result-kv mb-0"><tbody>
+        <tr><th>Statut</th><td>{% cell object "result_status" %}</td></tr>
+        <tr><th>Validé par</th><td>{% if validator %}{{ validator }}{% else %}<span class="empty">Non renseigné</span>{% endif %}</td></tr>
+        <tr><th>Validé le</th><td>{% if object.validated_at %}{{ object.validated_at|date:"d/m/Y H:i" }}{% else %}<span class="empty">Non renseigné</span>{% endif %}</td></tr>
+        <tr><th>Commentaire du validateur</th><td>{% if object.validation_comment %}{{ object.validation_comment|linebreaksbr }}{% else %}<span class="empty">Non renseigné</span>{% endif %}</td></tr>
+        {% if validator_signature %}<tr><th>Signature</th><td><span class="signature-box py-1">{{ validator_signature }}<span class="caption d-block">{{ validator_caption }}</span></span></td></tr>{% endif %}
+      </tbody></table>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="card h-100 result-card">
+      <div class="card-header"><i class="bi bi-tag"></i> Métadonnées</div>
+      <table class="table table-sm result-kv mb-0"><tbody>
+        <tr><th>Créé le</th><td>{{ object.created_at|date:"d/m/Y H:i" }}</td></tr>
+        <tr><th>Dernière modification</th><td>{{ object.updated_at|date:"d/m/Y H:i" }}</td></tr>
+        {% block extra_meta %}{% endblock %}
+      </tbody></table>
+    </div>
+  </div>
+</div>
+
+<div class="card result-card mb-3">
+  <div class="card-header"><i class="bi bi-clock-history"></i> Historique / Traçabilité</div>
+  <div class="card-body">
+    <ol class="result-timeline">
+      {% for label, date, done in timeline %}
+      <li class="{% if done %}done{% endif %}">
+        <span class="dot"><i class="bi {% if done %}bi-check-lg{% else %}bi-hourglass{% endif %}"></i></span>
+        <div class="fw-semibold">{{ label }}</div>
+        <div class="small">{{ date|default:"—" }}</div>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+</div>
+
+{% block after %}{% endblock %}
+{% if related %}{% include "generic/_related.html" %}{% endif %}
+{% endblock %}

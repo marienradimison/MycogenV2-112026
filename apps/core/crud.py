@@ -254,7 +254,11 @@ class Crud:
             permission_required = crud.perm("view")
 
             def get_template_names(self):
-                return [crud.detail_template] if crud.detail_template else ["generic/detail.html"]
+                if crud.detail_template:
+                    return [crud.detail_template]
+                if getattr(crud.model, "validatable", False):   # résultat d'analyse : aperçu dédié
+                    return ["generic/result_detail.html"]
+                return ["generic/detail.html"]
 
             def get_context_data(self, **kwargs):
                 ctx = super().get_context_data(**kwargs)
@@ -269,6 +273,9 @@ class Crud:
                                        and self.request.user.has_perm("core.validate_results"))
                 if crud.extra_context:
                     ctx.update(crud.extra_context(obj, self.request))
+                if getattr(obj, "validatable", False) and not crud.detail_template:
+                    from .result_view import result_context
+                    ctx.update(result_context(obj, ctx.get("extra_details", ())))
                 return ctx
 
         class FormMixin(Mixin):

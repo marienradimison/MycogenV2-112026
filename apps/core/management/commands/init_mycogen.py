@@ -40,7 +40,8 @@ EVERYONE = tuple(ROLES)
 MATRIX = [
     # Tableau de bord (consulter, interagir) ; Structures / CDT : consulter, exporter ; MycoLearn : consulter ;
     # SGQ → Documents qualité (SOP…) : consulter
-    (EVERYONE, {"core": {"facility": L}, "research": {"learningresource": L, "learningdomain": L},
+    (EVERYONE, {"core": {"facility": L}, "research": {"learningresource": L, "learningdomain": L,
+                                                      "learningcollection": L, "collectionitem": L},
                 "quality": {"qualitydocument": L}}, []),
     # Températures des étuves : consulter, saisir
     (("AL",), {"diagnostic": {"temperaturelog": LA}}, []),

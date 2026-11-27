@@ -1,0 +1,100 @@
+{% extends "base.html" %}{% load lims %}
+{% block title %}{{ object }}{% endblock %}
+{% block content %}
+{% include "generic/_detail_header.html" %}
+
+<div class="d-flex flex-wrap gap-2 mb-3 no-print">
+  {% if results %}
+  <a class="btn btn-sm btn-primary" href="{% url 'diagnostic:qftrun_sheets' object.pk %}"><i class="bi bi-file-earmark-medical"></i> Fiches de résultats (toute la plaque)</a>
+  <a class="btn btn-sm btn-outline-primary" href="{% url 'diagnostic:qftrun_sheets' object.pk %}?valides=1"><i class="bi bi-patch-check"></i> Fiches des résultats validés</a>
+  {% endif %}
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-xl-7">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center"><i class="bi bi-graph-up me-2"></i>Courbe standard et contrôle qualité
+        <span class="ms-auto badge {% if curve.valid %}text-bg-success{% else %}text-bg-danger{% endif %}">Test ELISA {% if curve.valid %}valide{% else %}non valide{% endif %}</span></div>
+      <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Std.</th><th class="text-end">Conc. (UI/mL)</th><th class="text-end">DO 1</th><th class="text-end">DO 2</th><th class="text-end">Moyenne</th><th class="text-end">% CV</th><th>Résultat QC</th></tr></thead>
+        <tbody>{% for s in curve.rows %}
+          <tr><td class="fw-semibold">{{ s.name }}</td><td class="text-end">{{ s.conc|floatformat:2 }}</td>
+            {% for v in s.values %}<td class="text-end">{{ v|floatformat:3 }}</td>{% endfor %}
+            <td class="text-end">{{ s.mean|floatformat:3 }}</td>
+            <td class="text-end">{% if s.cv is not None %}{{ s.cv|floatformat:1 }}{% else %}<span class="text-muted small">Non applicable</span>{% endif %}</td>
+            <td>{% if s.ok %}<span class="text-success fw-semibold">Réussi</span>{% else %}<span class="text-danger fw-semibold">Échec</span>{% endif %}</td></tr>
+        {% endfor %}</tbody>
+      </table></div>
+      <div class="card-footer small">Interception : <b>{{ intercept }}</b> · Pente : <b>{{ slope }}</b> ·
+        Coefficient de corrélation : <b>{{ r }}</b> ({% if curve.r_ok %}Réussi{% else %}Échec{% endif %})</div>
+    </div>
+  </div>
+  <div class="col-xl-5">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-info-square me-2"></i>Plaque</div>
+      <div class="card-body">
+        <dl class="row details mb-0">
+          <dt class="col-5">Date du test</dt><dd class="col-7">{{ object.run_date|date:"d/m/Y" }}</dd>
+          <dt class="col-5">Opérateur</dt><dd class="col-7">{{ object.operator.get_full_name|default:object.operator|default:"—" }}</dd>
+          <dt class="col-5">N° de lot du kit</dt><dd class="col-7">{{ object.kit_lot|default:"—" }}</dd>
+          <dt class="col-5">Échantillons</dt><dd class="col-7">{{ results|length }}</dd>
+          {% if object.notes %}<dt class="col-5">Remarques</dt><dd class="col-7">{{ object.notes|linebreaksbr }}</dd>{% endif %}
+        </dl>
+        <p class="small text-muted mt-2 mb-0">Courbe : régression de ln(DO moyenne) sur ln(concentration) des standards S1 à S3.
+          Corriger une DO de standard recalcule les UI/mL des résultats non validés de la plaque.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center"><i class="bi bi-activity me-2"></i>Résultats (UI/mL)
+    <span class="badge text-bg-light border ms-2">{{ results|length }}</span></div>
+  <div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+    <thead><tr><th>N° échantillon</th><th>Patient</th><th class="text-end">Nul</th><th class="text-end">TB1</th><th class="text-end">TB2</th>
+      <th class="text-end">Mitogène</th><th class="text-end">TB1-Nul</th><th class="text-end">TB2-Nul</th><th class="text-end">Mitogène-Nul</th>
+      <th>Résultat</th><th>Statut</th><th></th></tr></thead>
+    <tbody>{% for q, row in results %}
+      <tr data-href="{{ q.get_absolute_url }}"><td class="mono"><a href="{{ q.get_absolute_url }}">{{ q.sample.code }}</a></td>
+        <td>{{ q.sample.patient.full_name|default:"—" }}</td>
+        <td class="text-end">{{ row.nil }}</td><td class="text-end">{{ row.tb1 }}</td><td class="text-end">{{ row.tb2 }}</td>
+        <td class="text-end">{{ row.mitogen }}</td><td class="text-end">{{ row.tb1_nil }}</td><td class="text-end">{{ row.tb2_nil }}</td>
+        <td class="text-end">{{ row.mitogen_nil }}</td>
+        <td>{% cell q "interpretation" %}</td><td>{% cell q "result_status" %}</td>
+        <td class="text-end"><a class="btn btn-sm btn-light" href="{% url 'diagnostic:quantiferon_sheet' q.pk %}" title="Fiche de résultats"><i class="bi bi-file-earmark-medical"></i></a></td></tr>
+    {% empty %}<tr><td colspan="12" class="text-center text-muted py-3">Aucun résultat sur cette plaque.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</div>
+
+{% if can_add_results %}
+<form class="card mb-3 no-print" method="post" action="{% url 'diagnostic:qftrun_add_results' object.pk %}">{% csrf_token %}
+  <div class="card-header"><i class="bi bi-plus-circle me-2"></i>Saisir les DO brutes des échantillons</div>
+  <div class="card-body pb-1">
+    <p class="small text-muted">Une ligne par échantillon. Les UI/mL et l'interprétation sont calculés avec la courbe de la plaque.
+      DO non numérique (OVER, &gt; 4…) : 4,000 attribuée. Un échantillon déjà présent sur la plaque est mis à jour (sauf s'il est validé).</p>
+    <div class="table-responsive"><table class="table table-sm align-middle mb-2" id="od-rows">
+      <thead><tr><th>N° échantillon</th><th>DO Nul</th><th>DO TB1</th><th>DO TB2</th><th>DO Mitogène</th></tr></thead>
+      <tbody>{% for i in blank_rows %}
+        <tr><td><input class="form-control form-control-sm mono" name="sample" placeholder="26-0000"></td>
+          <td><input class="form-control form-control-sm" name="od_nil" inputmode="decimal"></td>
+          <td><input class="form-control form-control-sm" name="od_tb1" inputmode="decimal"></td>
+          <td><input class="form-control form-control-sm" name="od_tb2" inputmode="decimal"></td>
+          <td><input class="form-control form-control-sm" name="od_mitogen" inputmode="decimal"></td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+  </div>
+  <div class="card-footer d-flex gap-2">
+    <button type="button" class="btn btn-sm btn-outline-secondary" id="add-row"><i class="bi bi-plus"></i> Ligne</button>
+    <button class="btn btn-sm btn-primary ms-auto"><i class="bi bi-calculator"></i> Calculer et enregistrer</button>
+  </div>
+</form>
+<script>
+document.getElementById('add-row').addEventListener('click', function () {
+  var body = document.querySelector('#od-rows tbody'), row = body.rows[0].cloneNode(true);
+  row.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+  body.appendChild(row);
+});
+</script>
+{% endif %}
+{% endblock %}

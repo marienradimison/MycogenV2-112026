@@ -84,7 +84,7 @@ CRUDS = [
                        "room__number", "room__name"],
         list_filter=["room", "level", "revoked"],
         icon="bi-person-badge",
-        header_links=ROOM_LINKS[1:] + [("Surveillance", "quality:monitoring", "bi-shield-check")],
+        header_links=ROOM_LINKS[1:],
     ),
 ]
 

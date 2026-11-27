@@ -3,8 +3,9 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
-from apps.core.models import TestResult
+from apps.core.models import LimsModel, TestResult
 
 RES_DETECTION = [
     ("DETECTED", "Détecté"),
@@ -440,12 +441,74 @@ class DST(TestResult):
     def resistant(self):
         return [d for d, _, r, _ in self.drug_results if r == "R"]
 
+class QFTRun(LimsModel):
+    """Plaque ELISA QuantiFERON-TB Gold Plus : DO des standards (en double) → courbe standard et contrôle qualité.
+    Les résultats de la plaque (UI/mL) sont calculés à partir des DO brutes de chaque échantillon."""
+
+    url_base = "diagnostic:qftrun"
+
+    run_id = models.CharField("n° de plaque", max_length=40, unique=True, help_text="Ex. QFT-2026-11-04")
+    run_date = models.DateField("date du test", default=timezone.localdate)
+    operator = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="opérateur", on_delete=models.SET_NULL,
+                                 null=True, blank=True, related_name="qft_runs")
+    kit_lot = models.CharField("n° de lot du kit", max_length=30, blank=True)
+    s1_od1 = models.DecimalField("S1 (4,00 UI/mL) — DO 1", max_digits=5, decimal_places=3)
+    s1_od2 = models.DecimalField("S1 (4,00 UI/mL) — DO 2", max_digits=5, decimal_places=3)
+    s2_od1 = models.DecimalField("S2 (1,00 UI/mL) — DO 1", max_digits=5, decimal_places=3)
+    s2_od2 = models.DecimalField("S2 (1,00 UI/mL) — DO 2", max_digits=5, decimal_places=3)
+    s3_od1 = models.DecimalField("S3 (0,25 UI/mL) — DO 1", max_digits=5, decimal_places=3)
+    s3_od2 = models.DecimalField("S3 (0,25 UI/mL) — DO 2", max_digits=5, decimal_places=3)
+    s4_od1 = models.DecimalField("S4 (0 UI/mL) — DO 1", max_digits=5, decimal_places=3)
+    s4_od2 = models.DecimalField("S4 (0 UI/mL) — DO 2", max_digits=5, decimal_places=3)
+    notes = models.TextField("remarques", blank=True)
+
+    class Meta:
+        verbose_name = "plaque QuantiFERON (ELISA)"
+        verbose_name_plural = "plaques QuantiFERON (ELISA)"
+        ordering = ["-run_date", "-id"]
+
+    def __str__(self):
+        return f"Plaque {self.run_id}"
+
+    @property
+    def curve(self):
+        from .qft import Curve
+        if not hasattr(self, "_curve"):
+            self._curve = Curve({f"S{i}": (getattr(self, f"s{i}_od1"), getattr(self, f"s{i}_od2"))
+                                 for i in range(1, 5)})
+        return self._curve
+
+    @property
+    def n_results(self):
+        return self.results.count()
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.__dict__.pop("_curve", None)
+        self.recompute()
+
+    def recompute(self):
+        """Recalcule les UI/mL des résultats non validés de la plaque (après correction d'une DO de standard)."""
+        for q in self.results.exclude(result_status="VALIDATED"):
+            q.run = self
+            q.save()
+
+
 class Quantiferon(TestResult):
-    """QuantiFERON-TB Gold Plus — interprétation automatique selon l'algorithme Qiagen."""
+    """QuantiFERON-TB Gold Plus — interprétation automatique selon l'algorithme Qiagen.
+    UI/mL saisis directement, ou calculés depuis les DO brutes et la courbe standard de la plaque."""
 
     url_base = "diagnostic:quantiferon"
 
     INTERPRETATIONS = [("POS", "Positif"), ("NEG", "Négatif"), ("IND", "Indéterminé")]
+    TUBES = [("nil", "Nul"), ("tb1", "TB1"), ("tb2", "TB2"), ("mitogen", "Mitogène")]
+    run = models.ForeignKey(QFTRun, verbose_name="plaque ELISA", on_delete=models.PROTECT, null=True, blank=True,
+                            related_name="results")
+    od_nil = models.CharField("DO Nul", max_length=10, blank=True)
+    od_tb1 = models.CharField("DO TB1", max_length=10, blank=True)
+    od_tb2 = models.CharField("DO TB2", max_length=10, blank=True)
+    od_mitogen = models.CharField("DO Mitogène", max_length=10, blank=True)
+    od_over = models.CharField("DO non numériques", max_length=40, blank=True, editable=False)
     kit_lot = models.CharField("lot du kit", max_length=30, blank=True)
     nil = models.DecimalField("Nil (UI/mL)", max_digits=6, decimal_places=3)
     tb1 = models.DecimalField("TB1 (UI/mL)", max_digits=6, decimal_places=3)
@@ -474,7 +537,33 @@ class Quantiferon(TestResult):
             return "IND"
         return "NEG"
 
+    @property
+    def has_ods(self):
+        return all(getattr(self, f"od_{t}") for t, _ in self.TUBES)
+
+    def compute_from_ods(self):
+        """UI/mL depuis les DO brutes et la courbe de la plaque ; renvoie False si impossible."""
+        from .qft import parse_od
+        if not (self.run_id and self.has_ods):
+            return False
+        curve, over = self.run.curve, []
+        values = {}
+        for tube, _ in self.TUBES:
+            od, non_numeric = parse_od(getattr(self, f"od_{tube}"))
+            if non_numeric:
+                over.append(tube)
+            values[tube] = curve.concentration(od)
+        if any(v is None for v in values.values()):
+            return False
+        for tube, value in values.items():
+            setattr(self, tube, value)
+        self.od_over = ",".join(over)
+        if not self.kit_lot:
+            self.kit_lot = self.run.kit_lot
+        return True
+
     def save(self, *args, **kwargs):
+        self.compute_from_ods()
         self.interpretation = self.interpret(self.nil, self.tb1, self.tb2, self.mitogen)
         if "update_fields" in kwargs and kwargs["update_fields"] is not None:
             kwargs["update_fields"] = list(kwargs["update_fields"]) + ["interpretation"]

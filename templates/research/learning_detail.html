@@ -1,22 +1,136 @@
-{% extends "generic/detail.html" %}{% load lims %}
-{% block main_card %}
-<div class="card mb-3">
-  <div class="card-header d-flex align-items-center"><i class="bi {{ object.domain.icon }} me-2"></i>{{ object.domain.name }}
-    <a class="ms-auto small" href="{% url 'research:mycolearn' %}?domaine={{ object.domain.pk }}">Autres supports du domaine</a></div>
-  <div class="card-body">
-    {% if object.file %}
-      {% if object.is_video %}
-        <video class="w-100 rounded" controls preload="metadata" src="{{ object.file.url }}"></video>
-      {% elif object.is_image %}
-        <img class="img-fluid rounded" src="{{ object.file.url }}" alt="{{ object.title }}">
-      {% elif object.is_pdf %}
-        <iframe class="w-100 rounded border" style="height:70vh" src="{{ object.file.url }}" title="{{ object.title }}"></iframe>
-      {% endif %}
-      <a class="btn btn-sm btn-primary mt-2" href="{{ object.file.url }}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Ouvrir le fichier</a>
-    {% endif %}
-    {% if object.url %}<a class="btn btn-sm btn-outline-primary mt-2" href="{{ object.url }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-link-45deg"></i> Ouvrir le lien</a>{% endif %}
-    {% if object.description %}<p class="mt-3 mb-0">{{ object.description|linebreaksbr }}</p>{% endif %}
+{% extends "base.html" %}{% load lims %}
+{% block title %}{{ object.title }} — MycoLearn{% endblock %}
+{% block content %}
+<div class="page-title">
+  <a class="btn btn-sm btn-light back-btn" href="{% url 'research:mycolearn' %}" data-fallback="{% url 'research:mycolearn' %}"><i class="bi bi-chevron-left"></i> Préc.</a>
+  <div class="icon"><i class="bi {{ object.icon }}"></i></div>
+  <div>
+    <div class="small text-muted"><a href="{% url 'research:mycolearn' %}">MycoLearn</a> ›
+      <a href="{% url 'research:mycolearn' %}?domaine={{ object.domain.pk }}">{{ object.domain.name }}</a>
+      {% if collection %}› <a href="{{ collection.get_absolute_url }}">{{ collection.title }}</a>{% endif %}</div>
+    <h1>{{ object.title }}</h1>
+  </div>
+  <div class="ms-auto d-flex gap-2 no-print">
+    {% if can_manage %}<a class="btn btn-sm btn-outline-primary" href="{% url 'research:learning_update' object.pk %}"><i class="bi bi-pencil"></i> Modifier</a>{% endif %}
+    {% crud_perm user crud "delete" as can_delete %}
+    {% if can_delete %}<a class="btn btn-sm btn-outline-danger" href="{% url 'research:learning_delete' object.pk %}"><i class="bi bi-trash"></i></a>{% endif %}
   </div>
 </div>
-{{ block.super }}
+
+<div class="row g-3">
+  <div class="col-xxl-8 col-xl-7">
+    <div class="media-player card mb-3">
+      {% if object.media == "video" %}
+        <video id="player" controls preload="metadata" playsinline src="{{ object.file.url }}"{% if object.thumbnail %} poster="{{ object.thumbnail.url }}"{% endif %}></video>
+      {% elif object.media == "audio" %}
+        <div class="audio-stage">{% if object.cover_url %}<img src="{{ object.cover_url }}" alt="">{% else %}<i class="bi bi-music-note-beamed"></i>{% endif %}</div>
+        <audio id="player" controls preload="metadata" src="{{ object.file.url }}" class="w-100"></audio>
+      {% elif object.media == "pdf" %}
+        <iframe src="{{ object.file.url }}" title="{{ object.title }}" class="pdf-frame"></iframe>
+      {% elif object.media == "image" %}
+        <a href="{{ object.file.url }}" target="_blank" rel="noopener" title="Agrandir"><img src="{{ object.file.url }}" alt="{{ object.title }}" class="img-fluid"></a>
+      {% elif object.media == "embed" %}
+        <div class="ratio ratio-16x9"><iframe src="{{ object.embed_url }}" title="{{ object.title }}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
+      {% else %}
+        <div class="media-placeholder"><i class="bi {{ object.icon }}"></i>
+          {% if object.file %}<a class="btn btn-primary mt-3" href="{{ object.file.url }}"><i class="bi bi-download"></i> Télécharger le fichier</a>
+          {% elif object.url %}<a class="btn btn-primary mt-3" href="{{ object.url }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i> Ouvrir le lien</a>{% endif %}</div>
+      {% endif %}
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+      <form method="post" action="{% url 'research:learning_favorite' object.pk %}" id="fav-form">{% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button class="btn btn-sm {% if act.favorite %}btn-primary{% else %}btn-outline-primary{% endif %}" id="fav-btn">
+          <i class="bi {% if act.favorite %}bi-bookmark-heart-fill{% else %}bi-bookmark-heart{% endif %}"></i> <span>{% if act.favorite %}Dans ma liste{% else %}Ajouter à ma liste{% endif %}</span></button>
+      </form>
+      <form method="post" action="{% url 'research:learning_done' object.pk %}">{% csrf_token %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button class="btn btn-sm {% if act.completed %}btn-success{% else %}btn-outline-success{% endif %}" id="done-btn">
+          <i class="bi bi-check-circle{% if act.completed %}-fill{% endif %}"></i> {% if act.completed %}Terminé{% else %}Marquer comme terminé{% endif %}</button>
+      </form>
+      {% if object.file %}<a class="btn btn-sm btn-outline-secondary" href="{{ object.file.url }}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Ouvrir le fichier</a>{% endif %}
+      {% if object.url and object.media != "link" %}<a class="btn btn-sm btn-outline-secondary" href="{{ object.url }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-link-45deg"></i> Source</a>{% endif %}
+      <span class="ms-auto small text-muted"><i class="bi bi-eye"></i> {{ object.view_count }} consultation{{ object.view_count|pluralize }}</span>
+    </div>
+
+    {% if prev_item or next_item %}
+    <div class="d-flex gap-2 mb-3">
+      {% if prev_item %}<a class="btn btn-sm btn-light" href="{{ prev_item.get_absolute_url }}?collection={{ collection.pk }}"><i class="bi bi-skip-backward-fill"></i> {{ prev_item.title|truncatechars:40 }}</a>{% endif %}
+      {% if next_item %}<a class="btn btn-sm btn-primary ms-auto" id="next-btn" href="{{ next_item.get_absolute_url }}?collection={{ collection.pk }}">Suivant : {{ next_item.title|truncatechars:40 }} <i class="bi bi-skip-forward-fill"></i></a>{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          <span class="badge text-bg-light border"><i class="bi {{ object.icon }}"></i> {{ object.get_kind_display }}</span>
+          <span class="badge text-bg-light border">{{ object.get_level_display }}</span>
+          <span class="badge text-bg-light border">{{ object.get_language_display }}</span>
+          {% if object.duration_min %}<span class="badge text-bg-light border"><i class="bi bi-clock"></i> {{ object.duration_min }} min</span>{% endif %}
+          {% if object.featured %}<span class="badge text-bg-warning"><i class="bi bi-star-fill"></i> À la une</span>{% endif %}
+          {% if not object.published %}<span class="badge text-bg-secondary">Non publié</span>{% endif %}
+        </div>
+        {% if object.author %}<div class="small text-muted mb-2">Auteur / source : {{ object.author }}</div>{% endif %}
+        {% if object.description %}<p class="mb-2">{{ object.description|linebreaksbr }}</p>{% endif %}
+        {% if object.tag_list %}<div class="media-chips">{% for t in object.tag_list %}<a class="media-chip" href="{% url 'research:mycolearn' %}?tag={{ t|urlencode }}">#{{ t }}</a>{% endfor %}</div>{% endif %}
+        <div class="small text-muted mt-2">Ajouté le {{ object.created_at|date:"d/m/Y" }}{% if object.created_by %} par {{ object.created_by.get_full_name|default:object.created_by.username }}{% endif %}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xxl-4 col-xl-5">
+    {% if collection %}
+    <div class="card mb-3">
+      <div class="card-header d-flex align-items-center"><i class="bi bi-collection-play me-2"></i>
+        <a href="{{ collection.get_absolute_url }}">{{ collection.title }}</a><span class="badge text-bg-light border ms-auto">{{ playlist|length }}</span></div>
+      <ol class="playlist list-unstyled mb-0">
+        {% for r in playlist %}
+        <li class="{% if r.pk == object.pk %}current{% endif %}"><a href="{{ r.get_absolute_url }}?collection={{ collection.pk }}">
+          <span class="num">{% if r.act and r.act.completed %}<i class="bi bi-check-circle-fill text-success"></i>{% elif r.pk == object.pk %}<i class="bi bi-play-fill"></i>{% else %}{{ forloop.counter }}{% endif %}</span>
+          <span class="flex-grow-1">{{ r.title }}<span class="d-block small text-muted"><i class="bi {{ r.icon }}"></i> {{ r.get_kind_display }}{% if r.duration_min %} · {{ r.duration_min }} min{% endif %}</span></span></a></li>
+        {% endfor %}
+      </ol>
+    </div>
+    {% endif %}
+    {% if related %}
+    <div class="card">
+      <div class="card-header"><i class="bi bi-grid me-2"></i>Dans le même domaine</div>
+      <div class="related-list">{% for r in related %}
+        <a class="related-item" href="{{ r.get_absolute_url }}">
+          <span class="related-thumb"><i class="bi {{ r.icon }}"></i>{% if r.cover_url %}<img class="cover" src="{{ r.cover_url }}" alt="" loading="lazy" onerror="this.remove()">{% endif %}</span>
+          <span><span class="fw-semibold d-block">{{ r.title|truncatechars:60 }}</span><span class="small text-muted">{{ r.get_kind_display }}{% if r.duration_min %} · {{ r.duration_min }} min{% endif %}</span></span>
+        </a>{% endfor %}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if object.media == "video" or object.media == "audio" %}
+<script>
+(function () {
+  var player = document.getElementById('player'), url = "{% url 'research:learning_progress' object.pk %}";
+  var token = document.querySelector('#fav-form [name=csrfmiddlewaretoken]').value;
+  var resumeAt = {{ act.position|default:0|stringformat:"f" }}, completed = {{ act.completed|yesno:"true,false" }}, last = 0;
+  player.addEventListener('loadedmetadata', function () {
+    if (!completed && resumeAt > 5 && resumeAt < player.duration - 5) player.currentTime = resumeAt;   // reprise
+  });
+  function send(ended) {
+    if (!player.duration || isNaN(player.duration)) return;
+    var body = new URLSearchParams({position: player.currentTime, duration: player.duration, ended: ended ? '1' : '0'});
+    fetch(url, {method: 'POST', headers: {'X-CSRFToken': token}, body: body, keepalive: true});
+  }
+  player.addEventListener('timeupdate', function () {
+    if (Math.abs(player.currentTime - last) >= 15) { last = player.currentTime; send(false); }
+  });
+  player.addEventListener('pause', function () { send(false); });
+  player.addEventListener('ended', function () {
+    send(true);
+    var next = document.getElementById('next-btn');
+    if (next) setTimeout(function () { window.location = next.href; }, 2500);   // parcours : support suivant
+  });
+  window.addEventListener('pagehide', function () { if (!player.paused) send(false); });
+})();
+</script>
+{% endif %}
 {% endblock %}

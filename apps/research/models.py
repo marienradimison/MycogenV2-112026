@@ -1,3 +1,4 @@
+import re
 from decimal import Decimal
 
 from django.conf import settings
@@ -369,14 +370,16 @@ class LearningDomain(LimsModel):
 
 
 class LearningResource(LimsModel):
-    """Support d'apprentissage : vidéo, présentation, PDF, infographie ou lien."""
+    """Support de la médiathèque MycoLearn : vidéo, audio, présentation, PDF, infographie, lien ou tutoriel."""
 
     url_base = "research:learning"
 
-    KINDS = [("VIDEO", "Vidéo"), ("SLIDES", "Présentation"), ("PDF", "Document PDF"), ("IMAGE", "Image / infographie"),
-             ("LINK", "Lien web"), ("TUTO", "Tutoriel / exercice")]
+    KINDS = [("VIDEO", "Vidéo"), ("AUDIO", "Audio / podcast"), ("SLIDES", "Présentation"), ("PDF", "Document PDF"),
+             ("IMAGE", "Image / infographie"), ("LINK", "Lien web"), ("TUTO", "Tutoriel / exercice")]
     LEVELS = [("BEG", "Débutant"), ("INT", "Intermédiaire"), ("ADV", "Avancé")]
-    VIDEO_EXT = (".mp4", ".webm", ".ogg", ".mov")
+    LANGUAGES = [("FR", "Français"), ("EN", "Anglais"), ("MG", "Malagasy")]
+    VIDEO_EXT = (".mp4", ".webm", ".ogg", ".ogv", ".mov", ".m4v")
+    AUDIO_EXT = (".mp3", ".m4a", ".wav", ".aac", ".oga", ".opus")
     IMAGE_EXT = (".png", ".jpg", ".jpeg", ".gif", ".webp")
 
     title = models.CharField("titre", max_length=200)
@@ -391,7 +394,12 @@ class LearningResource(LimsModel):
     description = models.TextField("description", blank=True)
     author = models.CharField("auteur / source", max_length=150, blank=True)
     duration_min = models.PositiveSmallIntegerField("durée (min)", null=True, blank=True)
+    language = models.CharField("langue", max_length=2, choices=LANGUAGES, default="FR")
+    tags = models.CharField("mots-clés", max_length=255, blank=True,
+                            help_text="Séparés par des virgules, ex. PCR, extraction, ADN")
+    featured = models.BooleanField("à la une", default=False, help_text="Mis en avant en tête de la médiathèque")
     published = models.BooleanField("publié", default=True, help_text="Décocher pour masquer le support")
+    view_count = models.PositiveIntegerField("consultations", default=0, editable=False)
 
     class Meta:
         verbose_name = "support MycoLearn"
@@ -421,3 +429,128 @@ class LearningResource(LimsModel):
     @property
     def is_pdf(self):
         return self.file_ext == ".pdf"
+
+    @property
+    def is_audio(self):
+        return self.file_ext in self.AUDIO_EXT
+
+    @property
+    def tag_list(self):
+        return [t.strip() for t in self.tags.split(",") if t.strip()]
+
+    @property
+    def youtube_id(self):
+        m = re.search(r"(?:youtube\.com/(?:watch\?(?:.*&)?v=|embed/|shorts/)|youtu\.be/)([\w-]{11})", self.url or "")
+        return m.group(1) if m else ""
+
+    @property
+    def embed_url(self):
+        """Lecteur intégré pour un lien YouTube ou Vimeo."""
+        if self.youtube_id:
+            return f"https://www.youtube-nocookie.com/embed/{self.youtube_id}"
+        m = re.search(r"vimeo\.com/(?:video/)?(\d+)", self.url or "")
+        return f"https://player.vimeo.com/video/{m.group(1)}" if m else ""
+
+    @property
+    def media(self):
+        """Lecteur à utiliser : video, audio, pdf, image, file, embed ou link."""
+        if self.file:
+            if self.is_video:
+                return "video"
+            if self.is_audio:
+                return "audio"
+            if self.is_pdf:
+                return "pdf"
+            if self.is_image:
+                return "image"
+            return "file"
+        return "embed" if self.embed_url else "link"
+
+    @property
+    def cover_url(self):
+        """Vignette : image téléversée, image du support ou miniature YouTube ; vide sinon."""
+        if self.thumbnail:
+            return self.thumbnail.url
+        if self.file and self.is_image:
+            return self.file.url
+        if self.youtube_id:
+            return f"https://i.ytimg.com/vi/{self.youtube_id}/hqdefault.jpg"
+        return ""
+
+    @property
+    def icon(self):
+        return {"VIDEO": "bi-play-circle", "AUDIO": "bi-music-note-beamed", "SLIDES": "bi-easel",
+                "PDF": "bi-file-earmark-pdf", "IMAGE": "bi-image", "LINK": "bi-link-45deg",
+                "TUTO": "bi-pencil-square"}.get(self.kind, "bi-collection-play")
+
+
+class LearningCollection(LimsModel):
+    """Collection / parcours : suite ordonnée de supports (ex. « Initiation à la bioinformatique »)."""
+
+    url_base = "research:collection"
+
+    title = models.CharField("titre", max_length=200)
+    domain = models.ForeignKey(LearningDomain, verbose_name="domaine", on_delete=models.SET_NULL, null=True,
+                               blank=True, related_name="collections")
+    description = models.TextField("description", blank=True)
+    cover = models.ImageField("image de couverture", upload_to="mycolearn/collections/", blank=True)
+    level = models.CharField("niveau", max_length=3, choices=LearningResource.LEVELS, default="BEG")
+    published = models.BooleanField("publiée", default=True)
+
+    class Meta:
+        verbose_name = "collection MycoLearn"
+        verbose_name_plural = "collections MycoLearn"
+        ordering = ["title"]
+
+    def __str__(self):
+        return self.title
+
+    def ordered_resources(self, published_only=True):
+        items = self.items.select_related("resource", "resource__domain").order_by("order", "id")
+        if published_only:
+            items = items.filter(resource__published=True)
+        return [i.resource for i in items]
+
+
+class CollectionItem(LimsModel):
+    """Support d'une collection, avec son rang dans le parcours."""
+
+    url_base = "research:collectionitem"
+
+    collection = models.ForeignKey(LearningCollection, verbose_name="collection", on_delete=models.CASCADE,
+                                   related_name="items")
+    resource = models.ForeignKey(LearningResource, verbose_name="support", on_delete=models.CASCADE,
+                                 related_name="collection_items")
+    order = models.PositiveSmallIntegerField("rang", default=1)
+
+    class Meta:
+        verbose_name = "support de collection"
+        verbose_name_plural = "supports de collection"
+        ordering = ["collection", "order", "id"]
+        constraints = [models.UniqueConstraint(fields=["collection", "resource"], name="collection_item_unique")]
+
+    def __str__(self):
+        return f"{self.order}. {self.resource}"
+
+
+class LearningActivity(models.Model):
+    """Suivi personnel d'un support : dernière consultation, position de lecture, terminé, dans « Ma liste »."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="learning_activity")
+    resource = models.ForeignKey(LearningResource, on_delete=models.CASCADE, related_name="activity")
+    last_viewed_at = models.DateTimeField("dernière consultation", null=True, blank=True)
+    position = models.FloatField("position de lecture (s)", default=0)
+    duration = models.FloatField("durée (s)", default=0)
+    completed = models.BooleanField("terminé", default=False)
+    favorite = models.BooleanField("dans ma liste", default=False)
+
+    class Meta:
+        verbose_name = "activité MycoLearn"
+        verbose_name_plural = "activités MycoLearn"
+        constraints = [models.UniqueConstraint(fields=["user", "resource"], name="learning_activity_unique")]
+
+    @property
+    def percent(self):
+        if self.completed:
+            return 100
+        return int(min(self.position / self.duration, 1) * 100) if self.duration else 0

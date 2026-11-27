@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import live, lj, views
+from . import live, lj, qft_views, views
 
 app_name = "diagnostic"
 
@@ -15,5 +15,8 @@ urlpatterns = [
     path("lj/lectures/<int:pk>/", lj.lj_reading, name="lj_reading"),
     path("lj/retraitement/", lj.lj_retreatment, name="lj_retreatment"),
     path("lj/temperatures/", lj.lj_temperatures, name="lj_temperatures"),
+    path("qftrun/<int:pk>/resultats/", qft_views.run_add_results, name="qftrun_add_results"),
+    path("qftrun/<int:pk>/fiches/", qft_views.run_sheets, name="qftrun_sheets"),
+    path("quantiferon/<int:pk>/fiche/", qft_views.result_sheet, name="quantiferon_sheet"),
     *[url for crud in views.CRUDS for url in crud.urls()],
 ]

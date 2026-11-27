@@ -1,75 +1,103 @@
 {% extends "base.html" %}{% load lims %}
-{% block title %}MycoLearn{% endblock %}
+{% block title %}MycoLearn — Médiathèque{% endblock %}
 {% block content %}
 <div class="page-title">
   {% include "generic/_back.html" with fallback="/" %}
-  <div class="icon"><i class="bi bi-mortarboard"></i></div>
+  <div class="icon"><i class="bi bi-collection-play"></i></div>
   <div>
     <div class="small text-muted">Recherche</div>
-    <h1>MycoLearn</h1>
+    <h1>MycoLearn <span class="fw-normal text-muted fs-5">· Médiathèque</span></h1>
   </div>
-  <div class="ms-auto d-flex gap-2">
-    {% if can_domains %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'research:domain_list' %}"><i class="bi bi-collection"></i> Domaines</a>{% endif %}
-    {% if manage %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'research:learning_list' %}"><i class="bi bi-list-ul"></i> Liste des supports</a>{% endif %}
-    {% if can_add %}<a class="btn btn-sm btn-primary" href="{% url 'research:learning_create' %}{% if domain %}?domain={{ domain.pk }}{% endif %}"><i class="bi bi-plus-lg"></i> Ajouter un support</a>{% endif %}
+  <div class="ms-auto d-flex flex-wrap gap-2">
+    {% if can_domains %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'research:domain_list' %}"><i class="bi bi-tags"></i> Domaines</a>{% endif %}
+    {% if can_collections %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'research:collection_list' %}"><i class="bi bi-collection-play"></i> Collections</a>{% endif %}
+    {% if manage %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'research:learning_list' %}"><i class="bi bi-list-ul"></i> Gérer les supports</a>{% endif %}
+    {% if can_add %}<a class="btn btn-sm btn-primary" href="{% url 'research:learning_create' %}{% if domain %}?domain={{ domain.pk }}{% endif %}"><i class="bi bi-cloud-upload"></i> Ajouter un support</a>{% endif %}
   </div>
 </div>
-<p class="text-muted small">Supports visuels pour apprendre et se former : vidéos, présentations, documents, infographies et liens, classés par domaine.</p>
 
-<div class="row g-2 mb-3">
-  <div class="col-6 col-md-4 col-xl-3">
-    <a class="card stat stat-link h-100 {% if not domain %}border-primary{% endif %}" href="?{% if kind %}type={{ kind }}{% endif %}">
-      <div class="d-flex justify-content-between"><div><div class="value">{{ total }}</div><div class="label">Tous les domaines</div></div>
-      <i class="bi bi-grid ico"></i></div></a>
+<form method="get" class="media-search card card-body py-2 mb-3">
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    <div class="input-group input-group-sm flex-grow-1" style="min-width:220px;max-width:420px">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input class="form-control" name="q" value="{{ f.q }}" placeholder="Rechercher une vidéo, un cours, un mot-clé…">
+    </div>
+    <select name="domaine" class="form-select form-select-sm w-auto"><option value="">Tous les domaines</option>
+      {% for d in domains %}<option value="{{ d.pk }}" {% if domain and d.pk == domain.pk %}selected{% endif %}>{{ d.name }} ({{ d.n }})</option>{% endfor %}</select>
+    <select name="type" class="form-select form-select-sm w-auto"><option value="">Tous les types</option>
+      {% for k, l in kinds %}<option value="{{ k }}" {% if k == f.type %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+    <select name="niveau" class="form-select form-select-sm w-auto"><option value="">Tous niveaux</option>
+      {% for k, l in levels %}<option value="{{ k }}" {% if k == f.niveau %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+    <select name="langue" class="form-select form-select-sm w-auto"><option value="">Toutes langues</option>
+      {% for k, l in languages %}<option value="{{ k }}" {% if k == f.langue %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+    {% if results is not None %}<select name="tri" class="form-select form-select-sm w-auto">
+      {% for k, v in sorts.items %}<option value="{{ k }}" {% if k == f.tri %}selected{% endif %}>{{ v.0 }}</option>{% endfor %}</select>{% endif %}
+    {% if f.liste %}<input type="hidden" name="liste" value="{{ f.liste }}">{% endif %}
+    {% if f.tag %}<input type="hidden" name="tag" value="{{ f.tag }}">{% endif %}
+    <button class="btn btn-sm btn-primary"><i class="bi bi-funnel"></i> Filtrer</button>
   </div>
-  {% for d in domains %}
-  <div class="col-6 col-md-4 col-xl-3">
-    <a class="card stat stat-link h-100 {% if domain and d.pk == domain.pk %}border-primary{% endif %}" href="?domaine={{ d.pk }}{% if kind %}&type={{ kind }}{% endif %}" title="{{ d.description }}">
-      <div class="d-flex justify-content-between"><div><div class="value">{{ d.n }}</div><div class="label">{{ d.name }}</div></div>
-      <i class="bi {{ d.icon }} ico"></i></div></a>
+  <div class="media-chips mt-2">
+    <a class="media-chip {% if results is None %}active{% endif %}" href="{% url 'research:mycolearn' %}"><i class="bi bi-house"></i> Accueil</a>
+    <a class="media-chip {% if f.liste == 'encours' %}active{% endif %}" href="?liste=encours"><i class="bi bi-play-btn"></i> En cours</a>
+    <a class="media-chip {% if f.liste == 'favoris' %}active{% endif %}" href="?liste=favoris"><i class="bi bi-bookmark-heart"></i> Ma liste</a>
+    {% for d in domains %}{% if d.n %}<a class="media-chip {% if domain and d.pk == domain.pk %}active{% endif %}" href="?domaine={{ d.pk }}"><i class="bi {{ d.icon }}"></i> {{ d.name }}</a>{% endif %}{% endfor %}
   </div>
-  {% endfor %}
-</div>
-
-<form method="get" class="d-flex flex-wrap gap-2 mb-3">
-  {% if domain %}<input type="hidden" name="domaine" value="{{ domain.pk }}">{% endif %}
-  <div class="input-group input-group-sm" style="max-width:320px">
-    <span class="input-group-text"><i class="bi bi-search"></i></span>
-    <input class="form-control" name="q" value="{{ q }}" placeholder="Rechercher un support…">
-  </div>
-  <select name="type" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()">
-    <option value="">Tous les types</option>
-    {% for k, label in kinds %}<option value="{{ k }}" {% if k == kind %}selected{% endif %}>{{ label }}</option>{% endfor %}
-  </select>
 </form>
 
-{% if resources %}
-<div class="row g-3">
-  {% for r in resources %}
-  <div class="col-sm-6 col-lg-4 col-xxl-3">
-    <a class="card h-100 stat-link learn-card" href="{{ r.get_absolute_url }}">
-      <div class="learn-thumb">
-        {% if r.thumbnail %}<img src="{{ r.thumbnail.url }}" alt="">
-        {% elif r.is_image %}<img src="{{ r.file.url }}" alt="">
-        {% else %}<i class="bi {% if r.kind == 'VIDEO' %}bi-play-circle{% elif r.kind == 'SLIDES' %}bi-easel{% elif r.kind == 'PDF' %}bi-file-earmark-pdf{% elif r.kind == 'LINK' %}bi-link-45deg{% elif r.kind == 'TUTO' %}bi-pencil-square{% else %}bi-image{% endif %}"></i>{% endif %}
-      </div>
-      <div class="card-body">
-        <div class="small text-muted mb-1"><i class="bi {{ r.domain.icon }}"></i> {{ r.domain.name }}</div>
-        <div class="fw-semibold">{{ r.title }}</div>
-        {% if r.description %}<div class="small text-muted mt-1 learn-desc">{{ r.description|truncatechars:120 }}</div>{% endif %}
-      </div>
-      <div class="card-footer small d-flex gap-2 bg-transparent">
-        <span class="badge text-bg-light border">{{ r.get_kind_display }}</span>
-        <span class="badge text-bg-light border">{{ r.get_level_display }}</span>
-        {% if r.duration_min %}<span class="text-muted">{{ r.duration_min }} min</span>{% endif %}
-        {% if not r.published %}<span class="badge text-bg-warning ms-auto">Non publié</span>{% endif %}
-      </div>
-    </a>
+{% if results is not None %}
+  <div class="d-flex align-items-center mb-2">
+    <h2 class="h5 mb-0">{% if f.liste == "favoris" %}Ma liste{% elif f.liste == "encours" %}En cours{% elif domain %}{{ domain.name }}{% elif f.tag %}Mot-clé « {{ f.tag }} »{% else %}Résultats{% endif %}</h2>
+    <span class="badge text-bg-light border ms-2">{{ results|length }}</span>
+    {% if domain and domain.description %}<span class="small text-muted ms-3">{{ domain.description }}</span>{% endif %}
   </div>
-  {% endfor %}
-</div>
+  {% if results %}
+    <div class="media-grid">{% for r in results %}{% include "research/_media_card.html" %}{% endfor %}</div>
+  {% else %}
+    <div class="alert alert-light border">Aucun support ne correspond.{% if can_add %} <a href="{% url 'research:learning_create' %}">Ajouter un support</a>.{% endif %}</div>
+  {% endif %}
 {% else %}
-<div class="alert alert-light border">Aucun support {% if domain %}dans « {{ domain.name }} »{% endif %}{% if q or kind %} pour cette recherche{% endif %}.
-  {% if can_add %}<a href="{% url 'research:learning_create' %}{% if domain %}?domain={{ domain.pk }}{% endif %}">Ajouter le premier support</a>.{% endif %}</div>
+  {% if featured %}{% with hero=featured.0 %}
+  <section class="media-hero mb-4">
+    <div class="media-hero-visual">
+      <i class="bi {{ hero.icon }}"></i>
+      {% if hero.cover_url %}<img class="cover" src="{{ hero.cover_url }}" alt="" onerror="this.remove()">
+      {% elif hero.media == "video" %}<video class="cover" src="{{ hero.file.url }}#t=6" preload="metadata" muted playsinline></video>{% endif %}
+    </div>
+    <div class="media-hero-text">
+      <div class="small text-uppercase fw-semibold opacity-75"><i class="bi bi-star-fill"></i> À la une · {{ hero.domain.name }}</div>
+      <h2>{{ hero.title }}</h2>
+      {% if hero.description %}<p>{{ hero.description|truncatechars:220 }}</p>{% endif %}
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <a class="btn btn-light fw-semibold" href="{{ hero.get_absolute_url }}"><i class="bi bi-play-fill"></i> {% if hero.act and hero.act.percent and not hero.act.completed %}Reprendre{% else %}Regarder{% endif %}</a>
+        <span class="small opacity-75">{{ hero.get_kind_display }} · {{ hero.get_level_display }}{% if hero.duration_min %} · {{ hero.duration_min }} min{% endif %}</span>
+      </div>
+      {% if featured|length > 1 %}<div class="media-hero-more">{% for r in featured|slice:"1:" %}<a href="{{ r.get_absolute_url }}"><i class="bi {{ r.icon }}"></i> {{ r.title|truncatechars:40 }}</a>{% endfor %}</div>{% endif %}
+    </div>
+  </section>
+  {% endwith %}{% endif %}
+
+  {% if collections %}
+  <section class="media-row">
+    <div class="media-row-head"><h2><i class="bi bi-collection-play"></i> Collections et parcours</h2></div>
+    <div class="media-scroller">{% for c in collections %}
+      <a class="media-card collection-card" href="{{ c.get_absolute_url }}">
+        <div class="media-thumb">{% if c.cover %}<img src="{{ c.cover.url }}" alt="" loading="lazy">{% else %}<div class="media-icon"><i class="bi bi-collection-play"></i></div>{% endif %}
+          <span class="media-kind"><i class="bi bi-list-ol"></i> {{ c.n }} support{{ c.n|pluralize }}</span></div>
+        <div class="media-body"><div class="media-title">{{ c.title }}</div>
+          <div class="media-meta">{% if c.domain %}<i class="bi {{ c.domain.icon }}"></i> {{ c.domain.name }} · {% endif %}{{ c.get_level_display }}</div></div>
+      </a>{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% for row in rows %}
+  <section class="media-row">
+    <div class="media-row-head"><h2><i class="bi {{ row.icon }}"></i> {{ row.title }}</h2>
+      {% if row.more %}<a class="small" href="{{ row.more }}">Tout voir <i class="bi bi-chevron-right"></i></a>{% endif %}</div>
+    <div class="media-scroller">{% for r in row.items %}{% include "research/_media_card.html" %}{% endfor %}</div>
+  </section>
+  {% empty %}
+  <div class="text-center text-muted py-5"><i class="bi bi-collection-play display-5 d-block mb-2"></i>
+    La médiathèque est vide.{% if can_add %} <a href="{% url 'research:learning_create' %}">Ajouter le premier support</a>.{% endif %}</div>
+  {% endfor %}
 {% endif %}
 {% endblock %}
