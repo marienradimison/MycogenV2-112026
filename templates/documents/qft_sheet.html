@@ -1,0 +1,127 @@
+{% extends "documents/_base.html" %}{% load lims %}
+{% block title %}Résultats QuantiFERON®-TB Gold Plus{% if sheets|length == 1 %} — {{ sheets.0.sample.code }}{% endif %}{% endblock %}
+{% block sheet %}
+<style>
+  .qft { font-family: Cambria, Georgia, "Times New Roman", serif; font-size: 9.3pt; color: #111; }
+  .qft + .qft { break-before: page; page-break-before: always; }
+  .qft-head { display: grid; grid-template-columns: 1fr auto; align-items: start; gap: 8mm; }
+  .qft-head h1 { font-size: 17pt; margin: 0 0 3mm; text-align: center; }
+  .qft-head img { height: 17mm; }
+  .qft-meta { display: grid; grid-template-columns: 30mm 1fr; row-gap: .6mm; margin-left: 12mm; font-size: 10.5pt; }
+  .qft-meta dt { font-weight: 700; } .qft-meta dd { margin: 0; }
+  .qft-valid { margin: 5mm 0 2mm; }
+  .qft-box { border: 1.5px solid #555; padding: 2mm 3mm 1mm; margin-bottom: 3mm; }
+  .qft-box h2 { font-size: 12pt; margin: 0 0 1mm; }
+  .qft table { border-collapse: collapse; width: 100%; }
+  .qft-res th, .qft-res td { padding: .6mm 1.5mm; text-align: right; font-weight: 400; }
+  .qft-res th:first-child, .qft-res td:first-child { text-align: left; }
+  .qft-res thead th { border-bottom: 1px solid #555; vertical-align: bottom; }
+  .qft-notes { font-size: 8.4pt; margin-top: 1mm; }
+  .qft-std { width: 120mm !important; margin: 3mm 0 1mm 4mm; }
+  .qft-std th, .qft-std td { text-align: left; padding: .3mm 1.5mm; font-weight: 400; }
+  .qft-raw { width: 60mm !important; } .qft-raw th, .qft-raw td { text-align: left; font-weight: 400; padding: 0 1.5mm 0 0; }
+  .qft h3 { font-size: 11pt; margin: 4mm 0 1mm; }
+  .qft-sep { border-top: 1.5px dashed #444; margin: 4mm 0 2mm; }
+  .qft-interp { border: 1.5px solid #333; margin: 3mm 0; font-size: 8.8pt; }
+  .qft-interp th, .qft-interp td { border: 1px solid #777; padding: 1mm 1.5mm; vertical-align: middle; font-weight: 400; }
+  .qft-interp thead th { font-weight: 700; text-align: left; }
+  .qft-small { font-size: 8.3pt; text-align: justify; margin: 1.2mm 0; }
+  .qft-validrow { display: flex; justify-content: space-between; align-items: flex-end; margin: 3mm 0 2mm; }
+  .qft-validrow .qft-valid { margin: 0; }
+  .qft-sign { font-size: 8.6pt; text-align: center; }
+  .qft-sign .box { border: 1px solid #999; padding: 1mm 3mm; min-width: 55mm; }
+  .qft-sign img { display: block; margin: .5mm auto 0; max-height: 12mm; max-width: 45mm; }
+</style>
+{% for s in sheets %}{% with q=s.q row=s.row curve=s.curve patient=s.patient %}
+<div class="sheet qft">
+  <div class="qft-head">
+    <div>
+      <h1>Résultats QuantiFERONS®-TB Gold Plus</h1>
+      <dl class="qft-meta">
+        <dt>Date :</dt><dd>{{ q.test_date|date:"l d F Y"|title }} &nbsp; <b>Opérateur</b> : {{ q.performed_by.first_name|default:q.performed_by.username|default:"—" }}</dd>
+        <dt>Prescripteur :</dt><dd>{{ s.sample.requester|upper|default:"—" }}</dd>
+        <dt>Identifiant :</dt><dd>{{ patient.full_name|upper|default:"" }} {{ patient.code|default:"" }}</dd>
+        <dt>Numéro de lot :</dt><dd>{{ q.kit_lot|default:q.run.kit_lot|default:"—" }}</dd>
+      </dl>
+    </div>
+    <img src="{{ ASSET }}img/Logo_ipm.png" alt="Institut Pasteur de Madagascar">
+  </div>
+
+  <div class="qft-validrow">
+    <div class="qft-valid">{% if curve %}Test ELISA {% if curve.valid %}valide{% else %}<b>NON VALIDE</b>{% endif %}{% endif %}</div>
+    <div class="qft-sign"><div class="box">
+    {% if q.validated_at %}Validé par {{ q.validated_by.get_full_name|default:q.validated_by.username|default:"—" }}<br>le {{ q.validated_at|date:"d/m/Y" }}
+      {% signature q.validated_by "qft-signature" %}
+    {% else %}<i>Résultat non validé</i>{% endif %}
+  </div></div>
+  </div>
+
+  <div class="qft-box">
+    <h2>Résultats (IU/mL)</h2>
+    <table class="qft-res">
+      <thead><tr><th>ID patient</th><th>Nul</th><th>TB1</th><th>TB2</th><th>Mitogène</th><th>TB1-<br>Nil</th><th>TB2-<br>Nil</th><th>Mitogène-<br>Nul</th><th>Résultat</th></tr></thead>
+      <tbody><tr><td>{{ s.sample.code }}</td><td>{{ row.nil }}</td><td>{{ row.tb1 }}</td><td>{{ row.tb2 }}</td><td>{{ row.mitogen }}</td>
+        <td>{{ row.tb1_nil }}</td><td>{{ row.tb2_nil }}</td><td>{{ row.mitogen_nil }}</td><td>{{ q.get_interpretation_display|upper }}</td></tr></tbody>
+    </table>
+    <div class="qft-notes">
+      {% if row.over_note %}<div># La valeur OD saisie est non numérique. Une OD de 4,000 a été attribuée pour le calcul.</div>{% endif %}
+      {% if row.range_note %}<div>¶ Les valeurs OD calculées en IU/mL sont en dehors de l'intervalle linéaire du test ELISA.</div>{% endif %}
+    </div>
+  </div>
+
+  {% if curve %}
+  <table class="qft-std">
+    <thead><tr><th>Std.</th><th>Conc.</th><th>Moyenne</th><th>% CV</th><th>Résultat QC</th></tr></thead>
+    <tbody>{% for r in curve.rows %}<tr><td>{{ r.name }}</td><td>{{ r.conc|floatformat:2 }}</td><td>{{ r.mean|floatformat:3 }}</td>
+      <td>{% if r.cv is not None %}{{ r.cv|floatformat:1 }}{% else %}Non applicable{% endif %}</td><td>{% if r.ok %}Réussi{% else %}Échec{% endif %}</td></tr>{% endfor %}</tbody>
+  </table>
+  <div class="qft-small">Interception: {{ curve.intercept|floatformat:4 }} &nbsp; Pente: {{ curve.slope|floatformat:4 }} &nbsp;
+    Coefficient de corrélation: {{ curve.r|floatformat:2 }} ({% if curve.r_ok %}Réussi{% else %}Échec{% endif %})</div>
+  {% endif %}
+
+  {% if q.has_ods %}
+  <h3>Valeurs brutes (OD)</h3>
+  <table class="qft-raw"><thead><tr><th>Nul</th><th>TB1</th><th>TB2</th><th>Mitogène</th></tr></thead>
+    <tbody><tr>{% for v in s.raw %}<td>{{ v }}</td>{% endfor %}</tr></tbody></table>
+  {% endif %}
+
+  <div class="qft-sep"></div>
+  <div class="qft-small">Les résultats de QuantiFERON-TB Gold Plus sont interprétés comme suit :<br>
+    <b>REMARQUE : le diagnostic ou l'exclusion de tuberculose maladie, ainsi que la probabilité d'une infection tuberculeuse latente,
+      nécessite la prise en considération de données épidémiologiques, historiques, et médicales pour l'interprétation des résultats de
+      QuantiFERON-TB Gold Plus</b></div>
+
+  <table class="qft-interp">
+    <thead><tr><th>Contrôle nul¹ [IU/mL]</th><th>TB1 moins contrôle nul [IU/mL]</th><th>TB2 moins contrôle nul [IU/mL]</th>
+      <th>Mitogène moins nul [IU/mL]</th><th>QFT-Plus Résultat</th><th>Rapport/Interprétation</th></tr></thead>
+    <tbody>
+      <tr><td rowspan="4">≤ 8,0</td><td>≥ 0,35 et ≥ 25% sur Nul</td><td>quelconque</td><td rowspan="2">quelconque</td><td rowspan="2">Positif</td>
+        <td rowspan="2">Infection par <i>M. tuberculosis</i> vraisemblable</td></tr>
+      <tr><td>quelconque</td><td>≥ 0,35 et ≥ 25% sur Nul</td></tr>
+      <tr><td colspan="2" rowspan="2">&lt; 0,35<br>ou<br>≥ 0,35 et &lt; 25% sur Nul</td><td>≥ 0,5</td><td>Négatif</td>
+        <td>Infection par <i>M. tuberculosis</i> invraisemblable</td></tr>
+      <tr><td>&lt; 0,5</td><td rowspan="2">Indéterminé</td><td rowspan="2">Impossible de déterminer la probabilité d'une infection par <i>M. tuberculosis</i></td></tr>
+      <tr><td>&gt; 8,0</td><td colspan="3">quelconque</td></tr>
+    </tbody>
+  </table>
+
+  <div class="qft-small"><b>¹Pour que le résultat d'un sujet au test QuantiFERON-TB Gold Plus soit valide, le contrôle nul doit être ≤ 8,0 IU/mL et le
+    mitogène moins nul doit être ≥ 0,5 IU/mL OU BIEN TB1 ou TB2 moins nul doit être ≥ 0,35 IU/mL.</b></div>
+  <div class="qft-small">En général, le contrôle mitogène révèle la plus forte réponse à l'IFN gamma des 4 échantillons de chaque sujet. Dans certains cas,
+    la valeur OD du contrôle mitogène sera supérieure à la limite du lecteur de microplaques ; cela n'a aucune répercussion sur l'interprétation du test.
+    Le niveau d'IFN gamma du contrôle nul est considéré comme valeur de fond et il est soustrait des résultats TB1 et TB2 ainsi que du résultat du
+    mitogène pour ce sujet. Les études cliniques ont révélé que moins de 0,25 % des sujets présentant des niveaux d'IFN gamma &gt; 8,0 IU/mL pour le contrôle nul.</div>
+  <div class="qft-small">La valeur seuil pour le test QuantiFERON-TB Gold Plus est de 0,35 IU/mL au-dessus du contrôle nul (et l'antigène TB moins nul est
+    ≥ 25 % du contrôle nul) pour l'un ou l'autre des tubes TB ou pour les deux tubes TB. Les individus présentant une réponse à l'un ou l'autre ou bien
+    aux deux tubes TB supérieure à cette valeur seuil sont susceptibles d'être infectés par le bacille <i>M. tuberculosis</i>.</div>
+  <div class="qft-small">La magnitude du niveau d'IFN gamma mesuré ne peut pas être mise en corrélation avec le stade ou le degré de l'infection, le niveau de
+    la réactivité immunitaire ou la probabilité d'une évolution vers une maladie active. Un résultat positif au test QuantiFERON-TB Gold Plus n'indique
+    pas nécessairement la présence d'une tuberculose active. En cas de soupçon d'une TB active, il importe d'avoir recours à d'autres méthodes
+    diagnostiques, telles qu'une radiographie du thorax aux rayons X ou un examen microbiologique du sputum.</div>
+  <div class="qft-small">Pour plus de détails, se reporter au chapitre « Interprétation des résultats » de la notice du test QuantiFERON-TB Gold Plus.</div>
+
+</div>
+{% endwith %}{% empty %}
+<div class="sheet qft"><p>Aucun résultat.</p></div>
+{% endfor %}
+{% endblock %}

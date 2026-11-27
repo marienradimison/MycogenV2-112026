@@ -454,6 +454,30 @@ reconnue).
   (non applicable).
 - **QuantiFERON-TB** (interprétation automatique selon l'algorithme Qiagen).
 
+### QuantiFERON-TB : plaques ELISA et fiches de résultats
+Analyses TB → QuantiFERON-TB → **Plaques ELISA et fiches de résultats**.
+
+1. **Nouvelle plaque** : n° de plaque, date, opérateur, n° de lot du kit et DO des 4 standards en double
+   (S1 4,00 · S2 1,00 · S3 0,25 · S4 0 UI/mL). MYCOGEN calcule la courbe standard (régression de ln(DO moyenne) sur
+   ln(concentration) de S1 à S3 : interception, pente, coefficient de corrélation) et le contrôle qualité
+   (S1 ≥ 0,600 et CV ≤ 15 %, S2 CV ≤ 15 %, S3 et S4 à ± 0,040, S4 ≤ 0,150, corrélation ≥ 0,98) : « Test ELISA valide ».
+2. **Saisir les DO brutes** des échantillons sur la fiche de la plaque (une ligne par échantillon : N° échantillon,
+   DO Nul, TB1, TB2, Mitogène). Les UI/mL, les différences et l'interprétation QFT-Plus sont calculés ; une DO non
+   numérique (OVER, > 4…) vaut 4,000 (note #), une valeur > 10 UI/mL est affichée « > 10 » (note ¶).
+3. **Fiches de résultats** : une fiche par échantillon (bouton sur le résultat ou sur la ligne de la plaque) ou toutes
+   les fiches de la plaque (option : résultats validés seulement), au format « Résultats QuantiFERON®-TB Gold Plus »,
+   imprimables ou en PDF. Le résultat validé porte le nom et la signature du validateur.
+
+Corriger une DO de standard recalcule les résultats non validés de la plaque. La saisie directe des UI/mL (sans
+plaque) reste possible.
+
+### Aperçu des résultats
+La fiche de chaque résultat d'analyse (GeneXpert, NPOC, microscopie, cultures, antibiogramme, QuantiFERON, PCR, LPA)
+suit le même modèle : bandeau (échantillon, date d'analyse, méthode, résultat), informations générales,
+informations du patient, validation biologique (avec la signature du validateur), métadonnées et frise
+« Historique / Traçabilité » (enregistré, analyse réalisée, rendu du résultat, validé). Les champs vides sont
+indiqués « Non renseigné ».
+
 ### Recherche
 Projets (avis éthique, membres), études et cas, **runs de séquençage** et **runs PCR** RISK6 / Sweeney3 (score
 Sweeney3 calculé), LPA Hain ; ces analyses se font par run : la fiche d'un run donne ses informations (signature,
@@ -462,10 +486,19 @@ seuil, plaque ou flowcell…) et la liste des échantillons analysés, avec un b
 - **Cahiers de laboratoire** : registre de tous les cahiers (n°, titulaire, projet, domaine, support papier ou
   électronique, statut, emplacement physique, scan PDF). La fiche d'un cahier liste ses **entrées datées** (titre,
   auteur, contenu, pièce jointe) ; la recherche porte aussi sur le contenu des entrées.
-- **MycoLearn** : supports visuels pour apprendre (vidéos, présentations, PDF, infographies, liens, tutoriels), classés
-  par domaine — Bioinformatique, Biologie moléculaire, Immunologie, Mycobactériologie, Biosécurité, Qualité,
-  Épidémiologie et statistiques (bouton « Domaines » pour en ajouter). Vidéos, images et PDF s'affichent directement
-  dans la fiche ; un support non publié n'est visible que des gestionnaires. Tous les rôles consultent MycoLearn.
+- **MycoLearn — médiathèque** : vidéos, podcasts / audio, présentations, PDF, infographies, liens et tutoriels.
+  - *Accueil* : support **à la une**, rangées « Continuer » (lecture en cours), « Ma liste », « Nouveautés »,
+    « Les plus consultés », **collections et parcours**, puis une rangée par domaine ; recherche (titre, description,
+    auteur, mots-clés) et filtres (domaine, type, niveau, langue, tri).
+  - *Lecteur* : vidéo et audio dans la page avec **reprise de lecture** là où l'on s'était arrêté, avance rapide,
+    PDF et images affichés, vidéos **YouTube / Vimeo** intégrées (lien collé dans le champ « lien », miniature
+    automatique) ; boutons « Ajouter à ma liste » et « Marquer comme terminé » ; nombre de consultations ; supports
+    du même domaine.
+  - *Collections* : parcours ordonnés (ex. « Initiation à la bioinformatique ») avec progression personnelle
+    (x / n terminés), bouton « Commencer / Reprendre » et passage automatique au support suivant en fin de vidéo.
+  - *Gestion* (SL, RSR, RQ/CQ, CDS) : boutons « Ajouter un support », « Collections », « Domaines », « Gérer les
+    supports » ; champs langue, mots-clés, vignette, « à la une », « publié ». Les autres rôles consultent.
+  - Vidéos recommandées : MP4 (H.264) ; audio : MP3 / M4A.
 
 Les sous-modules bioinformatiques (analyses génomiques, pipelines) ne sont plus dans le menu ; leurs données sont
 conservées.
@@ -542,7 +575,7 @@ Module « SGQ » de la barre latérale (anciennement « Qualité »), en quatre 
   **surveillance** (bouton « Surveillance des matériels ») : matériels en panne, maintenances et étalonnages en retard
   ou à venir (30 jours), accès expirés, températures d'étuve hors plage.
 - **Accès aux salles** : personnes autorisées (validité, formation biosécurité), **salles** (numéros, usages) et
-  **plan de masse** (boutons en tête de liste). Les salles ont quitté le menu Administration.
+  **plan de masse** (boutons en tête de liste). La surveillance est dans le sous-module Matériels. Les salles ont quitté le menu Administration.
 - **DQ — Documents qualité** : manuels qualité, procédures, SOP, manuels clients / de prélèvement, formulaires,
   instructions, **communiqués / notes de service**, rapports, documents externes. Chaque version est une fiche
   (référence + n° de version, fichier joint, rédacteur, vérificateur, diffusion, date d'application, prochaine revue).
@@ -705,6 +738,8 @@ L'export JSON de l'ancien LIMS (fiches patients) est importé par :
 | 13/11/2026 | Module SGQ (Qualité) : statistiques mensuelles par méthode, concordances, indicateurs DT-1 à DT-10, délais de rendu, export CSV ; bibliothèque enrichie (indicateurs, CMTB +/-, RTT, TB-MR, TB-XDR, antibiotiques de 2ème ligne) ; antibiogramme 2ème ligne : OFX, KAN et CAP ajoutés, LFX/MFX renommés LEV/MOX |
 | 19/11/2026 | Signature des utilisateurs (fiche admin) apposée sur les résultats validés et les documents approuvés ; module Qualité renommé SGQ (Suivi performance, Matériels, Accès aux salles, DQ — Documents qualité avec approbation signée) ; Recherche : Cahiers de laboratoire et MycoLearn, sous-modules bioinformatiques retirés du menu |
 | 26/11/2026 | Autorisations par rôle selon le fichier permissions.xlsx : nouveaux rôles CDS (Chef de Service) et STG (Stagiaire), validation consultable et exportable sans droit de valider, SGQ / Stock / Administration réservés à SL, RQ/CQ et CDS ; SOP consultables par tous, MycoLearn modifiable par SL, RSR, RQ/CQ et CDS, températures saisies par AL |
+| 27/11/2026 | QuantiFERON-TB : plaques ELISA (courbe standard, contrôle qualité, DO → UI/mL) et générateur de fiches de résultats ; nouvel aperçu commun des résultats (bandeau, patient, validation signée, traçabilité) ; SGQ : surveillance retirée de l'accès aux salles |
+| 27/11/2026 | MycoLearn devient une médiathèque : accueil en rangées (à la une, continuer, ma liste, nouveautés, populaires), lecteur avec reprise de lecture, YouTube / Vimeo intégrés, audio, collections / parcours, mots-clés, langues, favoris, compteur de consultations ; lecture vidéo en continu (requêtes Range) |
 
 ---
 

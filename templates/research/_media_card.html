@@ -1,0 +1,19 @@
+{# Carte d'un support de la médiathèque — variables : r (LearningResource, avec r.act), collection (facultatif) #}
+<a class="media-card" href="{{ r.get_absolute_url }}{% if collection %}?collection={{ collection.pk }}{% endif %}" title="{{ r.title }}">
+  <div class="media-thumb">
+    <div class="media-icon"><i class="bi {{ r.icon }}"></i></div>
+    {% if r.cover_url %}<img class="cover" src="{{ r.cover_url }}" alt="" loading="lazy" onerror="this.remove()">
+    {% elif r.media == "video" %}<video class="cover" src="{{ r.file.url }}#t=4" preload="metadata" muted playsinline tabindex="-1"></video>{% endif %}
+    <span class="media-kind"><i class="bi {{ r.icon }}"></i> {{ r.get_kind_display }}</span>
+    {% if r.duration_min %}<span class="media-duration">{{ r.duration_min }} min</span>{% endif %}
+    {% if r.act and r.act.favorite %}<span class="media-fav" title="Dans ma liste"><i class="bi bi-bookmark-heart-fill"></i></span>{% endif %}
+    {% if r.act and r.act.completed %}<span class="media-done" title="Terminé"><i class="bi bi-check-circle-fill"></i></span>{% endif %}
+    {% if r.media == "video" or r.media == "audio" or r.media == "embed" %}<span class="media-play"><i class="bi bi-play-fill"></i></span>{% endif %}
+    {% if r.act and r.act.percent and not r.act.completed %}<span class="media-progress"><span style="width:{{ r.act.percent }}%"></span></span>{% endif %}
+  </div>
+  <div class="media-body">
+    <div class="media-title">{{ r.title }}</div>
+    <div class="media-meta"><i class="bi {{ r.domain.icon }}"></i> {{ r.domain.name }} · {{ r.get_level_display }}{% if r.language != "FR" %} · {{ r.get_language_display }}{% endif %}
+      {% if not r.published %}<span class="badge text-bg-warning ms-1">Non publié</span>{% endif %}</div>
+  </div>
+</a>

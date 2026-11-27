@@ -8,7 +8,7 @@
   </div>
   {% if object.validatable %}
     <span class="ms-2">{% cell object "result_status" %}</span>
-    {% if object.is_validated %}<span class="small text-muted">par {{ object.validated_by }} le {{ object.validated_at|date:"d/m/Y H:i" }}</span>{% endif %}
+    {% if object.is_validated %}<span class="small text-muted">{% if object.validated_by %}par {{ object.validated_by.get_full_name|default:object.validated_by.username }} {% endif %}le {{ object.validated_at|date:"d/m/Y H:i" }}</span>{% endif %}
   {% endif %}
   <div class="ms-auto d-flex gap-2 no-print">
     {% if plan_url %}<a class="btn btn-sm btn-outline-secondary" href="{{ plan_url }}"><i class="bi bi-map"></i> Voir sur le plan</a>{% endif %}

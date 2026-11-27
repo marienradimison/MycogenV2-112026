@@ -5,7 +5,8 @@ from apps.core.forms import LimsModelForm, lims_formfield
 
 from .live import tabs as live_tabs
 
-from .models import DST, Culture, GeneXpertTest, Microscopy, NPOCTest, Quantiferon
+from .models import DST, Culture, GeneXpertTest, Microscopy, NPOCTest
+from .qft_views import CRUDS as QFT_CRUDS
 
 # result_status n'est pas éditable : il passe à « Validé » uniquement via l'action de validation.
 RESULT_FIELDS = ["test_date", "performed_by", "comment"]
@@ -118,13 +119,5 @@ CRUDS = [
         list_filter=["method", "panel", "result_status"],
         icon="bi-capsule",
     ),
-    Crud(
-        Quantiferon, "quantiferon",
-        fields=["sample", "kit_lot", "nil", "tb1", "tb2", "mitogen", *RESULT_FIELDS],
-        list_display=["sample", "sample__patient", "test_date", "nil", "tb1", "tb2", "mitogen",
-                      "interpretation", "result_status"],
-        search_fields=SEARCH + ["kit_lot"],
-        list_filter=["interpretation", "result_status"],
-        icon="bi-activity",
-    ),
 ]
+CRUDS += QFT_CRUDS   # plaques ELISA et résultats QuantiFERON (qft_views.py)

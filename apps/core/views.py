@@ -207,12 +207,64 @@ def protected_media(request, path):
     # Seuls images et PDF s'affichent dans le navigateur ; tout autre fichier (HTML, SVG, scripts…) est
     # téléchargé, pour qu'un fichier téléversé ne puisse pas exécuter de code dans la session de l'utilisateur.
     inline = target.suffix.lower() in INLINE_MEDIA
+    ranged = range_response(request, target)       # lecture vidéo / audio : avance rapide et reprise
+    if ranged is not None:
+        return ranged
     resp = FileResponse(open(target, "rb"), as_attachment=not inline, filename=target.name)
     resp["X-Content-Type-Options"] = "nosniff"
+    resp["Accept-Ranges"] = "bytes"
     return resp
 
 
-INLINE_MEDIA = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".pdf", ".mp4", ".webm", ".ogg", ".mov"}
+INLINE_MEDIA = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".pdf",
+                ".mp4", ".webm", ".ogg", ".ogv", ".mov", ".m4v", ".mp3", ".m4a", ".wav", ".aac", ".oga", ".opus"}
+STREAMED_MEDIA = {".mp4", ".webm", ".ogg", ".ogv", ".mov", ".m4v", ".mp3", ".m4a", ".wav", ".aac", ".oga", ".opus"}
+RANGE_CHUNK = 4 * 1024 * 1024
+
+
+def range_response(request, target):
+    """Réponse 206 (une seule plage d'octets) pour les fichiers audio / vidéo, sinon None."""
+    import mimetypes
+    import re
+
+    from django.http import HttpResponse, StreamingHttpResponse
+
+    header = request.headers.get("Range", "")
+    if target.suffix.lower() not in STREAMED_MEDIA or not header:
+        return None
+    m = re.fullmatch(r"bytes=(\d*)-(\d*)", header.strip())
+    size = target.stat().st_size
+    if not m or (not m.group(1) and not m.group(2)):
+        return None
+    if m.group(1):
+        start = int(m.group(1))
+        end = min(int(m.group(2)), size - 1) if m.group(2) else size - 1
+    else:                                           # « bytes=-500 » : les 500 derniers octets
+        start, end = max(size - int(m.group(2)), 0), size - 1
+    if start >= size or start > end:
+        resp = HttpResponse(status=416)
+        resp["Content-Range"] = f"bytes */{size}"
+        return resp
+    length = end - start + 1
+
+    def chunks():
+        with open(target, "rb") as f:
+            f.seek(start)
+            remaining = length
+            while remaining > 0:
+                data = f.read(min(RANGE_CHUNK, remaining))
+                if not data:
+                    break
+                remaining -= len(data)
+                yield data
+
+    resp = StreamingHttpResponse(chunks(), status=206,
+                                 content_type=mimetypes.guess_type(target.name)[0] or "application/octet-stream")
+    resp["Content-Range"] = f"bytes {start}-{end}/{size}"
+    resp["Content-Length"] = str(length)
+    resp["Accept-Ranges"] = "bytes"
+    resp["X-Content-Type-Options"] = "nosniff"
+    return resp
 
 
 @login_required

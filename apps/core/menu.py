@@ -33,7 +33,8 @@ MODULES = [
         ("diagnostic:dst_list", "bi-capsule", "Antibiogramme (DST)", "diagnostic.view_dst",
          "Antibiogrammes phénotypiques", None),
         ("diagnostic:quantiferon_list", "bi-activity", "QuantiFERON-TB", "diagnostic.view_quantiferon",
-         "QuantiFERON-TB Gold Plus", None),
+         "QuantiFERON-TB Gold Plus : plaques ELISA, résultats, fiches de résultats",
+         lambda r: r.path.startswith(("/diagnostic/quantiferon/", "/diagnostic/qftrun/"))),
     ]},
     {"key": "research", "label": "Recherche", "icon": "bi-journal-bookmark", "items": [
         ("research:project_list", "bi-journal-bookmark", "Projets", "research.view_project", "Projets de recherche", None),
@@ -45,8 +46,10 @@ MODULES = [
         ("research:lpa_list", "bi-bar-chart-steps", "LPA (Hain)", "research.view_lpatest", "MTBDRplus, MTBDRsl, CM/AS", None),
         ("research:notebook_list", "bi-journal-text", "Cahiers de laboratoire", "research.view_labnotebook",
          "Registre et contenu de tous les cahiers de labo", lambda r: r.path.startswith(("/recherche/notebook/", "/recherche/entry/"))),
-        ("research:mycolearn", "bi-mortarboard", "MycoLearn", "research.view_learningresource",
-         "Supports visuels pour apprendre, par domaine", lambda r: r.path.startswith(("/recherche/mycolearn/", "/recherche/learning/", "/recherche/domain/"))),
+        ("research:mycolearn", "bi-collection-play", "MycoLearn", "research.view_learningresource",
+         "Médiathèque : vidéos, podcasts, présentations, documents et parcours par domaine",
+         lambda r: r.path.startswith(("/recherche/mycolearn/", "/recherche/learning/", "/recherche/domain/",
+                                      "/recherche/collection/", "/recherche/collectionitem/"))),
     ]},
     {"key": "biobank", "label": "Biobanque", "icon": "bi-box-seam", "items": [
         ("biobank:item_list", "bi-box-seam", "Aliquots & Souches", "biobank.view_biobankitem", "Prélèvements, souches, ADN, plasma, DBS…", None),

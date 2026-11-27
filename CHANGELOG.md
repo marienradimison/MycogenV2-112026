@@ -40,6 +40,51 @@ des inventaires pour les rôles SL et MB).
 
 ---
 
+## 2026-11-27 — MycoLearn : médiathèque
+
+Migration : `research.0007_mediatheque`. Après mise à jour : `migrate` puis `init_mycogen` (consultation des
+collections pour tous les rôles).
+
+### Ajouté
+
+- **Accueil de la médiathèque** : à la une, « Continuer », « Ma liste », nouveautés, plus consultés, collections,
+  rangées par domaine ; recherche et filtres (domaine, type, niveau, langue, mot-clé, tri).
+- **Lecteur** : vidéo / audio avec reprise de lecture (position enregistrée), YouTube / Vimeo intégrés avec
+  miniature, PDF, images ; favoris (« Ma liste »), « terminé », compteur de consultations, supports liés.
+- **Collections / parcours** (`LearningCollection`, `CollectionItem`) avec progression personnelle et enchaînement
+  automatique des supports.
+- Supports : type **Audio / podcast**, langue, mots-clés, « à la une » ; suivi personnel `LearningActivity`.
+- **Lecture en continu** des fichiers audio / vidéo : réponses partielles HTTP 206 (`Range`), nécessaires à
+  l'avance rapide et à la reprise. *Fichier : `apps/core/views.py`*
+
+*Fichiers : `apps/research/mycolearn.py`, `templates/research/mycolearn.html`, `learning_detail.html`,
+`collection_detail.html`, `_media_card.html`*
+
+---
+
+## 2026-11-27 — Générateur de fiches QuantiFERON, aperçu des résultats
+
+Migration : `diagnostic.0014_qft_runs`.
+
+### Ajouté
+
+- **QuantiFERON-TB → Plaques ELISA** (`QFTRun`) : DO des standards en double, courbe standard (régression ln-ln
+  sur S1–S3), contrôle qualité selon la notice QFT-Plus ; saisie groupée des DO brutes des échantillons ; calcul des
+  UI/mL et de l'interprétation ; recalcul des résultats non validés si un standard est corrigé.
+  *Fichiers : `apps/diagnostic/qft.py`, `apps/diagnostic/qft_views.py`, `templates/diagnostic/qft_run.html`*
+- **Fiche « Résultats QuantiFERON®-TB Gold Plus »** par échantillon ou pour toute la plaque (HTML / PDF), avec
+  la signature du validateur. *Fichier : `templates/documents/qft_sheet.html`*
+- **Aperçu commun des résultats** (`templates/generic/result_detail.html`, `apps/core/result_view.py`) : bandeau
+  échantillon / date / méthode / résultat, informations générales et patient, validation biologique signée,
+  métadonnées, frise de traçabilité.
+
+### Corrigé
+
+- En-tête d'un résultat validé sans validateur (reprise de l'ancien LIMS) : « par None » n'est plus affiché.
+- SGQ → Accès aux salles : le lien « Surveillance » (propre aux matériels) a été retiré.
+
+---
+
 ## 2026-11-26 — Autorisations par rôle (permissions.xlsx)
 
 Migration : `core.0027_validation_view_permission`. Après mise à jour : `migrate` puis **`init_mycogen`**

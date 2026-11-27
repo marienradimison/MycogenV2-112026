@@ -1,0 +1,36 @@
+{% extends "base.html" %}{% load lims %}
+{% block title %}{{ object.title }} — MycoLearn{% endblock %}
+{% block content %}
+{% include "generic/_detail_header.html" %}
+
+<section class="media-hero mb-3">
+  <div class="media-hero-visual">{% if object.cover %}<img src="{{ object.cover.url }}" alt="">{% else %}<i class="bi bi-collection-play"></i>{% endif %}</div>
+  <div class="media-hero-text">
+    <div class="small text-uppercase fw-semibold opacity-75"><i class="bi bi-collection-play"></i> Collection{% if object.domain %} · {{ object.domain.name }}{% endif %} · {{ object.get_level_display }}</div>
+    <h2>{{ object.title }}</h2>
+    {% if object.description %}<p>{{ object.description|linebreaksbr }}</p>{% endif %}
+    <div class="d-flex flex-wrap gap-3 align-items-center">
+      {% if resume %}<a class="btn btn-light fw-semibold" href="{{ resume.get_absolute_url }}?collection={{ object.pk }}"><i class="bi bi-play-fill"></i> {% if done %}Reprendre{% else %}Commencer{% endif %}</a>{% endif %}
+      <span class="small">{{ done }} / {{ resources|length }} terminé{{ done|pluralize }}</span>
+      <span class="collection-progress"><span style="width:{{ percent }}%"></span></span>
+      {% if not object.published %}<span class="badge text-bg-warning">Non publiée</span>{% endif %}
+    </div>
+  </div>
+</section>
+
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center"><i class="bi bi-list-ol me-2"></i>Contenu du parcours
+    {% if can_manage %}<a class="btn btn-sm btn-outline-primary ms-auto" href="{% url 'research:collectionitem_create' %}?collection={{ object.pk }}&order={{ resources|length|add:1 }}&next={{ request.path }}"><i class="bi bi-plus-lg"></i> Ajouter un support</a>{% endif %}</div>
+  <ol class="playlist list-unstyled mb-0">
+    {% for r in resources %}
+    <li><a href="{{ r.get_absolute_url }}?collection={{ object.pk }}">
+      <span class="num">{% if r.act and r.act.completed %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}{{ forloop.counter }}{% endif %}</span>
+      <span class="related-thumb"><i class="bi {{ r.icon }}"></i>{% if r.cover_url %}<img class="cover" src="{{ r.cover_url }}" alt="" loading="lazy" onerror="this.remove()">{% endif %}</span>
+      <span class="flex-grow-1"><span class="fw-semibold">{{ r.title }}</span>
+        <span class="d-block small text-muted">{{ r.get_kind_display }} · {{ r.get_level_display }}{% if r.duration_min %} · {{ r.duration_min }} min{% endif %}</span>
+        {% if r.act and r.act.percent and not r.act.completed %}<span class="media-progress static"><span style="width:{{ r.act.percent }}%"></span></span>{% endif %}</span></a></li>
+    {% empty %}<li class="text-muted p-3">Aucun support dans cette collection.</li>{% endfor %}
+  </ol>
+</div>
+{% if can_manage and related %}{% include "generic/_related.html" %}{% endif %}
+{% endblock %}
