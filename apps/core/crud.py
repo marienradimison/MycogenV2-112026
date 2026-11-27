@@ -84,7 +84,7 @@ class Crud:
                  form_class=None, title=None, icon="bi-table", detail_template=None,
                  form_template=None, ordering=None, group=None, extra_context=None, exclude_urls=(), create_url=None, update_url=None, exporter=None,
                  date_filters=(), hidden_filters=(), list_title=None,
-                 header_links=(), list_tabs=None, queryset=None):
+                 header_links=(), list_tabs=None, queryset=None, parent=None):
         self.model = model
         self.prefix = prefix
         self.fields = fields
@@ -109,6 +109,7 @@ class Crud:
         self.queryset = queryset  # callable → queryset de base de la liste (ex. anomalies seulement)
         self.list_tabs = list_tabs  # callable → onglets affichés au-dessus de la liste
         self.header_links = header_links  # [(libellé, nom d'URL, icône)] affichés en tête de liste
+        self.parent = parent  # champ de l'objet parent (ex. « run ») : cible du bouton « Préc. » de la fiche
         self.namespace = model.url_base.split(":")[0]
         REGISTRY[model] = self
 
@@ -273,6 +274,10 @@ class Crud:
                                        and self.request.user.has_perm("core.validate_results"))
                 if crud.extra_context:
                     ctx.update(crud.extra_context(obj, self.request))
+                if crud.parent and "back_url" not in ctx:
+                    parent_obj = getattr(obj, crud.parent, None)
+                    if parent_obj is not None and hasattr(parent_obj, "get_absolute_url"):
+                        ctx["back_url"] = parent_obj.get_absolute_url()
                 if getattr(obj, "validatable", False) and not crud.detail_template:
                     from .result_view import result_context
                     ctx.update(result_context(obj, ctx.get("extra_details", ())))

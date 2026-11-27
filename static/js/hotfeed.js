@@ -52,7 +52,8 @@
     e.preventDefault();
     if (btn.dataset.confirm && !confirm(btn.dataset.confirm)) return;
     const data = btn.dataset.kind ? {kind: btn.dataset.kind} : btn.dataset.option ? {option: btn.dataset.option} : {};
-    await post(btn.dataset.action, data);
+    const res = await post(btn.dataset.action, data);
+    if (res.reload_page) { window.location.reload(); return; }   // ex. mise « À la une »
     reload();
   });
   // Challenges : proposer une réponse

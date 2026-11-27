@@ -92,6 +92,7 @@ CRUDS = [
     ),
     Crud(
         ProjectCase, "case",
+        parent="project",
         fields=["project", "name", "description", "active"],
         list_display=["name", "project", "description", "active"],
         search_fields=["name", "project__code"],
@@ -111,6 +112,7 @@ CRUDS = [
     ),
     Crud(
         SequencingLibrary, "library",
+        parent="run",
         fields=["run", "sample", "dna", "library_id", "barcode", "input_conc", "library_conc", "reads",
                 "mean_depth", "coverage_pct", "qc_pass", "notes"],
         list_display=["sample", "sample__patient", "run", "library_id", "barcode", "reads", "mean_depth",
@@ -132,6 +134,7 @@ CRUDS = [
     ),
     Crud(
         PCRAssay, "pcr",
+        parent="run",
         fields=[*PCR_FIELDS, "outcome", "test_date", "performed_by"],
         form_class=PCRAssayForm,
         list_display=["sample", "sample__patient", "run", "test_date", "score", "outcome", "result_status"],
@@ -162,6 +165,7 @@ CRUDS = [
     ),
     Crud(
         NotebookEntry, "entry",
+        parent="notebook",
         fields=["notebook", "date", "title", "author", "content", "attachment"],
         list_display=["date", "title", "notebook", "author"],
         search_fields=["title", "content", "notebook__code", "notebook__title"],

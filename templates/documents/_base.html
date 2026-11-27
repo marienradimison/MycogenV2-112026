@@ -11,7 +11,7 @@
   {% if pdf_error %}<span class="warn">PDF indisponible : {{ pdf_error }} — utilisez « Imprimer » puis « Enregistrer au format PDF ».</span>{% endif %}
   <button onclick="window.print()">🖨 Imprimer</button>
   <a href="?format=pdf">⬇ Télécharger le PDF</a>
-  {% if back_url %}<a class="light back-btn" href="{{ back_url }}" data-fallback="{{ back_url }}">{% else %}<a class="light back-btn" href="{{ sample.get_absolute_url }}" data-fallback="{{ sample.get_absolute_url }}">{% endif %}‹ Préc.</a>
+  <a class="light back-btn" href="{% if back_url %}{{ back_url }}{% else %}{{ sample.get_absolute_url }}{% endif %}">‹ Préc.</a>
 </div>
 {% endif %}
 {% block sheet %}<div class="sheet">

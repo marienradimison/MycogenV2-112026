@@ -126,3 +126,65 @@ class NewsArticle(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class Highlight(models.Model):
+    """« À la une » du tableau de bord : contenu mis en avant, créé à partir d'une publication de Chaud Chaud Chaud!!!
+    ou saisi directement, et modifiable à tout moment. Une seule « À la une » est affichée (current)."""
+
+    title = models.CharField("titre", max_length=150, blank=True)
+    text = models.TextField("texte", max_length=3000, blank=True)
+    image = models.ImageField("image", upload_to="feed/une/%Y/", blank=True)
+    link = models.CharField("lien", max_length=300, blank=True,
+                            help_text="Facultatif : adresse d'une page (ex. /recherche/mycolearn/ ou https://…)")
+    post = models.ForeignKey(Post, verbose_name="publication d'origine", on_delete=models.SET_NULL, null=True,
+                             blank=True, related_name="highlights", editable=False)
+    post_kind = models.CharField("type de la publication", max_length=9, choices=Post.KINDS, blank=True,
+                                 editable=False)
+    current = models.BooleanField("affichée à la une", default=False, editable=False)
+    created_at = models.DateTimeField("créée le", auto_now_add=True)
+    updated_at = models.DateTimeField("modifiée le", auto_now=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="mise à la une par", on_delete=models.SET_NULL,
+                                   null=True, blank=True, related_name="+", editable=False)
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="modifiée par", on_delete=models.SET_NULL,
+                                   null=True, blank=True, related_name="+", editable=False)
+
+    class Meta:
+        verbose_name = "à la une"
+        verbose_name_plural = "à la une"
+        ordering = ["-current", "-updated_at"]
+        permissions = [("manage_highlight", "Gérer « À la une » du tableau de bord")]
+
+    def __str__(self):
+        return self.title or (self.text[:60] if self.text else f"À la une n°{self.pk}")
+
+    def make_current(self, user=None):
+        Highlight.objects.filter(current=True).exclude(pk=self.pk).update(current=False)
+        self.current = True
+        if user is not None:
+            self.updated_by = user
+        self.save()
+
+    @classmethod
+    def from_post(cls, post, user):
+        """Copie le texte et la photo de la publication (la « À la une » reste modifiable et survit à la publication)."""
+        from django.core.files.base import ContentFile
+
+        h = cls(text=post.text, post=post, post_kind=post.kind, created_by=user, updated_by=user)
+        if post.photo:
+            try:
+                with post.photo.open("rb") as f:
+                    h.image.save(post.photo.name.rsplit("/", 1)[-1], ContentFile(f.read()), save=False)
+            except OSError:   # fichier de la photo absent
+                pass
+        h.make_current(user)
+        return h
+
+    @property
+    def kind_label(self):
+        """« Sondage » / « Challenge » si la « À la une » vient d'une publication interactive."""
+        return {"POLL": "Sondage", "CHALLENGE": "Challenge"}.get(self.post_kind, "")
+
+    @property
+    def is_external(self):
+        return self.link.startswith(("http://", "https://"))

@@ -2,7 +2,7 @@
 {% block title %}Plan de masse{% endblock %}
 {% block content %}
 <div class="page-title">
-  {% url 'core:facility_list' as list_url %}{% include "generic/_back.html" with fallback=list_url %}
+  {% if perms.quality.view_roomaccess %}{% url 'quality:access_list' as parent %}{% else %}{% url 'core:dashboard' as parent %}{% endif %}{% include "generic/_back.html" with fallback=parent %}
   <div class="icon"><i class="bi bi-map"></i></div>
   <div>
     <div class="small text-muted"><a href="{% url 'core:facility_list' %}">Structures / CDT</a></div>

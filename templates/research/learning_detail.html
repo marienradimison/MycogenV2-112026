@@ -2,7 +2,7 @@
 {% block title %}{{ object.title }} — MycoLearn{% endblock %}
 {% block content %}
 <div class="page-title">
-  <a class="btn btn-sm btn-light back-btn" href="{% url 'research:mycolearn' %}" data-fallback="{% url 'research:mycolearn' %}"><i class="bi bi-chevron-left"></i> Préc.</a>
+  {% if collection and request.GET.collection %}{% include "generic/_back.html" with fallback=collection.get_absolute_url %}{% else %}{% url 'research:mycolearn' as parent %}{% include "generic/_back.html" with fallback=parent %}{% endif %}
   <div class="icon"><i class="bi {{ object.icon }}"></i></div>
   <div>
     <div class="small text-muted"><a href="{% url 'research:mycolearn' %}">MycoLearn</a> ›

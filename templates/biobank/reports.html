@@ -2,7 +2,7 @@
 {% block title %}Rapports — Biobanque{% endblock %}
 {% block content %}
 <div class="page-title">
-  {% include "generic/_back.html" with fallback="/" %}
+  {% url 'core:module' 'biobank' as parent %}{% include "generic/_back.html" with fallback=parent %}
   <div class="icon"><i class="bi bi-graph-up"></i></div>
   <div><div class="small text-muted">Biobanque</div><h1>Rapports</h1></div>
   <div class="ms-auto d-flex gap-2 d-print-none">

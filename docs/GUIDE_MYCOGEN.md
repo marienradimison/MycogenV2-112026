@@ -364,6 +364,7 @@ signalements de bugs arrivent dans **Administration → Support** (cloche rouge 
 ## 10. Guide d'utilisation par module
 
 ### Éléments communs
+- **Préc.** ramène à la page **parente logique** (et non à la dernière page vue) : fiche → liste, formulaire de modification → fiche, entrée de cahier → cahier, résultat QFT → plaque, sous-module → module, « À la une » → tableau de bord. Il ne mène donc jamais vers un élément supprimé. Quand on arrive depuis un autre écran (ex. ajout d'un résultat depuis la fiche d'un échantillon), Préc. y ramène.
 - **Bandeau** : recherche globale, bascule thème clair/sombre, menu du profil (paramètres, mot de passe,
   signalement d'un problème, déconnexion).
 - **Barre latérale** : le CNRM y affiche ses sous-modules ; chaque autre module (Analyses TB, Recherche, Biobanque,
@@ -378,7 +379,7 @@ signalements de bugs arrivent dans **Administration → Support** (cloche rouge 
 
 ### Module 1 — Tableau de bord
 Indicateurs (échantillons du jour, Xpert MTB+, microscopies BAAR+, cultures en cours), courbe des
-échantillons reçus sur 30 jours, résultats en attente de validation, **organigramme** de l'unité (clic pour agrandir),
+échantillons reçus sur 30 jours, résultats en attente de validation, **À la une** (clic sur l'image pour agrandir),
 **Chaud Chaud Chaud!!!** (publications urgentes avec photo, réactions, commentaires, sonnerie à chaque nouvelle
 publication) et **actualités scientifiques** (3 articles par semaine sur la tuberculose : PubMed, OMS, presse
 reconnue).
@@ -386,6 +387,16 @@ reconnue).
 - **Chaud Chaud Chaud!!!** : trois types de publication — *Message*, *Sondage* (2 à 10 choix, vote anonyme et
   modifiable, résultats en %, clôture par l'auteur) et *Challenge* (jeu de mots, devinette : réponse cachée, indice
   facultatif ; accents et majuscules ignorés ; gagnants dans l'ordre ; l'auteur dévoile la réponse).
+- **À la une** (à la place de l'organigramme) : contenu mis en avant sur le tableau de bord — titre, texte, image
+  (agrandie au clic) et lien « En savoir plus ». Une publication de Chaud Chaud Chaud!!! peut être mise à la une à
+  tout moment (étoile en tête de la publication) : son texte et sa photo sont copiés et restent modifiables, même si
+  la publication est supprimée. Le contenu se modifie à tout moment (« Modifier » sur la carte) ; « Nouvelle » rédige
+  un contenu sans publication ; l'historique permet de remettre une ancienne « À la une », de la retirer ou de la
+  supprimer. Une seule « À la une » est affichée. Réservé aux rôles SL, RQ/CQ, CDS et à l'administrateur.
+  Un **sondage** ou un **challenge** mis à la une reste interactif : on vote, on répond et on voit les résultats
+  directement depuis le tableau de bord (les votes et réponses sont ceux de la publication).
+
+
 ### Module 2 — CNRM
 - **Échantillons** : liste (N° échantillon, patient, identifiant externe, type, provenance / CDT, date de réception,
   projet, étude, cas, statut) ; **Export CSV** au format de l'unité : une ligne par échantillon avec patient,
@@ -748,6 +759,8 @@ L'export JSON de l'ancien LIMS (fiches patients) est importé par :
 | 27/11/2026 | QuantiFERON-TB : plaques ELISA (courbe standard, contrôle qualité, DO → UI/mL) et générateur de fiches de résultats ; nouvel aperçu commun des résultats (bandeau, patient, validation signée, traçabilité) ; SGQ : surveillance retirée de l'accès aux salles |
 | 27/11/2026 | MycoLearn devient une médiathèque : accueil en rangées (à la une, continuer, ma liste, nouveautés, populaires), lecteur avec reprise de lecture, YouTube / Vimeo intégrés, audio, collections / parcours, mots-clés, langues, favoris, compteur de consultations ; lecture vidéo en continu (requêtes Range) |
 | 27/11/2026 | MycoLearn : lecteurs intégrés pour tous les formats (vidéo, audio, PDF, image, Word, Excel / CSV, Markdown, HTML isolé, texte, PowerPoint et anciens formats Office via LibreOffice, liens web) |
+| 27/11/2026 | Tableau de bord : « À la une » remplace l'organigramme (publication de Chaud Chaud Chaud!!! mise à la une, contenu modifiable à tout moment, historique) |
+| 27/11/2026 | Bouton Préc. : page parente logique (plus d'historique pouvant mener à un élément supprimé) ; sondages et challenges interactifs dans « À la une » |
 
 ---
 

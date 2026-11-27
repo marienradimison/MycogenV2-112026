@@ -2,7 +2,7 @@
 {% block title %}MycoLearn — Médiathèque{% endblock %}
 {% block content %}
 <div class="page-title">
-  {% include "generic/_back.html" with fallback="/" %}
+  {% if results is not None %}{% url 'research:mycolearn' as parent %}{% else %}{% url 'core:module' 'research' as parent %}{% endif %}{% include "generic/_back.html" with fallback=parent %}
   <div class="icon"><i class="bi bi-collection-play"></i></div>
   <div>
     <div class="small text-muted">Recherche</div>

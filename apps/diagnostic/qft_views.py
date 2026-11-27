@@ -85,6 +85,7 @@ CRUDS = [
     ),
     Crud(
         Quantiferon, "quantiferon",
+        parent="run",
         fields=QuantiferonForm.Meta.fields,
         form_class=QuantiferonForm,
         list_display=["sample", "sample__patient", "test_date", "run", "nil", "tb1", "tb2", "mitogen",
