@@ -374,8 +374,10 @@ class LearningResource(LimsModel):
 
     url_base = "research:learning"
 
-    KINDS = [("VIDEO", "Vidéo"), ("AUDIO", "Audio / podcast"), ("SLIDES", "Présentation"), ("PDF", "Document PDF"),
-             ("IMAGE", "Image / infographie"), ("LINK", "Lien web"), ("TUTO", "Tutoriel / exercice")]
+    KINDS = [("VIDEO", "Vidéo"), ("AUDIO", "Audio / podcast"), ("SLIDES", "Présentation (PowerPoint)"),
+             ("PDF", "Document PDF"), ("DOC", "Document (Word, texte)"), ("SHEET", "Tableur (Excel, CSV)"),
+             ("IMAGE", "Image / infographie"), ("WEB", "Page web (HTML, Markdown)"), ("LINK", "Lien web"),
+             ("TUTO", "Tutoriel / exercice")]
     LEVELS = [("BEG", "Débutant"), ("INT", "Intermédiaire"), ("ADV", "Avancé")]
     LANGUAGES = [("FR", "Français"), ("EN", "Anglais"), ("MG", "Malagasy")]
     VIDEO_EXT = (".mp4", ".webm", ".ogg", ".ogv", ".mov", ".m4v")
@@ -388,7 +390,8 @@ class LearningResource(LimsModel):
     kind = models.CharField("type de support", max_length=6, choices=KINDS, default="PDF")
     level = models.CharField("niveau", max_length=3, choices=LEVELS, default="BEG")
     file = models.FileField("fichier", upload_to="mycolearn/%Y/", blank=True,
-                            help_text="Vidéo (MP4), présentation, PDF ou image")
+                            help_text="Lu dans MYCOGEN : vidéo, audio, PDF, image, PowerPoint, Word, Excel / CSV, "
+                                      "Markdown, HTML, texte")
     url = models.URLField("lien", blank=True, help_text="Vidéo en ligne, cours, article…")
     thumbnail = models.ImageField("vignette", upload_to="mycolearn/vignettes/", blank=True)
     description = models.TextField("description", blank=True)
@@ -411,8 +414,12 @@ class LearningResource(LimsModel):
 
     def clean(self):
         from django.core.exceptions import ValidationError
+
+        from .viewers import kind_for
         if not self.file and not self.url:
             raise ValidationError("Joignez un fichier ou indiquez un lien.")
+        if self.file and self.kind != "TUTO":          # type de support déduit du fichier (sauf « tutoriel »)
+            self.kind = kind_for(self.file.name) or self.kind
 
     @property
     def file_ext(self):
@@ -453,18 +460,12 @@ class LearningResource(LimsModel):
 
     @property
     def media(self):
-        """Lecteur à utiliser : video, audio, pdf, image, file, embed ou link."""
+        """Lecteur intégré : video, audio, pdf, image, word, sheet, markdown, html, text, office (PDF converti),
+        file (téléchargement), embed (YouTube / Vimeo) ou web (page web dans un cadre)."""
+        from .viewers import viewer_for
         if self.file:
-            if self.is_video:
-                return "video"
-            if self.is_audio:
-                return "audio"
-            if self.is_pdf:
-                return "pdf"
-            if self.is_image:
-                return "image"
-            return "file"
-        return "embed" if self.embed_url else "link"
+            return viewer_for(self.file.name)
+        return "embed" if self.embed_url else "web"
 
     @property
     def cover_url(self):
@@ -480,7 +481,8 @@ class LearningResource(LimsModel):
     @property
     def icon(self):
         return {"VIDEO": "bi-play-circle", "AUDIO": "bi-music-note-beamed", "SLIDES": "bi-easel",
-                "PDF": "bi-file-earmark-pdf", "IMAGE": "bi-image", "LINK": "bi-link-45deg",
+                "PDF": "bi-file-earmark-pdf", "DOC": "bi-file-earmark-word", "SHEET": "bi-file-earmark-spreadsheet",
+                "IMAGE": "bi-image", "WEB": "bi-filetype-html", "LINK": "bi-link-45deg",
                 "TUTO": "bi-pencil-square"}.get(self.kind, "bi-collection-play")
 
 

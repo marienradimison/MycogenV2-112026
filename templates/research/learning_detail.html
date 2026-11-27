@@ -19,7 +19,11 @@
 
 <div class="row g-3">
   <div class="col-xxl-8 col-xl-7">
-    <div class="media-player card mb-3">
+    <div class="media-player card mb-3" id="viewer">
+      <div class="viewer-bar">
+        <span><i class="bi {{ object.icon }}"></i> {{ viewer_label }}</span>
+        <button type="button" class="btn btn-sm btn-dark ms-auto" id="fullscreen-btn" title="Plein écran"><i class="bi bi-arrows-fullscreen"></i></button>
+      </div>
       {% if object.media == "video" %}
         <video id="player" controls preload="metadata" playsinline src="{{ object.file.url }}"{% if object.thumbnail %} poster="{{ object.thumbnail.url }}"{% endif %}></video>
       {% elif object.media == "audio" %}
@@ -27,14 +31,38 @@
         <audio id="player" controls preload="metadata" src="{{ object.file.url }}" class="w-100"></audio>
       {% elif object.media == "pdf" %}
         <iframe src="{{ object.file.url }}" title="{{ object.title }}" class="pdf-frame"></iframe>
+      {% elif object.media == "office" %}
+        {% if can_convert %}<iframe src="{% url 'research:learning_preview_pdf' object.pk %}" title="{{ object.title }}" class="pdf-frame"></iframe>
+        {% else %}<div class="media-placeholder"><i class="bi {{ object.icon }}"></i>
+          <div class="fs-6 mt-3 px-3">Aperçu indisponible : LibreOffice, qui convertit les présentations PowerPoint et les anciens formats
+            Office pour les afficher dans MYCOGEN, n'est pas installé sur ce serveur.</div></div>{% endif %}
       {% elif object.media == "image" %}
-        <a href="{{ object.file.url }}" target="_blank" rel="noopener" title="Agrandir"><img src="{{ object.file.url }}" alt="{{ object.title }}" class="img-fluid"></a>
+        <div class="image-stage"><img src="{{ object.file.url }}" alt="{{ object.title }}" id="zoom-img" title="Cliquer pour zoomer"></div>
+      {% elif object.media == "word" %}
+        <div class="doc-stage" id="docx-stage" data-src="{{ object.file.url }}"><div class="doc-loading"><span class="spinner-border spinner-border-sm"></span> Ouverture du document…</div></div>
+      {% elif object.media == "sheet" %}
+        <div class="sheet-stage" data-src="{{ object.file.url }}" id="sheet-stage">
+          <ul class="nav nav-tabs sheet-tabs" id="sheet-tabs"></ul>
+          <div class="sheet-body" id="sheet-body"><div class="doc-loading"><span class="spinner-border spinner-border-sm"></span> Ouverture du classeur…</div></div>
+        </div>
+      {% elif object.media == "markdown" %}
+        <div class="doc-stage"><article class="markdown-body" id="md-stage" data-src="{{ object.file.url }}"><div class="doc-loading"><span class="spinner-border spinner-border-sm"></span> Chargement…</div></article></div>
+      {% elif object.media == "text" %}
+        <div class="doc-stage"><pre class="text-body" id="text-stage" data-src="{{ object.file.url }}">Chargement…</pre></div>
+      {% elif object.media == "html" %}
+        <iframe src="{% url 'research:learning_html' object.pk %}" title="{{ object.title }}" class="pdf-frame bg-white"
+                sandbox="allow-scripts allow-popups allow-forms allow-modals" referrerpolicy="no-referrer"></iframe>
       {% elif object.media == "embed" %}
-        <div class="ratio ratio-16x9"><iframe src="{{ object.embed_url }}" title="{{ object.title }}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>
+        <div class="ratio ratio-16x9"><iframe src="{{ object.embed_url }}" title="{{ object.title }}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
+      {% elif object.media == "web" %}
+        <iframe src="{{ object.url }}" title="{{ object.title }}" class="pdf-frame bg-white" referrerpolicy="no-referrer"
+                sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-presentation"></iframe>
+        <div class="viewer-note">Page vide ? Certains sites interdisent leur affichage dans une autre application ;
+          ils ne peuvent alors être consultés que dans un onglet du navigateur.</div>
       {% else %}
         <div class="media-placeholder"><i class="bi {{ object.icon }}"></i>
-          {% if object.file %}<a class="btn btn-primary mt-3" href="{{ object.file.url }}"><i class="bi bi-download"></i> Télécharger le fichier</a>
-          {% elif object.url %}<a class="btn btn-primary mt-3" href="{{ object.url }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i> Ouvrir le lien</a>{% endif %}</div>
+          <div class="fs-6 mt-3">Ce format ne peut pas être affiché dans MYCOGEN.</div>
+          <a class="btn btn-light mt-3" href="{{ object.file.url }}"><i class="bi bi-download"></i> Télécharger le fichier</a></div>
       {% endif %}
     </div>
 
@@ -49,7 +77,7 @@
         <button class="btn btn-sm {% if act.completed %}btn-success{% else %}btn-outline-success{% endif %}" id="done-btn">
           <i class="bi bi-check-circle{% if act.completed %}-fill{% endif %}"></i> {% if act.completed %}Terminé{% else %}Marquer comme terminé{% endif %}</button>
       </form>
-      {% if object.file %}<a class="btn btn-sm btn-outline-secondary" href="{{ object.file.url }}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Ouvrir le fichier</a>{% endif %}
+      {% if object.file %}<a class="btn btn-sm btn-outline-secondary" href="{{ object.file.url }}" download><i class="bi bi-download"></i> Télécharger</a>{% endif %}
       {% if object.url and object.media != "link" %}<a class="btn btn-sm btn-outline-secondary" href="{{ object.url }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-link-45deg"></i> Source</a>{% endif %}
       <span class="ms-auto small text-muted"><i class="bi bi-eye"></i> {{ object.view_count }} consultation{{ object.view_count|pluralize }}</span>
     </div>
@@ -106,6 +134,72 @@
   </div>
 </div>
 
+
+{% if object.media == "word" %}
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.2/dist/docx-preview.min.js"></script>
+{% elif object.media == "sheet" %}
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+{% elif object.media == "markdown" %}
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+{% endif %}
+<script>
+(function () {
+  function failed(el, msg) {
+    el.innerHTML = '<div class="doc-loading text-danger"><i class="bi bi-exclamation-triangle"></i> ' + msg + '</div>';
+  }
+  function load(url, type) {
+    return fetch(url, {credentials: 'same-origin'}).then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      return type === 'text' ? r.text() : r.arrayBuffer();
+    });
+  }
+  var docx = document.getElementById('docx-stage');
+  if (docx) {
+    load(docx.dataset.src).then(function (buf) {
+      docx.innerHTML = '';
+      return window.docx.renderAsync(buf, docx, null, {inWrapper: true, ignoreLastRenderedPageBreak: true, experimental: true});
+    }).catch(function () { failed(docx, "Impossible d'afficher ce document Word."); });
+  }
+  var sheet = document.getElementById('sheet-stage');
+  if (sheet) {
+    var tabs = document.getElementById('sheet-tabs'), body = document.getElementById('sheet-body');
+    load(sheet.dataset.src).then(function (buf) {
+      var wb = XLSX.read(new Uint8Array(buf), {type: 'array', cellDates: true});
+      function show(i) {
+        body.innerHTML = XLSX.utils.sheet_to_html(wb.Sheets[wb.SheetNames[i]], {editable: false});
+        tabs.querySelectorAll('.nav-link').forEach(function (a, j) { a.classList.toggle('active', i === j); });
+      }
+      wb.SheetNames.forEach(function (name, i) {
+        var li = document.createElement('li'), a = document.createElement('button');
+        li.className = 'nav-item'; a.type = 'button'; a.className = 'nav-link'; a.textContent = name;
+        a.addEventListener('click', function () { show(i); });
+        li.appendChild(a); tabs.appendChild(li);
+      });
+      show(0);
+    }).catch(function () { failed(body, "Impossible d'afficher ce classeur."); });
+  }
+  var md = document.getElementById('md-stage');
+  if (md) {
+    load(md.dataset.src, 'text').then(function (text) {
+      md.innerHTML = DOMPurify.sanitize(marked.parse(text));
+      md.querySelectorAll('a[href^="http"]').forEach(function (a) { a.target = '_blank'; a.rel = 'noopener noreferrer'; });
+    }).catch(function () { failed(md, "Impossible d'afficher ce document."); });
+  }
+  var txt = document.getElementById('text-stage');
+  if (txt) {
+    load(txt.dataset.src, 'text').then(function (text) { txt.textContent = text; })
+      .catch(function () { txt.textContent = "Impossible d'afficher ce fichier."; });
+  }
+  var img = document.getElementById('zoom-img');
+  if (img) img.addEventListener('click', function () { img.classList.toggle('zoomed'); });
+  var viewer = document.getElementById('viewer'), fs = document.getElementById('fullscreen-btn');
+  if (fs) fs.addEventListener('click', function () {
+    if (document.fullscreenElement) document.exitFullscreen(); else viewer.requestFullscreen();
+  });
+})();
+</script>
 {% if object.media == "video" or object.media == "audio" %}
 <script>
 (function () {

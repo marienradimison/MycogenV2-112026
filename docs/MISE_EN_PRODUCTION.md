@@ -137,6 +137,15 @@ wget -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_
 sudo apt install -y /tmp/chrome.deb
 ```
 
+**LibreOffice** (aperçu dans MycoLearn des présentations PowerPoint et des anciens formats Office .doc / .odt / .rtf,
+convertis en PDF par le serveur) :
+```bash
+sudo apt install -y --no-install-recommends libreoffice-impress libreoffice-writer libreoffice-calc
+```
+Vérification : `soffice --version`. Sans LibreOffice, MYCOGEN fonctionne mais affiche « Aperçu indisponible » pour ces
+formats (Word .docx, Excel, PDF, vidéo… restent lisibles). Sous Windows, installer LibreOffice suffit ; un autre
+emplacement se déclare avec `LIBREOFFICE_PATH` dans `.env`.
+
 ### 2.5 Base de données vide (mot de passe **nouveau et solide**)
 
 - [ ] PostgreSQL 17 démarre avec Ubuntu (doit afficher `enabled` puis `active`) :

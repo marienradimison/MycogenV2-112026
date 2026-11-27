@@ -590,3 +590,29 @@ dl.details dd { margin-bottom: .55rem; }
 .related-thumb .cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .collection-progress { display: inline-block; width: 160px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.3); overflow: hidden; }
 .collection-progress > span { display: block; height: 100%; background: #4ade80; }
+
+/* MycoLearn — lecteurs intégrés */
+.viewer-bar { display: flex; align-items: center; gap: .5rem; padding: .35rem .6rem .35rem .9rem; background: #111; color: rgba(255,255,255,.8); font-size: .8rem; }
+.viewer-bar .btn-dark { --bs-btn-padding-y: .1rem; --bs-btn-padding-x: .45rem; }
+.media-player:fullscreen { display: flex; flex-direction: column; background: #000; }
+.media-player:fullscreen > :not(.viewer-bar) { flex: 1; max-height: none !important; height: auto; }
+.media-player:fullscreen .doc-stage, .media-player:fullscreen .sheet-stage { max-height: none; }
+.doc-stage { background: #e9edf0; min-height: 45vh; max-height: 78vh; overflow: auto; padding: 1rem; }
+.doc-stage .docx-wrapper { background: transparent; padding: 0; }
+.doc-loading { padding: 2rem; text-align: center; color: var(--myc-muted); }
+.markdown-body { background: #fff; color: #1d2731; max-width: 900px; margin: 0 auto; padding: 2rem 2.4rem; border-radius: .5rem;
+  box-shadow: 0 1px 6px rgba(0,0,0,.08); line-height: 1.6; }
+.markdown-body img { max-width: 100%; } .markdown-body pre { background: #f3f5f7; padding: .8rem; border-radius: .4rem; }
+.markdown-body table { border-collapse: collapse; } .markdown-body th, .markdown-body td { border: 1px solid #d0d7de; padding: .3rem .6rem; }
+.text-body { background: #fff; color: #1d2731; margin: 0; padding: 1rem 1.2rem; border-radius: .5rem; white-space: pre-wrap; font-size: .82rem; }
+.sheet-stage { background: #fff; min-height: 45vh; max-height: 78vh; display: flex; flex-direction: column; }
+.sheet-tabs { padding: .3rem .5rem 0; background: #f3f5f7; flex: none; }
+.sheet-tabs .nav-link { font-size: .8rem; padding: .25rem .7rem; color: #3f5560; }
+.sheet-body { overflow: auto; flex: 1; }
+.sheet-body table { border-collapse: collapse; font-size: .8rem; color: #1d2731; }
+.sheet-body td, .sheet-body th { border: 1px solid #dde3e8; padding: .2rem .5rem; white-space: nowrap; }
+.sheet-body tr:first-child td { background: #f3f5f7; font-weight: 600; position: sticky; top: 0; }
+.image-stage { background: #111; display: flex; justify-content: center; overflow: auto; max-height: 78vh; }
+.image-stage img { max-width: 100%; max-height: 78vh; cursor: zoom-in; }
+.image-stage img.zoomed { max-width: none; max-height: none; cursor: zoom-out; }
+.viewer-note { font-size: .75rem; color: rgba(255,255,255,.7); background: #111; padding: .35rem .9rem; }

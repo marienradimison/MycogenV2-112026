@@ -8,7 +8,8 @@ from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db.models import Count, F, Q
-from django.http import JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -16,8 +17,13 @@ from django.views.decorators.http import require_POST
 from apps.core.crud import Crud, safe_next
 
 from .models import CollectionItem, LearningActivity, LearningCollection, LearningDomain, LearningResource
+from .viewers import ConversionError, converted_pdf, soffice
 
 ROW = 12          # supports par rangée
+VIEWER_LABELS = {"video": "Lecteur vidéo", "audio": "Lecteur audio", "pdf": "Document PDF", "image": "Image",
+                 "word": "Document Word", "sheet": "Classeur (Excel / CSV)", "markdown": "Document Markdown",
+                 "text": "Fichier texte", "html": "Page HTML (isolée)", "office": "Présentation / document Office (aperçu PDF)",
+                 "embed": "Vidéo en ligne", "web": "Page web", "file": "Fichier"}
 VIEW_GAP = timedelta(minutes=30)   # une consultation comptée au plus toutes les 30 min par utilisateur
 SORTS = {"recent": ("Plus récents", "-created_at"), "popular": ("Plus consultés", "-view_count"),
          "title": ("Titre A → Z", "title")}
@@ -46,7 +52,8 @@ def resource_context(obj, request):
         LearningResource.objects.filter(pk=obj.pk).update(view_count=F("view_count") + 1)
         obj.view_count += 1
     act.last_viewed_at = now
-    if obj.media in ("pdf", "image", "file", "link") and not act.completed:   # consulté = terminé
+    viewable = obj.media not in ("file",) and not (obj.media == "office" and not soffice())
+    if viewable and obj.media not in ("video", "audio", "embed") and not act.completed:   # document lu = terminé
         act.completed = True
     act.save()
 
@@ -67,7 +74,9 @@ def resource_context(obj, request):
     related = with_activity(visible_resources(user).filter(domain=obj.domain).exclude(pk=obj.pk)
                             .order_by("-view_count", "-created_at")[:6], user)
     return {"act": act, "collection": collection, "playlist": playlist, "prev_item": prev_item,
-            "next_item": next_item, "related": related, "can_manage": user.has_perm("research.change_learningresource")}
+            "next_item": next_item, "related": related, "can_manage": user.has_perm("research.change_learningresource"),
+            "can_convert": bool(soffice()) if obj.media == "office" else True,
+            "viewer_label": VIEWER_LABELS.get(obj.media, "Fichier")}
 
 
 def collection_context(obj, request):
@@ -243,3 +252,40 @@ def mark_done(request, pk):
     act.position = 0
     act.save(update_fields=["completed", "position"])
     return redirect(safe_next(request, request.POST.get("next"), resource.get_absolute_url()))
+
+
+@login_required
+@permission_required("research.view_learningresource", raise_exception=True)
+@xframe_options_sameorigin
+def preview_pdf(request, pk):
+    """Aperçu PDF d'un fichier bureautique (PowerPoint, .doc, .odt…) converti par LibreOffice, affiché dans le lecteur."""
+    resource = get_object_or_404(visible_resources(request.user), pk=pk)
+    if not resource.file or resource.media != "office":
+        raise Http404
+    try:
+        path = converted_pdf(resource)
+    except ConversionError as exc:
+        return HttpResponse(f"<p style='font-family:sans-serif;padding:2rem'>{exc}</p>", status=503)
+    resp = FileResponse(open(path, "rb"), content_type="application/pdf")
+    resp["Content-Disposition"] = "inline"
+    resp["X-Content-Type-Options"] = "nosniff"
+    return resp
+
+
+@login_required
+@permission_required("research.view_learningresource", raise_exception=True)
+@xframe_options_sameorigin
+def html_frame(request, pk):
+    """Page HTML d'un support, servie dans un bac à sable (CSP sandbox, origine opaque) : ses scripts éventuels
+    s'exécutent sans accès aux cookies, à la session ni aux pages de MYCOGEN."""
+    resource = get_object_or_404(visible_resources(request.user), pk=pk)
+    if not resource.file or resource.media not in ("html", "markdown", "text"):
+        raise Http404
+    with resource.file.open("rb") as f:
+        data = f.read()
+    resp = HttpResponse(data, content_type="text/html; charset=utf-8" if resource.media == "html"
+                        else "text/plain; charset=utf-8")
+    resp["Content-Security-Policy"] = "sandbox allow-scripts allow-popups allow-forms allow-modals"
+    resp["X-Content-Type-Options"] = "nosniff"
+    resp["Referrer-Policy"] = "no-referrer"
+    return resp

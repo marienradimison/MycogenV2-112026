@@ -40,6 +40,25 @@ des inventaires pour les rôles SL et MB).
 
 ---
 
+## 2026-11-27 — MycoLearn : lecteurs intégrés pour tous les formats
+
+Migration : `research.0008_lecteurs_integres`. Serveur : installer LibreOffice (voir MISE_EN_PRODUCTION.md, § 2.4).
+
+### Ajouté
+
+- Lecture dans MYCOGEN, sans ouvrir d'autre application : **Word** (.docx, docx-preview), **Excel / tableur / CSV**
+  (SheetJS, un onglet par feuille), **Markdown** (marked + DOMPurify : scripts retirés), **HTML** (cadre isolé,
+  en-tête `Content-Security-Policy: sandbox` sans `allow-same-origin`), **texte**, **PowerPoint** et anciens formats
+  Office (conversion PDF par LibreOffice, mise en cache dans `media/mycolearn/apercus/`), **liens web** dans la page ;
+  bouton plein écran, zoom des images.
+- Types de support « Document (Word, texte) », « Tableur (Excel, CSV) », « Page web (HTML, Markdown) », déduits du
+  fichier (sauf « Tutoriel »).
+- Bouton « Télécharger » à la place de « Ouvrir le fichier » (le support se lit dans la page).
+
+*Fichiers : `apps/research/viewers.py`, `apps/research/mycolearn.py`, `templates/research/learning_detail.html`*
+
+---
+
 ## 2026-11-27 — MycoLearn : médiathèque
 
 Migration : `research.0007_mediatheque`. Après mise à jour : `migrate` puis `init_mycogen` (consultation des
