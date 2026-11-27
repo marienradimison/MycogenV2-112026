@@ -99,3 +99,77 @@ class MediathequeTests(TestCase):
         self.assertEqual(b"".join(r.streaming_content), (bytes(range(256)) * 40)[100:200])
         self.assertEqual(self.client.get(url, HTTP_RANGE="bytes=999999-").status_code, 416)
         self.assertEqual(self.client.get(url).status_code, 200)
+
+
+@override_settings(MEDIA_ROOT=MEDIA)
+class IntegratedViewerTests(TestCase):
+    """Lecteurs intégrés : chaque format se lit dans MYCOGEN."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("init_mycogen", verbosity=0)
+        cls.user = User.objects.create_user("lecteur", password="x")
+        cls.user.groups.add(Group.objects.get(role_code__code="STG"))
+        cls.domain = LearningDomain.objects.get(name="Qualité")
+
+    def make(self, name, data=b"x", kind="PDF"):
+        r = LearningResource(title=name, domain=self.domain, kind=kind, file=SimpleUploadedFile(name, data))
+        r.full_clean()
+        r.save()
+        return r
+
+    def test_viewer_and_kind_detected_from_file(self):
+        from .viewers import viewer_for
+        cases = {"cours.pptx": ("office", "SLIDES"), "proto.docx": ("word", "DOC"), "plan.xlsx": ("sheet", "SHEET"),
+                 "data.csv": ("sheet", "SHEET"), "fiche.md": ("markdown", "WEB"), "tuto.html": ("html", "WEB"),
+                 "notes.txt": ("text", "DOC"), "film.mp4": ("video", "VIDEO"), "son.mp3": ("audio", "AUDIO"),
+                 "schema.png": ("image", "IMAGE"), "doc.pdf": ("pdf", "PDF"), "ancien.doc": ("office", "DOC")}
+        for name, (viewer, kind) in cases.items():
+            with self.subTest(name=name):
+                self.assertEqual(viewer_for(name), viewer)
+                self.assertEqual(self.make(name).kind, kind)
+        self.assertEqual(self.make("exo.docx", kind="TUTO").kind, "TUTO")       # « tutoriel » conservé
+        self.assertEqual(LearningResource(url="https://example.org/cours").media, "web")
+
+    def test_pages_render_each_viewer(self):
+        self.client.force_login(self.user)
+        expected = {"proto.docx": "docx-preview", "plan.xlsx": "xlsx.full.min.js", "fiche.md": "purify.min.js",
+                    "notes.txt": "text-stage", "tuto.html": "/page/", "film.mp4": "<video", "doc.pdf": "pdf-frame"}
+        for name, marker in expected.items():
+            with self.subTest(name=name):
+                self.assertContains(self.client.get(self.make(name).get_absolute_url()), marker)
+        web = LearningResource.objects.create(title="Site", domain=self.domain, kind="LINK", url="https://example.org")
+        self.assertContains(self.client.get(web.get_absolute_url()), 'src="https://example.org"')
+
+    def test_html_is_sandboxed(self):
+        self.client.force_login(self.user)
+        r = self.make("tuto.html", b"<script>document.cookie</script><h1>Tuto</h1>")
+        resp = self.client.get(reverse("research:learning_html", args=[r.pk]))
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("sandbox", resp["Content-Security-Policy"])
+        self.assertNotIn("allow-same-origin", resp["Content-Security-Policy"])   # origine opaque : pas de session
+        self.assertContains(resp, "<h1>Tuto</h1>")
+
+    def test_office_preview_with_and_without_libreoffice(self):
+        from unittest import mock
+
+        from . import viewers
+        self.client.force_login(self.user)
+        r = self.make("cours.pptx", b"PK fichier")
+        url = reverse("research:learning_preview_pdf", args=[r.pk])
+        with mock.patch.object(viewers, "soffice", return_value=None):
+            self.assertEqual(self.client.get(url).status_code, 503)
+            self.assertContains(self.client.get(r.get_absolute_url()), "LibreOffice")
+
+        def fake_run(cmd, **kwargs):   # conversion simulée : écrit le PDF dans --outdir
+            import pathlib
+            out = pathlib.Path(cmd[cmd.index("--outdir") + 1]) / (pathlib.Path(cmd[-1]).stem + ".pdf")
+            out.write_bytes(b"%PDF-1.4 apercu")
+
+        with mock.patch.object(viewers, "soffice", return_value=__file__), \
+                mock.patch.object(viewers.subprocess, "run", side_effect=fake_run) as run:
+            resp = self.client.get(url)
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(b"".join(resp.streaming_content), b"%PDF-1.4 apercu")
+            self.client.get(url)                                     # second appel : PDF en cache
+            self.assertEqual(run.call_count, 1)

@@ -498,6 +498,13 @@ seuil, plaque ou flowcell…) et la liste des échantillons analysés, avec un b
     (x / n terminés), bouton « Commencer / Reprendre » et passage automatique au support suivant en fin de vidéo.
   - *Gestion* (SL, RSR, RQ/CQ, CDS) : boutons « Ajouter un support », « Collections », « Domaines », « Gérer les
     supports » ; champs langue, mots-clés, vignette, « à la une », « publié ». Les autres rôles consultent.
+  - **Lecteurs intégrés** : tout support se lit dans MYCOGEN, sans ouvrir d'autre application :
+    vidéo (MP4, WebM…) et audio (MP3, M4A…) avec reprise de lecture ; PDF ; images (zoom au clic) ;
+    **Word** (.docx) ; **Excel** (.xlsx, .xls, .ods, .csv — un onglet par feuille) ; **Markdown** (.md) ;
+    **HTML** (page isolée : ses scripts n'ont pas accès à la session) ; fichiers texte ; **PowerPoint** (.pptx, .ppt,
+    .odp) et anciens formats Office (.doc, .odt, .rtf), convertis en PDF par LibreOffice sur le serveur ;
+    liens web affichés dans la page (certains sites l'interdisent : ils restent consultables dans un onglet) ;
+    vidéos YouTube / Vimeo. Bouton plein écran ; le type de support est déduit du fichier.
   - Vidéos recommandées : MP4 (H.264) ; audio : MP3 / M4A.
 
 Les sous-modules bioinformatiques (analyses génomiques, pipelines) ne sont plus dans le menu ; leurs données sont
@@ -740,6 +747,7 @@ L'export JSON de l'ancien LIMS (fiches patients) est importé par :
 | 26/11/2026 | Autorisations par rôle selon le fichier permissions.xlsx : nouveaux rôles CDS (Chef de Service) et STG (Stagiaire), validation consultable et exportable sans droit de valider, SGQ / Stock / Administration réservés à SL, RQ/CQ et CDS ; SOP consultables par tous, MycoLearn modifiable par SL, RSR, RQ/CQ et CDS, températures saisies par AL |
 | 27/11/2026 | QuantiFERON-TB : plaques ELISA (courbe standard, contrôle qualité, DO → UI/mL) et générateur de fiches de résultats ; nouvel aperçu commun des résultats (bandeau, patient, validation signée, traçabilité) ; SGQ : surveillance retirée de l'accès aux salles |
 | 27/11/2026 | MycoLearn devient une médiathèque : accueil en rangées (à la une, continuer, ma liste, nouveautés, populaires), lecteur avec reprise de lecture, YouTube / Vimeo intégrés, audio, collections / parcours, mots-clés, langues, favoris, compteur de consultations ; lecture vidéo en continu (requêtes Range) |
+| 27/11/2026 | MycoLearn : lecteurs intégrés pour tous les formats (vidéo, audio, PDF, image, Word, Excel / CSV, Markdown, HTML isolé, texte, PowerPoint et anciens formats Office via LibreOffice, liens web) |
 
 ---
 
