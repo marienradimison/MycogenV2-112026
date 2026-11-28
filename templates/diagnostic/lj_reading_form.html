@@ -2,6 +2,24 @@
 {% block title %}Culture LJ — lecture d'étuve{% endblock %}
 {% block content %}
 {% include "diagnostic/_lj_header.html" %}
+<form method="get" class="card card-body py-2 mb-3" id="reading-search">
+  <input type="hidden" name="filtre" value="{{ filtre }}">
+  <input type="hidden" name="date" value="{{ date|date:'Y-m-d' }}">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-4"><label class="form-label small mb-1">Rechercher un échantillon</label>
+      <div class="input-group input-group-sm"><span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input class="form-control" name="q" value="{{ search.q }}" placeholder="N° échantillon, patient, identifiant externe"></div></div>
+    <div class="col-md-3"><label class="form-label small mb-1">Mois d'ensemencement</label>
+      <select class="form-select form-select-sm" name="mois"><option value="">Tous les mois</option>
+        {% for m, label in months %}<option value="{{ m }}" {% if m == search.mois %}selected{% endif %}>{{ label|capfirst }}</option>{% endfor %}</select></div>
+    <div class="col-md-3"><label class="form-label small mb-1">Date d'ensemencement</label>
+      <input class="form-control form-control-sm" type="date" name="ensemence" value="{{ search.ensemence }}"></div>
+    <div class="col-md-2 d-flex gap-1">
+      <button class="btn btn-sm btn-primary flex-grow-1"><i class="bi bi-funnel"></i> Filtrer</button>
+      {% if search.q or search.mois or search.ensemence %}<a class="btn btn-sm btn-light" title="Effacer la recherche" href="?filtre={{ filtre }}&date={{ date|date:'Y-m-d' }}"><i class="bi bi-x-lg"></i></a>{% endif %}
+    </div>
+  </div>
+</form>
 <form method="post" id="reading-form" data-filtre="{{ filtre }}">{% csrf_token %}
   <input type="hidden" name="filtre" value="{{ filtre }}">
   <div class="card mb-3">
@@ -21,7 +39,7 @@
   <div class="d-flex flex-wrap align-items-center gap-2 mb-3" id="age-filters">
     <span class="small text-muted">Afficher :</span>
     {% for f in filters %}
-      <a class="btn btn-sm {% if f.active %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="?filtre={{ f.key }}&date={{ date|date:'Y-m-d' }}" data-filtre="{{ f.key }}">{{ f.label }}
+      <a class="btn btn-sm {% if f.active %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="?filtre={{ f.key }}&date={{ date|date:'Y-m-d' }}&q={{ search.q|urlencode }}&mois={{ search.mois }}&ensemence={{ search.ensemence }}" data-filtre="{{ f.key }}">{{ f.label }}
         <span class="badge text-bg-light">{{ f.count }}</span></a>
     {% endfor %}
     {% if filtre == "90s" %}<span class="small text-muted">Fin de semaine : dimanche {{ week_end|date:"d/m/Y" }}</span>{% endif %}
@@ -29,6 +47,7 @@
 
   <div class="card">
     <div class="card-header d-flex align-items-center">{{ cultures|length }} culture(s) sur {{ total }} en étuve
+      {% if search.q or search.mois or search.ensemence %}<span class="badge text-bg-light border ms-2"><i class="bi bi-funnel"></i> recherche active</span>{% endif %}
       <div class="ms-auto d-flex gap-2 small fw-normal">
         <a class="btn btn-sm btn-outline-secondary" href="{% url 'diagnostic:lj_blank_sheet' %}?filtre={{ filtre }}&date={{ date|date:'Y-m-d' }}"><i class="bi bi-printer"></i> Fiche de lecture vierge</a>
         <button type="button" class="btn btn-sm btn-outline-secondary" id="all-nogrowth">Tout « pas de pousse »</button>
@@ -141,8 +160,14 @@
     });
     decide(row);
   });
+  // Ouvrir / fermer toutes les fiches (le libellé suit l'état)
   const openAll = document.getElementById('open-all');
-  openAll.addEventListener('click', () => rows.forEach(r => { r.querySelector('.sheet-row').hidden = false; }));
+  openAll.addEventListener('click', () => {
+    const open = openAll.dataset.open !== '1';
+    rows.forEach(r => { r.querySelector('.sheet-row').hidden = !open; });
+    openAll.dataset.open = open ? '1' : '';
+    openAll.textContent = open ? 'Fermer toutes les fiches' : 'Ouvrir toutes les fiches';
+  });
   // Sortie négative en groupe (les cultures avec pousse restent exclues)
   const negAll = document.getElementById('neg-all');
   const selectable = () => rows.filter(r => r.querySelector('input.neg') && !hasGrowth(r));
@@ -154,11 +179,21 @@
   syncAll();
   // La liste filtrée dépend de la date de lecture
   const dateInput = document.getElementById('reading-date'), filtre = document.getElementById('reading-form').dataset.filtre;
+  function go(params) {   // conserve la recherche (échantillon, mois, date d'ensemencement)
+    const q = new URLSearchParams(location.search);
+    Object.entries(params).forEach(([k, v]) => q.set(k, v));
+    location.search = q.toString();
+  }
   document.querySelectorAll('#age-filters a').forEach(a => a.addEventListener('click', (e) => {
     e.preventDefault();
-    location.search = `?filtre=${a.dataset.filtre}&date=${dateInput.value}`;
+    go({filtre: a.dataset.filtre, date: dateInput.value});
   }));
-  if (filtre) dateInput.addEventListener('change', () => { location.search = `?filtre=${filtre}&date=${dateInput.value}`; });
+  if (filtre) dateInput.addEventListener('change', () => go({filtre: filtre, date: dateInput.value}));
+  // Enregistrement : les champs vides ne sont pas envoyés (lectures de plusieurs centaines de cultures)
+  document.getElementById('reading-form').addEventListener('submit', () => {
+    document.querySelectorAll('#reading-form .reading-row select, #reading-form .reading-row input:not([type=hidden]):not([type=checkbox])')
+      .forEach(el => { if (!el.value) el.disabled = true; });
+  });
   document.getElementById('all-nogrowth').addEventListener('click', () => {
     document.querySelectorAll('select.obs').forEach(s => { if (!s.value) s.value = 'NOGROWTH'; });
     rows.forEach(decide);

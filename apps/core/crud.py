@@ -271,7 +271,7 @@ class Crud:
                 ctx["details"] = [(field_label(crud.model, n), n) for n in names]
                 ctx["related"] = related_tables(obj, self.request.user)
                 ctx["can_validate"] = (getattr(obj, "validatable", False) and not obj.is_validated
-                                       and self.request.user.has_perm("core.validate_results"))
+                                       and obj.has_result and self.request.user.has_perm("core.validate_results"))
                 if crud.extra_context:
                     ctx.update(crud.extra_context(obj, self.request))
                 if crud.parent and "back_url" not in ctx:
@@ -360,6 +360,9 @@ class Crud:
             def post(self, request, pk):
                 obj = get_object_or_404(crud.model, pk=pk)
                 back = safe_next(request, request.POST.get("next"), obj.get_absolute_url())
+                if obj.result_status == "DRAFT" and not obj.has_result:
+                    messages.warning(request, f"« {obj} » n'a pas encore de résultat : validation impossible.")
+                    return HttpResponseRedirect(back)
                 if obj.result_status != "DRAFT":  # déjà validé, ou annulé : rien à valider
                     messages.warning(request, f"« {obj} » est {obj.get_result_status_display().lower()} : "
                                               "validation impossible.")

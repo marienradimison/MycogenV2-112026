@@ -142,6 +142,10 @@ LOGGING = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Lecture d'étuve : une ligne de formulaire par culture en étuve (plusieurs centaines) → relever la limite Django
+# (1 000 champs par défaut), sinon l'enregistrement de la lecture échoue (TooManyFieldsSent, erreur 400).
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 30000
+
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "core:dashboard"
 LOGOUT_REDIRECT_URL = "login"

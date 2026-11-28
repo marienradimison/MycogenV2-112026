@@ -35,9 +35,6 @@
                 <div class="col-md-5 field-{{ f.name }}">{% include "core/_wizard_field.html" %}</div>
               {% elif f.name == 'full_name' or f.name == 'patient_notes' %}
                 <div class="col-12 field-{{ f.name }}">{% include "core/_wizard_field.html" %}</div>
-              {% elif f.name == 'research_consent' %}
-                <div class="col-md-4 field-{{ f.name }} d-flex align-items-end"><div class="form-check mb-2">{{ f }}
-                  <label class="form-check-label" for="{{ f.id_for_label }}">{{ f.label }}</label></div></div>
               {% elif f.name == 'patient_id' or f.name == 'address' %}
                 <div class="col-md-6 field-{{ f.name }}">{% include "core/_wizard_field.html" %}</div>
               {% else %}
@@ -219,8 +216,7 @@
       const el = $("id_" + k);
       if (el && r[k] && (!el.value || el.tagName === "SELECT")) el.value = r[k];
     });
-    $("id_research_consent").checked = !!r.research_consent;
-    updateAge();
+      updateAge();
     if (r.facility && $('id_facility').tomselect && !$('id_facility').value) $('id_facility').tomselect.setValue(r.facility);
     box.innerHTML = '<i class="bi bi-person-check"></i> Patient choisi : <b>' + esc(r.full_name) + '</b> — ' + r.samples
       + ' échantillon(s) déjà enregistré(s). Informations reprises ; ce nouvel échantillon lui sera rattaché.';

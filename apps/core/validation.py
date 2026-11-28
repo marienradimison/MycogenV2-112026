@@ -44,7 +44,7 @@ def validation(request):
             if not crud or not pk.isdigit():
                 continue
             obj = crud.model.objects.filter(pk=pk, result_status="DRAFT").first()
-            if obj:
+            if obj and obj.has_result:
                 comment = request.POST.get(f"comment_{token}", "")[:2000]
                 obj.validate(request.user, comment)
                 log(request.user, "VALIDATE", obj, {"commentaire": comment} if comment else None)
@@ -100,13 +100,20 @@ def validation_tabs(cruds):
         crud = by_prefix.get(prefix)
         if crud:
             tabs.append({"key": key, "title": title, "crud": crud, "filter": flt, "fixed": True,
-                         "qs": lambda crud=crud, flt=flt: crud.model.objects.filter(**flt)})
+                         "qs": lambda crud=crud, flt=flt: with_results(crud.model.objects.filter(**flt))})
     fixed = {p for _, _, p, _ in TABS}
     for crud in cruds:
         if crud.prefix not in fixed:
             tabs.append({"key": crud.prefix, "title": str(crud.title), "crud": crud, "filter": {}, "fixed": False,
-                         "qs": lambda crud=crud: crud.model.objects.all()})
+                         "qs": lambda crud=crud: with_results(crud.model.objects.all())})
     return tabs
+
+
+def with_results(qs):
+    """Seules les analyses dont le résultat est saisi : une culture encore en étuve (« En cours ») est exclue."""
+    if any(f.name == "result" for f in qs.model._meta.fields) and qs.model._meta.model_name == "culture":
+        return qs.exclude(result="PENDING")
+    return qs
 
 
 def collect_rows(cruds, f, limit=500):

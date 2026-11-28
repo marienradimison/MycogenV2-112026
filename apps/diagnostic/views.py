@@ -58,12 +58,40 @@ class DSTForm(LimsModelForm):
 
 SEARCH = ["sample__code", "sample__patient__last_name", "sample__patient__code"]
 
+XDR_FIELDS = ["inh_result", "fq_result", "amk_result", "kan_result", "cap_result", "eto_result"]
+
+
+class GeneXpertForm(LimsModelForm):
+    """GNX-RIF (Ultra) : seule la rifampicine ; GNX-XDR : INH, FLQ, AMK, KAN, CAP, ETH (pas de RIF)."""
+
+    class Meta:
+        model = GeneXpertTest
+        fields = ["sample", "assay", "cartridge_lot", "instrument", "mtb_result", "rif_result", *XDR_FIELDS,
+                  "error_code", *RESULT_FIELDS]
+        formfield_callback = lims_formfield
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in ["rif_result", *XDR_FIELDS]:   # masqués selon le test : « Non applicable » par défaut
+            self.fields[name].required = False
+
+    def clean(self):
+        data = super().clean()
+        for name in ["rif_result", *XDR_FIELDS]:
+            data[name] = data.get(name) or "NA"
+        if data.get("assay") == "ULTRA":
+            for name in XDR_FIELDS:
+                data[name] = "NA"
+        elif data.get("assay") == "XDR":
+            data["rif_result"] = "NA"
+        return data
+
 CRUDS = [
     Crud(
         GeneXpertTest, "genexpert",
-        fields=["sample", "assay", "cartridge_lot", "instrument", "mtb_result", "rif_result",
-                "inh_result", "fq_result", "amk_result", "kan_result", "cap_result", "eto_result",
-                "error_code", *RESULT_FIELDS],
+        fields=GeneXpertForm.Meta.fields,
+        form_class=GeneXpertForm,
+        form_template="diagnostic/genexpert_form.html",
         list_display=["sample", "sample__patient", "assay", "test_date", "mtb_result", "rif_result",
                       "inh_result", "fq_result", "result_status"],
         search_fields=SEARCH + ["cartridge_lot"],

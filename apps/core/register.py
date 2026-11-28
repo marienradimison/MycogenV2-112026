@@ -34,7 +34,7 @@ def analysis_choices(sample=None):
     return out
 
 PATIENT_FIELDS = ["full_name", "birth_date", "sex", "patient_id", "national_id", "tb_register_number", "phone",
-                  "address", "district", "region", "hiv_status", "tb_history", "research_consent", "patient_notes"]
+                  "address", "district", "region", "hiv_status", "tb_history", "patient_notes"]
 SAMPLE_FIELDS = ["code", "host", "sample_type", "type_detail", "aspect", "collected_on", "received_at", "facility",
                  "requester", "requester_contact"]
 
@@ -58,8 +58,7 @@ class RegistrationForm(BootstrapFormMixin, forms.Form):
     district = forms.CharField(label="District", max_length=100, required=False)
     region = forms.CharField(label="Région", max_length=100, required=False)
     hiv_status = forms.ChoiceField(label="Statut VIH", choices=Patient.HIV, initial="INC")
-    tb_history = forms.ChoiceField(label="Antécédent TB", choices=Patient.TB_HISTORY, initial="NEW")
-    research_consent = forms.BooleanField(label="Consentement pour la recherche", required=False)
+    tb_history = forms.ChoiceField(label="Antécédent TB", choices=Patient.TB_HISTORY, initial="UNK")
     patient_notes = forms.CharField(label="Remarques patient", required=False,
                                     widget=forms.Textarea(attrs={"rows": 2}))
     # --- Étape 1 : échantillon
@@ -179,7 +178,7 @@ def patient_initial(p):
     return {"patient_pk": str(p.pk), "full_name": p.full_name, "birth_date": p.birth_date, "sex": p.sex if p.sex != "I" else "",
             "patient_id": p.code, "national_id": p.national_id, "tb_register_number": p.tb_register_number,
             "phone": p.phone, "address": p.address, "district": p.district, "region": p.region,
-            "hiv_status": p.hiv_status, "tb_history": p.tb_history, "research_consent": p.research_consent,
+            "hiv_status": p.hiv_status, "tb_history": p.tb_history,
             "patient_notes": p.notes}
 
 
@@ -206,7 +205,7 @@ def register(request):
                 return redirect("core:register" if "another" in request.POST else sample.get_absolute_url())
     else:
         initial = {"code": Sample.next_code(), "received_at": timezone.localtime().replace(second=0, microsecond=0),
-                   "conform": True, "hiv_status": "INC", "tb_history": "NEW", "host": "Humain"}
+                   "conform": True, "hiv_status": "INC", "tb_history": "UNK", "host": "Humain"}
         for key in ("facility", "project"):  # liens « Ajouter » depuis une fiche CDT / projet
             if request.GET.get(key, "").isdigit():
                 initial[key] = int(request.GET[key])
@@ -253,7 +252,7 @@ def apply_patient(patient, d, user):
     patient.birth_date = d["birth_date"]
     patient.sex = d["sex"] or "I"
     for f in ("national_id", "tb_register_number", "phone", "address", "district", "region",
-              "hiv_status", "tb_history", "research_consent"):
+              "hiv_status", "tb_history"):
         setattr(patient, f, d[f])
     patient.notes = d["patient_notes"]
     patient.updated_by = user
