@@ -647,6 +647,14 @@ La page Validation affiche la signature de l'utilisateur connecté, ou signale q
 
 ---
 
+### Identifiants externes générés automatiquement
+Jusqu'au 28/11/2026, un patient enregistré sans identifiant externe recevait un code automatique (PT26-00157…).
+Désormais le champ reste vide. Pour effacer les codes automatiques existants (sauvegarder la base avant) :
+```
+python manage.py clear_auto_patient_codes            # simulation : liste les codes concernés
+python manage.py clear_auto_patient_codes --apply    # efface (tracé dans le journal d'activité)
+```
+
 ### Reprise des données de l'ancien LIMS
 
 L'export JSON de l'ancien LIMS (fiches patients) est importé par :
@@ -761,6 +769,7 @@ L'export JSON de l'ancien LIMS (fiches patients) est importé par :
 | 27/11/2026 | MycoLearn : lecteurs intégrés pour tous les formats (vidéo, audio, PDF, image, Word, Excel / CSV, Markdown, HTML isolé, texte, PowerPoint et anciens formats Office via LibreOffice, liens web) |
 | 27/11/2026 | Tableau de bord : « À la une » remplace l'organigramme (publication de Chaud Chaud Chaud!!! mise à la une, contenu modifiable à tout moment, historique) |
 | 27/11/2026 | Bouton Préc. : page parente logique (plus d'historique pouvant mener à un élément supprimé) ; sondages et challenges interactifs dans « À la une » |
+| 28/11/2026 | Retours terrain : identifiant externe laissé vide s'il n'est pas saisi ; GNX-RIF limité à la RIF ; Validation limitée aux analyses avec résultat ; antécédent TB « Inconnu » par défaut, consentement retiré de l'enregistrement ; décontamination NALC-NaOH par défaut ; lecture d'étuve : enregistrement des grandes lectures corrigé, recherche et filtres par mois / date d'ensemencement, boutons « >90 jours » et « semaine | >90 jours », « Ouvrir / Fermer toutes les fiches » |
 
 ---
 

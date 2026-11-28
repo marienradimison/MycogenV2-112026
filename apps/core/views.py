@@ -51,7 +51,7 @@ patient_crud = Crud(
     Patient, "patient",
     fields=["last_name", "first_name", "sex", "birth_date", "age_years", "national_id",
             "tb_register_number", "phone", "address", "district", "region", "hiv_status",
-            "tb_history", "research_consent", "notes"],
+            "tb_history", "notes"],
     list_display=["code", "last_name", "first_name", "sex", "age", "district", "hiv_status", "tb_history"],
     search_fields=["code", "last_name", "first_name", "national_id", "tb_register_number", "phone"],
     list_filter=["sex", "hiv_status", "tb_history", "research_consent"],
@@ -120,6 +120,8 @@ def dashboard(request):
     from apps.diagnostic.models import DST, Culture, GeneXpertTest, Microscopy, NPOCTest, Quantiferon
     from apps.feed import news
 
+    from .validation import with_results
+
     today = timezone.localdate()
     start_week = today - timedelta(days=today.weekday())
     year_start = today.replace(month=1, day=1)
@@ -141,7 +143,7 @@ def dashboard(request):
     )
     pending = []
     for model in (GeneXpertTest, NPOCTest, Microscopy, Culture, DST, Quantiferon):
-        n = model.objects.filter(result_status="DRAFT").count()
+        n = with_results(model.objects.filter(result_status="DRAFT")).count()   # cultures en étuve exclues
         if n:
             pending.append((REGISTRY[model], n))
 

@@ -371,8 +371,8 @@ class SmokeTests(TestCase):
         s = Sample.objects.first()
         ultra = GeneXpertTest.objects.create(sample=s, assay="ULTRA", mtb_result="LOW", rif_result="DETECTED")
         xdr = GeneXpertTest.objects.create(sample=s, assay="XDR", mtb_result="HIGH", inh_result="DETECTED")
-        lj = Culture.objects.create(sample=s, medium="LJ", inoculated_on="2026-09-01")
-        mgit = Culture.objects.create(sample=s, medium="MGIT", inoculated_on="2026-09-01")
+        lj = Culture.objects.create(sample=s, medium="LJ", inoculated_on="2026-09-01", result="NEGATIVE")
+        mgit = Culture.objects.create(sample=s, medium="MGIT", inoculated_on="2026-09-01", result="NEGATIVE")
         url = reverse("core:validation")
         page = self.client.get(url).content.decode()
         for title in ("GeneXpert MTB/RIF Ultra", "GeneXpert XDR", "NPOC (Pluslife)", "Culture LJ", "Culture MGIT",
@@ -394,10 +394,10 @@ class SmokeTests(TestCase):
         self.assertIn("GeneXpert MTB/RIF Ultra;GNX-RIF;", text)
         self.assertNotIn("GeneXpert XDR;", text)
         n_global = len(self.client.get(url + "?export=csv").content.decode("utf-8-sig").strip().splitlines())
+        validation = __import__("apps.core.validation", fromlist=["x"])
         self.assertEqual(n_global - 1, GeneXpertTest.objects.filter(result_status="DRAFT").count()
-                         + sum(c.model.objects.filter(result_status="DRAFT").count()
-                               for c in __import__("apps.core.validation", fromlist=["x"]).validatable_cruds()
-                               if c.prefix != "genexpert"))
+                         + sum(validation.with_results(c.model.objects.filter(result_status="DRAFT")).count()
+                               for c in validation.validatable_cruds() if c.prefix != "genexpert"))
         # statut « Validés » : résultats validés listés, sans case à cocher, exportables
         ultra.validate(self.admin, "OK")
         html = self.client.get(url + "?analyse=gx-ultra&statut=valides").content.decode()
@@ -465,7 +465,7 @@ class SmokeTests(TestCase):
         NPOCTest.objects.create(sample=s, mtb_result="NOT_DETECTED")
         html = self.client.get(reverse("core:validation") + "?q=26-9301").content.decode()
         self.assertIn('class="rcode rcode-alert" title="Contaminée">Contaminée<', html)
-        self.assertIn('class="rcode rcode-pending"', html)
+        self.assertNotIn('class="rcode rcode-pending"', html)   # culture en étuve : pas encore de résultat à valider
         self.assertIn(">Positive<", html)
         self.assertIn('rcode-alert" title="Invalide">Indéterminé<', html)      # NPOC invalide
         self.assertIn('rcode-alert" title="Indéterminé">Indéterminé<', html)   # QFT (Nil > 8)
@@ -517,7 +517,7 @@ class SmokeTests(TestCase):
         middle = GeneXpertTest.objects.create(sample=s, assay="ULTRA", mtb_result="LOW", test_date="2026-02-01")
         pending = Culture.objects.create(sample=s, medium="MGIT", inoculated_on="2026-04-01")
         rows = self.client.get(reverse("core:validation") + "?q=26-9502").context["rows"]
-        self.assertEqual([r["obj"] for r in rows], [recent, middle, old, pending])   # sans date de rendu : en bas
+        self.assertEqual([r["obj"] for r in rows], [recent, middle, old])   # culture en étuve : absente
         self.assertEqual(str(rows[0]["rendered"]), "2026-03-01")
 
     def test_culture_lists_by_medium(self):

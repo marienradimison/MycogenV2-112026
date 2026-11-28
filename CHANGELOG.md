@@ -40,6 +40,31 @@ des inventaires pour les rôles SL et MB).
 
 ---
 
+## 2026-11-28 — Retours terrain
+
+Migration : `core.0028_patient_tb_history_unknown`.
+
+### Corrigé
+
+- **Lecture d'étuve : enregistrement impossible** (erreur 400 `TooManyFieldsSent`) quand l'étuve contient plusieurs
+  centaines de cultures : limite Django relevée (`DATA_UPLOAD_MAX_NUMBER_FIELDS`) et champs vides non envoyés.
+- **Identifiant externe** : plus de code automatique (PTaa-nnnnn) quand il n'est pas saisi ; commande
+  `clear_auto_patient_codes` (simulation, puis `--apply`) pour effacer les codes déjà générés.
+- **GNX-RIF** : seule la résistance RIF est saisie et affichée (antibiotiques XDR réservés au GNX-XDR).
+- **Validation** : seules les analyses dont le résultat est saisi sont listées et validables (une culture en étuve
+  n'apparaît plus) ; compteur « en attente de validation » du tableau de bord aligné.
+
+### Modifié
+
+- Enregistrement : antécédent TB « Inconnu » par défaut (nouveau choix ; « Autre / inconnu » devient « Autre ») ;
+  case « Consentement pour la recherche » retirée.
+- Culture LJ (ensemencement) : décontamination NALC-NaOH par défaut.
+- Lecture d'étuve : recherche d'un échantillon (n°, patient, identifiant externe), filtres par mois et par date
+  d'ensemencement ; boutons « >90 jours » et « semaine | >90 jours » ; « Ouvrir toutes les fiches » devient
+  « Fermer toutes les fiches » une fois ouvertes.
+
+---
+
 ## 2026-11-27 — Bouton « Préc. » logique ; sondages et challenges à la une
 
 Migration : `feed.0004_highlight_post_kind`.

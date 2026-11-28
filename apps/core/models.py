@@ -53,6 +53,7 @@ class CodedModel(LimsModel):
 
     code_prefix = "X"
     code_width = 5
+    auto_code = True   # False : le code reste vide s'il n'est pas saisi
     code = models.CharField("code", max_length=30, unique=True, blank=True)
 
     class Meta:
@@ -62,7 +63,7 @@ class CodedModel(LimsModel):
         return f"{self.code_prefix}{timezone.localdate():%y}-"
 
     def save(self, *args, **kwargs):
-        if not self.code:
+        if not self.code and self.auto_code:
             with transaction.atomic():
                 self.code = next_code(type(self), "code", self.build_prefix(), self.code_width)
                 return super().save(*args, **kwargs)
@@ -230,6 +231,7 @@ def result_kind(obj):
 class Patient(CodedModel):
     url_base = "core:patient"
     code_prefix = "PT"
+    auto_code = False   # identifiant externe : laissé vide s'il n'est pas saisi
     code = models.CharField("identifiant externe", max_length=30, blank=True, db_index=True,
                             help_text="Peut être partagé par plusieurs patients (ex. n° de registre du CDT)")
 
@@ -241,7 +243,8 @@ class Patient(CodedModel):
         ("FAIL", "Échec"),
         ("LTFU", "Reprise après perte de vue"),
         ("CONTACT", "Contact"),
-        ("OTHER", "Autre / inconnu"),
+        ("OTHER", "Autre"),
+        ("UNK", "Inconnu"),
     ]
 
     last_name = models.CharField("nom", max_length=100)
@@ -257,7 +260,7 @@ class Patient(CodedModel):
     district = models.CharField("district", max_length=100, blank=True)
     region = models.CharField("région", max_length=100, blank=True)
     hiv_status = models.CharField("statut VIH", max_length=3, choices=HIV, default="INC")
-    tb_history = models.CharField("antécédent TB", max_length=10, choices=TB_HISTORY, default="NEW")
+    tb_history = models.CharField("antécédent TB", max_length=10, choices=TB_HISTORY, default="UNK")
     research_consent = models.BooleanField("consentement recherche", default=False)
     notes = models.TextField("remarques", blank=True)
 
@@ -267,7 +270,7 @@ class Patient(CodedModel):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.full_name} ({self.code})"
+        return f"{self.full_name} ({self.code})" if self.code else self.full_name
 
     @property
     def full_name(self):
@@ -433,6 +436,11 @@ class TestResult(LimsModel):
     comment = models.TextField("commentaire", blank=True)
 
     validatable = True
+
+    @property
+    def has_result(self):
+        """Faux tant que l'analyse n'a pas de résultat (ex. culture encore en étuve) : non validable."""
+        return getattr(self, "result", None) != "PENDING"
 
     class Meta:
         abstract = True

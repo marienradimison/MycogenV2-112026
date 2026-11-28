@@ -12,6 +12,7 @@ RESULT_FIELDS = ("grade", "mtb_result", "interpretation", "result", "outcome")  
 HIDDEN = {"id", "sample", "test_date", "created_at", "updated_at", "created_by", "updated_by", "performed_by",
           "result_status", "validated_by", "validated_at", "validation_comment", "comment"}
 EMPTY = "Non renseigné"
+GX_XDR_FIELDS = {"inh_result", "fq_result", "amk_result", "kan_result", "cap_result", "eto_result"}
 
 
 def person(user):
@@ -64,6 +65,9 @@ def result_context(obj, extra_details=()):
             continue
         if obj._meta.model_name == "dst" and f.name in ("panel", "results"):
             continue
+        if obj._meta.model_name == "genexperttest" and (
+                (obj.assay == "ULTRA" and f.name in GX_XDR_FIELDS) or (obj.assay == "XDR" and f.name == "rif_result")):
+            continue   # GNX-RIF : seule la rifampicine ; GNX-XDR : pas de RIF
         value = render_value(obj, f.name)
         general.append((f.verbose_name[:1].upper() + f.verbose_name[1:], EMPTY if value == "—" else value))
     if obj._meta.model_name == "dst":

@@ -1,0 +1,18 @@
+{% extends "generic/form.html" %}
+{% block extra_js %}
+<script>
+/* GNX-RIF (Ultra) : seule la résistance RIF est affichée ; GNX-XDR : INH, FLQ, AMK, KAN, CAP, ETH */
+(function () {
+  var assay = document.getElementById('id_assay');
+  if (!assay) return;
+  var xdr = ['inh_result', 'fq_result', 'amk_result', 'kan_result', 'cap_result', 'eto_result'];
+  function toggle() {
+    var isXdr = assay.value === 'XDR';
+    xdr.forEach(function (n) { var el = document.querySelector('.field-' + n); if (el) el.hidden = !isXdr; });
+    var rif = document.querySelector('.field-rif_result'); if (rif) rif.hidden = isXdr;
+  }
+  assay.addEventListener('change', toggle);
+  toggle();
+})();
+</script>
+{% endblock %}

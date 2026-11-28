@@ -52,8 +52,7 @@ def incubators():
     return Equipment.objects.filter(category="INCUB").exclude(status="RETIRED").select_related("room")
 
 
-AGE_FILTERS = [("", "Toutes les cultures"), ("90", "90 jours et plus"),
-               ("90s", "90 jours et plus à la fin de la semaine")]
+AGE_FILTERS = [("", "Toutes les cultures"), ("90", ">90 jours"), ("90s", "semaine | >90 jours")]
 SHEET_ROWS = 24  # lignes par page de la fiche MYC-FIC-008
 
 
@@ -67,6 +66,25 @@ def filter_by_age(cultures, filtre, date):
         return cultures
     ref = age_reference(filtre, date)
     return [c for c in cultures if (ref - c.inoculated_on).days >= Culture.NEGATIVE_AFTER_DAYS]
+
+
+MONTHS_FR = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre",
+             "novembre", "décembre"]
+
+
+def search_cultures(cultures, q="", mois="", ensemence=""):
+    """Recherche d'un échantillon (n°, patient, identifiant externe) et filtre par mois / date d'ensemencement."""
+    q = q.lower()
+    if q:
+        cultures = [c for c in cultures if q in c.sample.code.lower()
+                    or (c.sample.patient_id and (q in c.sample.patient.full_name.lower()
+                                                 or q in (c.sample.patient.code or "").lower()))]
+    if mois:
+        cultures = [c for c in cultures if c.inoculated_on.strftime("%Y-%m") == mois]
+    day = reading_date(ensemence)
+    if day:
+        cultures = [c for c in cultures if c.inoculated_on == day]
+    return cultures
 
 
 def reading_date(value):
@@ -230,7 +248,7 @@ def samples_to_inoculate():
 class InoculationForm(BootstrapFormMixin, forms.Form):
     inoculated_on = forms.DateField(label="Date d'ensemencement / mise en étuve", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
     incubator = forms.ModelChoiceField(label="Étuve", queryset=None, required=False)
-    decontamination = forms.ChoiceField(label="Décontamination", choices=Culture.DECONTAMINATION, initial="PETROFF")
+    decontamination = forms.ChoiceField(label="Décontamination", choices=Culture.DECONTAMINATION, initial="NALC")
     tube_count = forms.TypedChoiceField(label="Nombre de tubes", choices=Culture.TUBE_COUNTS, coerce=int, initial=2,
                                     required=False, empty_value=2)
 
@@ -329,9 +347,12 @@ def lj_reading_new(request):
         return redirect(reading)
     date = reading_date(request.GET.get("date")) or timezone.localdate()
     filtre = request.GET.get("filtre", "")
+    months = sorted({c.inoculated_on.strftime("%Y-%m") for c in cultures}, reverse=True)
+    total = len(cultures)
+    search = {k: (request.GET.get(k) or "").strip() for k in ("q", "mois", "ensemence")}
+    cultures = search_cultures(cultures, **search)
     filters = [{"key": k, "label": label, "count": len(filter_by_age(cultures, k, date)), "active": k == filtre}
                for k, label in AGE_FILTERS]
-    total = len(cultures)
     cultures = filter_by_age(cultures, filtre, date)
     ref = age_reference(filtre, date)
     previous = {}   # fiche déjà saisie pour une pousse en attente de test SD
@@ -348,6 +369,7 @@ def lj_reading_new(request):
     return render(request, "diagnostic/lj_reading_form.html", {
         "tabs": lj_tabs("reading"), "cultures": cultures, "date": date, "incubators": incubators(),
         "filters": filters, "filtre": filtre, "total": total, "week_end": age_reference("90s", date),
+        "search": search, "months": [(m, f"{MONTHS_FR[int(m[5:]) - 1]} {m[:4]}") for m in months],
         "morph_choices": ReadingEntry.MORPHOLOGY, "sd_control_choices": ReadingEntry.SD_SIGNS,
         "conclusion_choices": ReadingEntry.CONCLUSIONS, "pigments": ReadingEntry.PIGMENTS,
         "baar_aspects": ReadingEntry.BAAR_ASPECTS,
